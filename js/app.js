@@ -152,18 +152,100 @@ class StockWatchApp {
     }
   }
 
-  // ---- Toggle WebSocket Subscription from the dot ----
-  _toggleWsSubscription(symbol) {
+  // ---- Detect if a stock is OTC (exchange contains OTC markers) ----
+  _isOTC(exchange) {
+    if (!exchange) return false;
+    const ex = exchange.toUpperCase();
+    return ex.includes('OTC') || ex.includes('OTCMKTS') || ex.includes('OTCQB') || 
+           ex.includes('OTCQX') || ex.includes('PINK') || ex.includes('GREY');
+  }
+
+  // ---- Toggle WebSocket/Polling from the dot ----
+  _toggleWsSubscription(symbol, isOTC) {
     const sym = symbol.toUpperCase();
-    if (wsClient.isSubscribed(sym)) {
-      wsClient.unsubscribe(sym);
+    const entry = this.entries.find(e => e.symbol.toUpperCase() === sym);
+
+    if (isOTC) {
+      // OTC stock: toggle polling
+      if (entry._polling) {
+        this._stopPolling(sym);
+      } else {
+        this._startPolling(sym);
+      }
     } else {
-      const result = wsClient.subscribe(sym);
-      if (!result.success && result.reason === 'limit') {
-        Utils.showToast(`WebSocket limit reached (${result.current}/${result.max}). Unsubscribe another stock first.`, 'error', 4000);
+      // Regular stock: toggle WebSocket
+      if (wsClient.isSubscribed(sym)) {
+        wsClient.unsubscribe(sym);
+      } else {
+        const result = wsClient.subscribe(sym);
+        if (!result.success && result.reason === 'limit') {
+          Utils.showToast(`WebSocket limit reached (${result.current}/${result.max}). Unsubscribe another stock first.`, 'error', 4000);
+        }
       }
     }
-    // Re-render to update dot color
+    this.render();
+  }
+
+  // ---- Polling Engine (for OTC stocks) ----
+  _startPolling(symbol) {
+    const sym = symbol.toUpperCase();
+    const entry = this.entries.find(e => e.symbol.toUpperCase() === sym);
+    if (!entry) return;
+
+    entry._polling = true;
+    if (!this._pollTimer) {
+      this._pollQueue = new Set();
+      this._pollTimer = setInterval(() => this._pollTick(), 20000); // 20 seconds
+      console.log('[Poll] Polling engine started (20s interval)');
+    }
+    this._pollQueue.add(sym);
+    console.log(`[Poll] Started polling ${sym} (${this._pollQueue.size} symbols)`);
+    Utils.showToast(`🟣 Polling ${sym} every 20s (OTC)`);
+  }
+
+  _stopPolling(symbol) {
+    const sym = symbol.toUpperCase();
+    this._pollQueue.delete(sym);
+
+    const entry = this.entries.find(e => e.symbol.toUpperCase() === sym);
+    if (entry) entry._polling = false;
+
+    console.log(`[Poll] Stopped polling ${sym} (${this._pollQueue.size} remaining)`);
+    Utils.showToast(`Polling stopped for ${sym}`);
+
+    // Clean up timer if queue is empty
+    if (this._pollQueue.size === 0 && this._pollTimer) {
+      clearInterval(this._pollTimer);
+      this._pollTimer = null;
+      console.log('[Poll] Polling engine stopped (empty queue)');
+    }
+  }
+
+  async _pollTick() {
+    if (!this._pollQueue || this._pollQueue.size === 0) return;
+
+    const symbols = Array.from(this._pollQueue);
+    for (const sym of symbols) {
+      try {
+        const data = await finnhub.refreshQuote(sym);
+        if (!data._error) {
+          // Update all entries with this symbol
+          for (const entry of this.entries) {
+            if (entry.symbol.toUpperCase() === sym) {
+              Object.assign(entry, data);
+              entry.quoteTimestamp = new Date().toISOString();
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`[Poll] Failed to poll ${sym}:`, e.message);
+      }
+      // Small gap between polls to respect rate limit
+      if (symbols.length > 1) {
+        await new Promise(r => setTimeout(r, 2000)); // 2s gap
+      }
+    }
+    // Re-render to show updated prices
     this.render();
   }
 
@@ -360,14 +442,24 @@ class StockWatchApp {
 
       this._hideLoading();
 
-      // Auto-subscribe to WebSocket (if < 30 slots)
-      const subResult = wsClient.subscribe(symbol);
-      if (subResult && subResult.success) {
-        Utils.showToast(`✅ ${symbol.toUpperCase()} added — live prices active`);
-      } else if (subResult && subResult.reason === 'limit') {
-        Utils.showToast(`✅ ${symbol.toUpperCase()} added — WebSocket full (${subResult.current}/${subResult.max})`, 'error', 4000);
+      // Detect OTC stocks — skip WebSocket, use polling instead
+      const isOTC = this._isOTC(entry.exchange);
+      entry.isOTC = isOTC;
+
+      if (isOTC) {
+        // OTC: start polling automatically
+        this._startPolling(symbol);
+        Utils.showToast(`✅ ${symbol.toUpperCase()} added — OTC polling active (${entry.exchange || '?'})`);
       } else {
-        Utils.showToast(`✅ ${symbol.toUpperCase()} added to watch list`);
+        // Regular: auto-subscribe to WebSocket (if < 30 slots)
+        const subResult = wsClient.subscribe(symbol);
+        if (subResult && subResult.success) {
+          Utils.showToast(`✅ ${symbol.toUpperCase()} added — live prices active`);
+        } else if (subResult && subResult.reason === 'limit') {
+          Utils.showToast(`✅ ${symbol.toUpperCase()} added — WebSocket full (${subResult.current}/${subResult.max})`, 'error', 4000);
+        } else {
+          Utils.showToast(`✅ ${symbol.toUpperCase()} added to watch list`);
+        }
       }
 
       this.applyFilters();
@@ -491,7 +583,7 @@ class StockWatchApp {
     if (entries.length === 0) {
       this.tableBody.innerHTML = `
         <tr>
-          <td colspan="14" class="empty-state">
+          <td colspan="15" class="empty-state">
             <div class="empty-icon">📊</div>
             <div>No stocks in your watch list</div>
             <div style="font-size:0.8rem;margin-top:6px;">Search for a symbol above to add one</div>
@@ -513,7 +605,10 @@ class StockWatchApp {
       btn.addEventListener('click', () => this.refreshOnePrice(btn.dataset.id, btn.dataset.symbol));
     });
     this.tableBody.querySelectorAll('.ws-toggle').forEach(dot => {
-      dot.addEventListener('click', () => this._toggleWsSubscription(dot.dataset.symbol));
+      dot.addEventListener('click', () => {
+        const otc = dot.dataset.otc === '1';
+        this._toggleWsSubscription(dot.dataset.symbol, otc);
+      });
     });
   }
 
@@ -533,6 +628,7 @@ class StockWatchApp {
         </td>
         <td class="symbol-cell">${entry.symbol}</td>
         <td class="company-cell" title="${entry.companyName || ''}">${entry.companyName || entry.symbol}</td>
+        <td class="exchange-cell">${entry.exchange || '—'}</td>
         <td class="price-cell">${Utils.formatCurrency(entry.currentPrice)}</td>
         <td class="${Utils.valueClass(entry.currentPercentChange)}">${Utils.formatPercent(entry.currentPercentChange)}</td>
         <td class="price-cell">${Utils.formatCurrency(entry.notedPrice)}</td>
@@ -544,9 +640,10 @@ class StockWatchApp {
         <td class="news-cell">${entry.newsHeadlines ? `<span title="${Utils.escapeAttr(entry.newsHeadlines)}" style="cursor:pointer;font-size:1.1rem;">📰</span>` : '—'}</td>
         <td style="font-size:0.75rem;color:var(--text-muted);">${Utils.formatEST(entry.entryDateEST || entry.createdAt, { showSeconds: false })}</td>
         <td class="ws-cell">
-          <span class="ws-toggle ${wsClient.isSubscribed(entry.symbol) ? 'active' : 'inactive'}"
+          <span class="ws-toggle ${entry.isOTC && entry._polling ? 'polling' : wsClient.isSubscribed(entry.symbol) ? 'active' : 'inactive'}"
                 data-symbol="${entry.symbol}"
-                title="${wsClient.isSubscribed(entry.symbol) ? 'Unsubscribe from live prices' : 'Subscribe to live prices'}"></span>
+                data-otc="${entry.isOTC ? '1' : '0'}"
+                title="${entry._polling ? 'Stop polling (OTC)' : wsClient.isSubscribed(entry.symbol) ? 'Unsubscribe from live prices' : entry.isOTC ? 'Start 20s polling (OTC)' : 'Subscribe to live prices'}"></span>
         </td>
       </tr>
     `;
@@ -623,6 +720,11 @@ class StockWatchApp {
 
     // Auto-unsubscribe from WebSocket
     wsClient.unsubscribe(entry.symbol);
+
+    // Stop polling if OTC
+    if (entry._polling) {
+      this._stopPolling(entry.symbol);
+    }
 
     this.applyFilters();
     this.updateStats();

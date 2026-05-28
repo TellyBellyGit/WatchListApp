@@ -911,6 +911,13 @@ tbody tr:hover {
   animation: ws-live-pulse 2s ease-in-out infinite;
 }
 
+.ws-toggle.polling {
+  background: #a855f7;
+  border-color: #a855f7;
+  box-shadow: 0 0 6px #a855f7;
+  animation: ws-poll-pulse 2s ease-in-out infinite;
+}
+
 .ws-toggle.inactive:hover {
   border-color: var(--positive);
   background: var(--positive-bg);
@@ -925,6 +932,17 @@ tbody tr:hover {
 @keyframes ws-live-pulse {
   0%, 100% { box-shadow: 0 0 4px var(--positive); }
   50% { box-shadow: 0 0 10px var(--positive); }
+}
+
+@keyframes ws-poll-pulse {
+  0%, 100% { box-shadow: 0 0 4px #a855f7; }
+  50% { box-shadow: 0 0 12px #c084fc; }
+}
+
+.ws-toggle.polling:hover {
+  border-color: var(--negative);
+  background: var(--negative);
+  animation: none;
 }
 
 /* ===== Flash Animation on Price Update ===== */
