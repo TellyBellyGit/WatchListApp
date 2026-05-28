@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Watch List — Momentum Trader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="loading-overlay" style="display:none;"></div>
+
+  <div class="container">
+    <!-- ====== HEADER ====== -->
+    <div class="header">
+      <div class="header-left">
+        <h1>📈 Stock Watch List</h1>
+        <div class="subtitle">Momentum Trading Tracker — Times in EST (New York)</div>
+      </div>
+      <div class="header-right">
+        <div class="connection-status">
+          <span class="connection-dot" id="connection-dot"></span>
+          <span id="connection-text">Connecting...</span>
+        </div>
+        <div class="theme-toggle">
+          <button id="theme-light">☀️ Light</button>
+          <button id="theme-dark" class="active">🌙 Dark</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== ADD STOCK SECTION ====== -->
+    <div class="add-stock-section">
+      <h2>🔍 Add Stock to Watch List</h2>
+      <div class="search-row">
+        <input type="text" id="symbol-search" placeholder="Search by symbol or company name (e.g., AAPL, NVDA, TSLA)..." autocomplete="off">
+        <button class="btn btn-primary" id="search-btn">Search</button>
+      </div>
+      <div id="search-results"></div>
+    </div>
+
+    <!-- ====== FILTERS BAR ====== -->
+    <div class="filters-bar">
+      <label>Filter by Date:</label>
+      <input type="date" id="filter-date-from" title="From date">
+      <span style="color:var(--text-muted);">to</span>
+      <input type="date" id="filter-date-to" title="To date">
+      <label style="margin-left:12px;">Tag:</label>
+      <select id="tag-filter" class="tag-filter">
+        <option value="">All Tags</option>
+      </select>
+      <button class="btn btn-sm btn-secondary" id="clear-filters-btn">✕ Clear Filters</button>
+      <div style="flex:1;"></div>
+      <button class="btn btn-primary" id="refresh-btn">🔄 Refresh All Prices</button>
+      <button class="btn btn-secondary" id="export-btn">📥 Export CSV</button>
+    </div>
+
+    <!-- ====== WATCH LIST TABLE ====== -->
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Actions</th>
+            <th class="sortable" data-sort="symbol">Symbol <span class="sort-arrow"></span></th>
+            <th>Company Name</th>
+            <th class="sortable" data-sort="currentPrice">Current Price <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="currentPercentChange">Current % Chg <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="notedPrice">Noted Price <span class="sort-arrow"></span></th>
+            <th class="sortable" data-sort="notedPercentChange">Noted % Chg <span class="sort-arrow"></span></th>
+            <th>Shares Out.</th>
+            <th class="sortable" data-sort="sector">Sector <span class="sort-arrow"></span></th>
+            <th>Tags</th>
+            <th>Notes</th>
+            <th>News</th>
+            <th class="sortable" data-sort="entryDateEST">Entry Date (EST) <span class="sort-arrow"></span></th>
+          </tr>
+        </thead>
+        <tbody id="watchlist-body">
+          <tr>
+            <td colspan="13" class="empty-state">
+              <div class="empty-icon">📊</div>
+              <div>Search for a stock symbol above to get started</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Firebase SDK (loaded only if USE_FIREBASE = true) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <!-- App Scripts (order matters) -->
+  <script src="js/firebase-config.js"></script>
+  <script src="js/firestore.js"></script>
+  <script src="js/finnhub.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
