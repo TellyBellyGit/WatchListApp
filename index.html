@@ -66,13 +66,17 @@
     </div>
 
     <!-- ====== ADD STOCK SECTION ====== -->
-    <div class="add-stock-section">
-      <h2>🔍 Add Stock to Watch List</h2>
-      <div class="search-row">
-        <input type="text" id="symbol-search" placeholder="Search by symbol or company name (e.g., AAPL, NVDA, TSLA)..." autocomplete="off">
-        <button class="btn btn-primary" id="search-btn">Search</button>
+    <div class="add-stock-section" id="add-stock-section">
+      <h2>🔍 Add Stock to Watch List
+        <button class="btn-toggle-section" id="toggle-add-section" title="Show/Hide Add Stock">▼</button>
+      </h2>
+      <div class="add-stock-body">
+        <div class="search-row">
+          <input type="text" id="symbol-search" placeholder="Search by symbol or company name (e.g., AAPL, NVDA, TSLA)..." autocomplete="off">
+          <button class="btn btn-primary" id="search-btn">Search</button>
+        </div>
+        <div id="search-results"></div>
       </div>
-      <div id="search-results"></div>
     </div>
 
     <!-- ====== FILTERS BAR ====== -->
@@ -81,17 +85,12 @@
       <input type="date" id="filter-date-from" title="From date">
       <span style="color:var(--text-muted);">to</span>
       <input type="date" id="filter-date-to" title="To date">
-      <label style="margin-left:12px;">Tag:</label>
-      <select id="tag-filter" class="tag-filter">
-        <option value="">All Tags</option>
-      </select>
       <button class="btn btn-sm btn-list-toggle active" id="list-toggle-main" title="Show Main List">📋 Main</button>
       <button class="btn btn-sm btn-list-toggle" id="list-toggle-temp" title="Show Temp List">📝 Temp</button>
-      <button class="btn btn-sm btn-secondary" id="clear-filters-btn">✕ Clear Filters</button>
       <div style="flex:1;"></div>
-      <button class="btn btn-sm btn-secondary" id="toggle-dates-btn" title="Toggle Entry Date & Updated columns">📅 Dates</button>
-      <button class="btn btn-primary" id="refresh-btn">🔄 Refresh All Prices</button>
-      <button class="btn btn-secondary" id="export-btn">📥 Export CSV</button>
+      <button class="btn btn-sm btn-secondary" id="toggle-dates-btn" title="Toggle Entry Date & Updated columns">📅 Show Dates</button>
+      <button class="btn btn-sm btn-secondary" id="refresh-btn">🔄 Refresh All Prices</button>
+      <button class="btn btn-sm btn-secondary" id="export-btn">📥 Export CSV</button>
     </div>
 
     <!-- ====== WATCH LIST TABLE ====== -->

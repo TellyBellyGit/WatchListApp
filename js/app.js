@@ -22,7 +22,8 @@ class StockWatchApp {
     this.exportBtn = document.getElementById('export-btn');
     this.filterDateFromEl = document.getElementById('filter-date-from');
     this.filterDateToEl = document.getElementById('filter-date-to');
-    this.tagFilterEl = document.getElementById('tag-filter');
+    this.toggleAddSectionBtn = document.getElementById('toggle-add-section');
+    this.addStockSection = document.getElementById('add-stock-section');
     this.statsBar = document.getElementById('stats-bar');
     this.connectionDot = document.getElementById('connection-dot');
     this.connectionText = document.getElementById('connection-text');
@@ -66,6 +67,9 @@ class StockWatchApp {
     const today = Utils.formatESTDateOnly(new Date());
     this.filterDateFromEl.value = today;
     this.filterDateFromVal = today;
+
+    // Restore add-stock section collapse state (default: visible)
+    this._initAddSectionToggle();
 
     // Bind events
     this._bindEvents();
@@ -335,24 +339,6 @@ class StockWatchApp {
       this.filterDateToVal = this.filterDateToEl.value;
       this.applyFilters();
     });
-    document.getElementById('clear-filters-btn').addEventListener('click', () => {
-      const today = Utils.formatESTDateOnly(new Date());
-      this.filterDateFromEl.value = today;
-      this.filterDateToEl.value = '';
-      this.filterDateFromVal = today;
-      this.filterDateToVal = null;
-      this.filterTag = '';
-      this.tagFilterEl.value = '';
-      this.applyFilters();
-    });
-
-    // Filter by tag
-    if (this.tagFilterEl) {
-      this.tagFilterEl.addEventListener('change', () => {
-        this.filterTag = this.tagFilterEl.value;
-        this.applyFilters();
-      });
-    }
 
     // Toggle date columns
     const table = document.querySelector('table');
@@ -404,6 +390,24 @@ class StockWatchApp {
         toggleMain.classList.remove('active');
         this.applyFilters();
       });
+    }
+
+    // Toggle add-stock section visibility
+    if (this.toggleAddSectionBtn && this.addStockSection) {
+      this.toggleAddSectionBtn.addEventListener('click', () => {
+        const collapsed = this.addStockSection.classList.toggle('collapsed');
+        this.toggleAddSectionBtn.textContent = collapsed ? '▶' : '▼';
+        localStorage.setItem('stockwatchlist_add-section-collapsed', collapsed);
+      });
+    }
+  }
+
+  // ---- Init Add-Stock Section Toggle State ----
+  _initAddSectionToggle() {
+    const collapsed = localStorage.getItem('stockwatchlist_add-section-collapsed') === 'true';
+    if (collapsed && this.addStockSection && this.toggleAddSectionBtn) {
+      this.addStockSection.classList.add('collapsed');
+      this.toggleAddSectionBtn.textContent = '▶';
     }
   }
 
@@ -562,7 +566,6 @@ class StockWatchApp {
 
       this.applyFilters();
       this.updateStats();
-      this.updateTagFilter();
     } catch (error) {
       this._hideLoading();
       Utils.showToast(error.message, 'error');
@@ -600,13 +603,6 @@ class StockWatchApp {
         const entryDate = Utils.formatESTDateOnly(e.entryDateEST || e.createdAt);
         return entryDate <= this.filterDateToVal;
       });
-    }
-
-    // Tag filter
-    if (this.filterTag) {
-      filtered = filtered.filter(e =>
-        (e.tags || []).some(t => t.toLowerCase() === this.filterTag.toLowerCase())
-      );
     }
 
     this.filteredEntries = filtered;
@@ -674,7 +670,7 @@ class StockWatchApp {
   }
 
   get isFiltered() {
-    return !!(this.filterDateFromVal || this.filterDateToVal || this.filterTag);
+    return !!(this.filterDateFromVal || this.filterDateToVal);
   }
 
   get displayEntries() {
@@ -822,7 +818,6 @@ class StockWatchApp {
 
       await dataStore.updateEntry(id, { notes, tags });
       this.render();
-      this.updateTagFilter();
       overlay.remove();
       Utils.showToast('Notes & tags updated');
     });
@@ -851,7 +846,6 @@ class StockWatchApp {
 
     this.applyFilters();
     this.updateStats();
-    this.updateTagFilter();
     Utils.showToast(`🗑 ${entry.symbol} removed`);
   }
 
@@ -940,22 +934,6 @@ class StockWatchApp {
   // ---- Update Summary Stats (disabled - removed from UI) ----
   updateStats() {
     // Stats bar removed; kept as no-op for compatibility
-  }
-
-  // ---- Update Tag Filter Dropdown ----
-  updateTagFilter() {
-    if (!this.tagFilterEl) return;
-
-    const allTags = new Set();
-    this.entries.forEach(e => {
-      (e.tags || []).forEach(t => allTags.add(t));
-    });
-
-    const currentVal = this.tagFilterEl.value;
-    this.tagFilterEl.innerHTML = '<option value="">All Tags</option>' +
-      [...allTags].sort().map(t => `<option value="${t}">${t}</option>`).join('');
-
-    this.tagFilterEl.value = currentVal;
   }
 
   // ---- Show Setup Overlay (first-run or settings) ----
