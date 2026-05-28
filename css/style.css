@@ -328,7 +328,6 @@ body {
 /* Note input inline (inside search results) */
 .note-input-inline {
   flex: 1;
-  max-width: 280px;
   margin: 0 8px;
   padding: 6px 10px;
   border: 2px solid var(--border-color);

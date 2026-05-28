@@ -464,12 +464,10 @@ class StockWatchApp {
         const symbol = item.dataset.symbol;
         const noteInput = item.querySelector('.note-input-inline');
         const note = noteInput ? noteInput.value.trim() : '';
-        // Temporarily set currentList so _addBySymbolDirect assigns correctly
-        const previousList = this.currentList;
+        // Switch to the target list so the view updates
         this.currentList = listName;
         await this._addBySymbolDirect(symbol, note);
-        this.currentList = previousList;
-        // Update toggle buttons to reflect current view
+        // Update toggle buttons to reflect the active list
         if (this.listToggleMain) this.listToggleMain.classList.toggle('active', this.currentList === 'main');
         if (this.listToggleTemp) this.listToggleTemp.classList.toggle('active', this.currentList === 'temp');
         this.searchInput.value = '';
