@@ -160,6 +160,20 @@ class StockWatchApp {
            ex.includes('OTCQX') || ex.includes('PINK') || ex.includes('GREY');
   }
 
+  // ---- Normalize exchange name for display ----
+  _formatExchange(exchange) {
+    if (!exchange) return '—';
+    const ex = exchange.toUpperCase();
+    if (ex.includes('NASDAQ')) return 'NASDAQ';
+    if (ex.includes('NYSE')) return 'NYSE';
+    if (ex.includes('OTC')) return 'OTC';
+    if (ex.includes('PINK')) return 'OTC';
+    if (ex.includes('GREY')) return 'OTC';
+    // Truncate long exchange names to 8 chars
+    if (exchange.length > 8) return exchange.substring(0, 8);
+    return exchange;
+  }
+
   // ---- Toggle WebSocket/Polling from the dot ----
   _toggleWsSubscription(symbol, isOTC) {
     const sym = symbol.toUpperCase();
@@ -583,7 +597,7 @@ class StockWatchApp {
     if (entries.length === 0) {
       this.tableBody.innerHTML = `
         <tr>
-          <td colspan="15" class="empty-state">
+          <td colspan="14" class="empty-state">
             <div class="empty-icon">📊</div>
             <div>No stocks in your watch list</div>
             <div style="font-size:0.8rem;margin-top:6px;">Search for a symbol above to add one</div>
@@ -628,14 +642,13 @@ class StockWatchApp {
         </td>
         <td class="symbol-cell">${entry.symbol}</td>
         <td class="company-cell" title="${entry.companyName || ''}">${entry.companyName || entry.symbol}</td>
-        <td class="exchange-cell">${entry.exchange || '—'}</td>
         <td class="price-cell">${Utils.formatCurrency(entry.currentPrice)}</td>
         <td class="${Utils.valueClass(entry.currentPercentChange)}">${Utils.formatPercent(entry.currentPercentChange)}</td>
         <td class="price-cell">${Utils.formatCurrency(entry.notedPrice)}</td>
         <td class="${Utils.valueClass(entry.notedPercentChange)}">${Utils.formatPercent(entry.notedPercentChange)}</td>
         <td>${entry.sharesOutstanding ? Utils.formatVolume(entry.sharesOutstanding) : '—'}</td>
         <td>${entry.sector || '—'}</td>
-        <td>${(entry.tags || []).length ? entry.tags.map(t => `<span class="tag-badge">${t}</span>`).join('') : '—'}</td>
+        <td class="exchange-cell">${this._formatExchange(entry.exchange)}</td>
         <td class="note-dot-cell" title="${entry.notes || ''}"><span class="note-dot ${hasNotes ? 'note-dot-active' : ''}"></span></td>
         <td class="news-cell">${entry.newsHeadlines ? `<span title="${Utils.escapeAttr(entry.newsHeadlines)}" style="cursor:pointer;font-size:1.1rem;">📰</span>` : '—'}</td>
         <td style="font-size:0.75rem;color:var(--text-muted);">${Utils.formatEST(entry.entryDateEST || entry.createdAt, { showSeconds: false })}</td>
