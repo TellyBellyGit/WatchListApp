@@ -248,19 +248,23 @@ class StockWebSocket {
   }
 
   _sendSubscribe(symbol) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-    this.ws.send(JSON.stringify({
-      type: 'subscribe',
-      symbol: symbol.toUpperCase()
-    }));
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.warn(`[WebSocket] Cannot subscribe ${symbol}: socket not open (readyState=${this.ws ? this.ws.readyState : 'null'})`);
+      return;
+    }
+    const msg = JSON.stringify({ type: 'subscribe', symbol: symbol.toUpperCase() });
+    this.ws.send(msg);
+    console.log(`[WebSocket] → sent: ${msg}`);
   }
 
   _sendUnsubscribe(symbol) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-    this.ws.send(JSON.stringify({
-      type: 'unsubscribe',
-      symbol: symbol.toUpperCase()
-    }));
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.warn(`[WebSocket] Cannot unsubscribe ${symbol}: socket not open`);
+      return;
+    }
+    const msg = JSON.stringify({ type: 'unsubscribe', symbol: symbol.toUpperCase() });
+    this.ws.send(msg);
+    console.log(`[WebSocket] → sent: ${msg}`);
   }
 
   _handleTrade(trade) {
