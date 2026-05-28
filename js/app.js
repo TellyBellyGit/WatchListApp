@@ -597,7 +597,7 @@ class StockWatchApp {
     if (entries.length === 0) {
       this.tableBody.innerHTML = `
         <tr>
-          <td colspan="14" class="empty-state">
+          <td colspan="15" class="empty-state">
             <div class="empty-icon">📊</div>
             <div>No stocks in your watch list</div>
             <div style="font-size:0.8rem;margin-top:6px;">Search for a symbol above to add one</div>
@@ -652,6 +652,7 @@ class StockWatchApp {
         <td class="note-dot-cell" title="${entry.notes || ''}"><span class="note-dot ${hasNotes ? 'note-dot-active' : ''}"></span></td>
         <td class="news-cell">${entry.newsHeadlines ? `<span title="${Utils.escapeAttr(entry.newsHeadlines)}" style="cursor:pointer;font-size:1.1rem;">📰</span>` : '—'}</td>
         <td style="font-size:0.75rem;color:var(--text-muted);">${Utils.formatEST(entry.entryDateEST || entry.createdAt, { showSeconds: false })}</td>
+        <td style="font-size:0.7rem;color:var(--text-muted);">${entry.quoteTimestamp ? Utils.formatEST(entry.quoteTimestamp, { showSeconds: true }) : '—'}</td>
         <td class="ws-cell">
           <span class="ws-toggle ${entry.isOTC && entry._polling ? 'polling' : wsClient.isSubscribed(entry.symbol) ? 'active' : 'inactive'}"
                 data-symbol="${entry.symbol}"
