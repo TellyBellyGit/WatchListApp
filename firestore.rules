@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Open access — anyone can read/write without authentication.
+    // This allows the StockWatchList app to work without requiring a Google account login.
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

@@ -869,7 +869,6 @@ class StockWatchApp {
     const errorEl = document.getElementById('setup-error');
     const finnhubInput = document.getElementById('setup-finnhub-key');
     const saveBtn = document.getElementById('setup-save');
-    const skipBtn = document.getElementById('setup-skip');
 
     overlay.style.display = 'flex';
 
@@ -878,21 +877,15 @@ class StockWatchApp {
       const config = ConfigManager.get();
       if (config) {
         finnhubInput.value = config.finnhubKey || '';
-        document.getElementById('setup-firebase-apikey').value = config.firebaseApiKey || '';
-        document.getElementById('setup-firebase-authdomain').value = config.firebaseAuthDomain || '';
-        document.getElementById('setup-firebase-projectid').value = config.firebaseProjectId || '';
       }
       document.querySelector('.setup-header h2').textContent = '⚙️ API Settings';
-      document.querySelector('.setup-header p').textContent = 'Update your Finnhub API key or Firebase credentials.';
+      document.querySelector('.setup-header p').textContent = 'Update your Finnhub API key. Cloud sync via Firebase is always on.';
       saveBtn.textContent = 'Save Changes';
     }
 
     // Save handler
     const saveHandler = () => {
       const finnhubKey = finnhubInput.value.trim();
-      const fbApiKey = document.getElementById('setup-firebase-apikey').value.trim();
-      const fbAuthDomain = document.getElementById('setup-firebase-authdomain').value.trim();
-      const fbProjectId = document.getElementById('setup-firebase-projectid').value.trim();
 
       if (!finnhubKey) {
         errorEl.textContent = 'Finnhub API key is required to use this app.';
@@ -904,10 +897,6 @@ class StockWatchApp {
 
       // Save to localStorage
       ConfigManager.saveFinnhubKey(finnhubKey);
-
-      if (fbApiKey && fbProjectId) {
-        ConfigManager.saveFirebaseConfig(fbApiKey, fbAuthDomain, fbProjectId);
-      }
 
       overlay.style.display = 'none';
 
@@ -932,39 +921,6 @@ class StockWatchApp {
         });
       }
     };
-
-    // Skip Firebase
-    skipBtn.addEventListener('click', () => {
-      const finnhubKey = finnhubInput.value.trim();
-      if (!finnhubKey) {
-        errorEl.textContent = 'Finnhub API key is required to use this app.';
-        errorEl.style.display = 'block';
-        return;
-      }
-
-      errorEl.style.display = 'none';
-      ConfigManager.saveFinnhubKey(finnhubKey);
-      overlay.style.display = 'none';
-
-      // Reset finnhub
-      delete window._finnhub;
-      Object.defineProperty(window, 'finnhub', {
-        get() { return getFinnhub(); },
-        configurable: true
-      });
-
-      if (isFirstRun) {
-        this._bootApp();
-      } else {
-        this.loadEntries().then(() => {
-          const today = Utils.formatESTDateOnly(new Date());
-          this.filterDateFromEl.value = today;
-          this.filterDateFromVal = today;
-          this.applyFilters();
-          this.updateStats();
-        });
-      }
-    });
 
     // Save button
     const boundSave = saveHandler.bind(this);

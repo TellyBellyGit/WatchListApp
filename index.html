@@ -27,25 +27,14 @@
           <a href="https://finnhub.io/register" target="_blank" class="setup-link">→ Get a free Finnhub API key</a>
         </div>
 
-        <div class="setup-section-title">Firebase (optional — for cloud sync across devices)</div>
-
-        <div class="setup-group">
-          <label>Firebase API Key</label>
-          <input type="password" id="setup-firebase-apikey" placeholder="AIzaSy..." autocomplete="off">
-        </div>
-        <div class="setup-group">
-          <label>Firebase Auth Domain</label>
-          <input type="text" id="setup-firebase-authdomain" placeholder="project.firebaseapp.com">
-        </div>
-        <div class="setup-group">
-          <label>Firebase Project ID</label>
-          <input type="text" id="setup-firebase-projectid" placeholder="my-project-id">
-        </div>
+        <div class="setup-section-title">Cloud Sync 🔒 Always On</div>
+        <p style="font-size:0.8rem;color:var(--text-muted);padding:4px 0 8px 0;">
+          Your watch list automatically syncs via Firebase Firestore. Your data is safe in the cloud and accessible from any device. No login required.
+        </p>
 
         <div id="setup-error" class="setup-error" style="display:none;"></div>
 
         <div class="setup-buttons">
-          <button class="btn btn-secondary" id="setup-skip">Skip Firebase → Use Local Storage Only</button>
           <button class="btn btn-primary" id="setup-save">Save & Get Started</button>
         </div>
       </div>

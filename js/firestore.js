@@ -1,5 +1,9 @@
 // ============================================================================
-// DATA STORE — Firebase Firestore OR localStorage fallback
+// DATA STORE — Firebase Firestore (primary) with localStorage fallback
+// ============================================================================
+// Firebase is the primary data store. The app pre-initializes Firebase from
+// hardcoded config in firebase-config.js. No auth required — Firestore rules
+// allow open read/write access. localStorage is used only as an offline cache.
 // ============================================================================
 
 class DataStore {
@@ -7,30 +11,98 @@ class DataStore {
     this.db = null;          // Firestore instance (if connected)
     this.collectionName = 'watchlist';
     this.mode = 'local';     // 'local' | 'firestore'
+    this._initPromise = null;
   }
 
   // ---- Initialize ----
   async init() {
-    if (typeof USE_FIREBASE !== 'undefined' && USE_FIREBASE && typeof firebase !== 'undefined') {
-      try {
-        if (!firebase.apps.length) {
-          firebase.initializeApp(FIREBASE_CONFIG);
-        }
-        this.db = firebase.firestore();
-        // Quick connectivity test
-        await this.db.collection(this.collectionName).limit(1).get();
-        this.mode = 'firestore';
-        console.log('[DataStore] Connected to Firestore');
-        return true;
-      } catch (e) {
-        console.warn('[DataStore] Firebase connection failed, falling back to localStorage:', e.message);
-        this.mode = 'local';
-      }
-    } else {
-      console.log('[DataStore] Using localStorage (offline mode)');
+    if (this._initPromise) return this._initPromise;
+
+    this._initPromise = this._doInit();
+    return this._initPromise;
+  }
+
+  async _doInit() {
+    // Firebase is always configured — no optional flag needed
+    const fbConfig = window.FIREBASE_CONFIG;
+    if (!fbConfig || !fbConfig.apiKey || fbConfig.apiKey === 'YOUR_FIREBASE_API_KEY') {
+      console.warn('[DataStore] Firebase not configured — using localStorage only');
       this.mode = 'local';
+      return false;
     }
-    return false;
+
+    if (typeof firebase === 'undefined') {
+      console.warn('[DataStore] Firebase SDK not loaded — using localStorage only');
+      this.mode = 'local';
+      return false;
+    }
+
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(fbConfig);
+      }
+      this.db = firebase.firestore();
+
+      // Enable offline persistence for seamless local/cloud sync
+      try {
+        await this.db.enablePersistence({ synchronizeTabs: true });
+        console.log('[DataStore] Offline persistence enabled');
+      } catch (e) {
+        if (e.code === 'failed-precondition') {
+          console.warn('[DataStore] Offline persistence failed (multiple tabs) — continuing with online-only');
+        } else if (e.code === 'unimplemented') {
+          console.warn('[DataStore] Offline persistence not supported in this browser');
+        } else {
+          console.warn('[DataStore] Offline persistence error:', e.message);
+        }
+      }
+
+      // Quick connectivity test
+      await this.db.collection(this.collectionName).limit(1).get();
+      this.mode = 'firestore';
+      console.log('[DataStore] ✅ Connected to Firestore (cloud sync active)');
+
+      // Migrate any existing localStorage data to Firestore on first connect
+      await this._migrateLocalToCloud();
+
+      return true;
+    } catch (e) {
+      console.warn('[DataStore] Firestore connection failed, using localStorage fallback:', e.message);
+      this.mode = 'local';
+      return false;
+    }
+  }
+
+  // ---- Migrate existing localStorage entries to Firestore ----
+  async _migrateLocalToCloud() {
+    if (this.mode !== 'firestore') return;
+
+    const localEntries = this._getLocal();
+    if (localEntries.length === 0) return;
+
+    try {
+      const existingIds = new Set();
+      const snapshot = await this.db.collection(this.collectionName).get();
+      snapshot.forEach(doc => existingIds.add(doc.id));
+
+      let migrated = 0;
+      for (const entry of localEntries) {
+        const id = entry.id || ('local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5));
+        if (!existingIds.has(id)) {
+          const { id: _id, ...data } = entry;
+          await this.db.collection(this.collectionName).doc(id).set(data);
+          migrated++;
+        }
+      }
+
+      if (migrated > 0) {
+        console.log(`[DataStore] Migrated ${migrated} entries from localStorage to Firestore`);
+        // Clear localStorage after successful migration
+        localStorage.removeItem('stockwatchlist_data');
+      }
+    } catch (e) {
+      console.warn('[DataStore] Migration failed:', e.message);
+    }
   }
 
   // ---- CRUD: Create ----
@@ -102,7 +174,7 @@ class DataStore {
     return this.mode === 'firestore';
   }
 
-  // ---- Local Storage Helpers ----
+  // ---- Local Storage Helpers (fallback/cache) ----
   _getLocal() {
     try {
       const raw = localStorage.getItem('stockwatchlist_data');
