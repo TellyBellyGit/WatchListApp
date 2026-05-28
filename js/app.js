@@ -652,7 +652,7 @@ class StockWatchApp {
         <td>
           <button class="btn btn-sm btn-secondary btn-edit-notes" data-id="${entry.id}" title="Notes: ${notesPreview}">📝</button>
           <button class="btn btn-sm btn-secondary btn-refresh-one" data-id="${entry.id}" data-symbol="${entry.symbol}" title="Refresh Price">🔄</button>
-          <button class="btn btn-sm btn-danger btn-delete" data-id="${entry.id}" title="Delete">🗑</button>
+          <button class="btn btn-sm btn-secondary btn-delete" data-id="${entry.id}" title="Delete">🗑</button>
         </td>
         <td class="symbol-cell">${entry.symbol}</td>
         <td class="company-cell" title="${entry.companyName || ''}">${entry.companyName || entry.symbol}</td>
