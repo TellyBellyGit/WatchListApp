@@ -50,17 +50,14 @@ class StockWatchApp {
 
   // ---- Boot the main app (called after setup is confirmed) ----
   async _bootApp() {
-    // Init data store and WebSocket in parallel (neither should block the other)
-    const initPromises = [
-      dataStore.init().then(cloudConnected => {
-        this._updateConnectionStatus(cloudConnected);
-      }),
-    ];
+    // Init data store FIRST (must complete before loading entries)
+    const cloudConnected = await dataStore.init();
+    this._updateConnectionStatus(cloudConnected);
 
-    // Init WebSocket immediately (don't wait for data store)
+    // Init WebSocket
     this._initWebSocket();
 
-    // Load entries from data store
+    // Load entries from data store (now that Firestore is initialized)
     await this.loadEntries();
 
     // Default date filter to today
@@ -77,9 +74,6 @@ class StockWatchApp {
     // Apply initial filter and render
     this.applyFilters();
     this.updateStats();
-
-    // Don't block on data store init — it finishes in background
-    initPromises.forEach(p => p.catch(e => console.warn('[App] Background init failed:', e)));
   }
 
   // ---- WebSocket Initialization ----

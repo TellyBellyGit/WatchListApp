@@ -105,8 +105,16 @@ class DataStore {
     }
   }
 
+  // ---- Ensure init is complete before any operation ----
+  async _ensureInit() {
+    if (this._initPromise) {
+      await this._initPromise;
+    }
+  }
+
   // ---- CRUD: Create ----
   async addEntry(entry) {
+    await this._ensureInit();
     const doc = {
       ...entry,
       createdAt: new Date().toISOString(),
@@ -128,6 +136,7 @@ class DataStore {
 
   // ---- CRUD: Read All ----
   async getAllEntries(listFilter = null) {
+    await this._ensureInit();
     if (this.mode === 'firestore') {
       let query = this.db.collection(this.collectionName)
         .orderBy('createdAt', 'desc');
@@ -154,6 +163,7 @@ class DataStore {
 
   // ---- CRUD: Update ----
   async updateEntry(id, updates) {
+    await this._ensureInit();
     updates.updatedAt = new Date().toISOString();
 
     if (this.mode === 'firestore') {
@@ -170,6 +180,7 @@ class DataStore {
 
   // ---- CRUD: Delete ----
   async deleteEntry(id) {
+    await this._ensureInit();
     if (this.mode === 'firestore') {
       await this.db.collection(this.collectionName).doc(id).delete();
     } else {
