@@ -204,6 +204,10 @@ class StockWebSocket {
     this.ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        // Log all WebSocket messages to console for debugging
+        if (data.type !== 'ping') {
+          console.log('[WebSocket] ← received:', JSON.stringify(data).substring(0, 500));
+        }
         if (data.type === 'trade' && data.data && data.data.length > 0) {
           for (const trade of data.data) {
             this._handleTrade(trade);
