@@ -127,11 +127,16 @@ class DataStore {
   }
 
   // ---- CRUD: Read All ----
-  async getAllEntries() {
+  async getAllEntries(listFilter = null) {
     if (this.mode === 'firestore') {
-      const snapshot = await this.db.collection(this.collectionName)
-        .orderBy('createdAt', 'desc')
-        .get();
+      let query = this.db.collection(this.collectionName)
+        .orderBy('createdAt', 'desc');
+
+      if (listFilter) {
+        query = query.where('list', '==', listFilter);
+      }
+
+      const snapshot = await query.get();
 
       const entries = [];
       snapshot.forEach(doc => {
@@ -139,7 +144,11 @@ class DataStore {
       });
       return entries;
     } else {
-      return this._getLocal();
+      const entries = this._getLocal();
+      if (listFilter) {
+        return entries.filter(e => (e.list || 'main') === listFilter);
+      }
+      return entries;
     }
   }
 

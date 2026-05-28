@@ -175,6 +175,69 @@ body {
   color: var(--text-primary);
 }
 
+/* ===== List Toggle Buttons (in filters bar) ===== */
+.btn-list-toggle {
+  padding: 5px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.btn-list-toggle:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-list-toggle.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+/* ===== Main / Temp Add Buttons in Search Results ===== */
+.btn-add-main,
+.btn-add-temp {
+  padding: 5px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition);
+  font-family: inherit;
+  margin-left: 6px;
+}
+
+.btn-add-main {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.btn-add-main:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.btn-add-temp {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.btn-add-temp:hover {
+  background: var(--warning);
+  color: #fff;
+  border-color: var(--warning);
+}
+
 /* ===== Add Stock Section ===== */
 .add-stock-section {
   background: var(--bg-secondary);
@@ -260,6 +323,61 @@ body {
 .search-result-item .price {
   font-weight: 600;
   margin-right: 12px;
+}
+
+/* Note input inline (inside search results) */
+.note-input-inline {
+  flex: 1;
+  max-width: 280px;
+  margin: 0 8px;
+  padding: 6px 10px;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: inherit;
+  transition: border-color var(--transition);
+}
+
+.note-input-inline:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+.note-input-inline::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Add button inside search result items */
+.add-btn-inline {
+  flex-shrink: 0;
+}
+
+/* Promote button (temp -> main) */
+.btn-promote {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  color: var(--warning);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.btn-promote:hover {
+  background: var(--warning);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 /* ===== Filters Bar ===== */

@@ -7,6 +7,8 @@ A single-page web application for day/momentum traders to track stocks with auto
 | Feature | Description |
 |---|---|
 | 🔍 **Stock Search** | Search by symbol or company name, fetches real-time data |
+| 📋 **Main & Temp Lists** | Two separate watch lists — add quick tickers to Temp without cluttering Main. Promote entries with one click. |
+| 📝 **Notes at Add** | Optionally add a note when adding a stock to explain why you're tracking it |
 | 📅 **EST Auto-Stamp** | Entry date/time automatically recorded in America/New_York time |
 | ❄️ **Noted Price** | Current price frozen at the moment you add the stock — never changes |
 | 📊 **Live Quotes** | One-click "Refresh All Prices" pulls real-time quotes from Finnhub |
@@ -21,6 +23,17 @@ A single-page web application for day/momentum traders to track stocks with auto
 | 🌙 **Dark/Light Mode** | Toggle between themes, persisted across sessions |
 | 💾 **Cloud Sync** | Firebase Firestore for cross-device access (or localStorage) |
 | 📊 **Summary Stats** | Win rate, best/worst performers since noted |
+
+### Main vs Temp List
+
+Toggle between lists using the **📋 Main** and **📝 Temp** buttons in the filters bar (next to "Clear Filters"). The active list is highlighted.
+
+- **Main List** — Your permanent watch list for stocks you're actively tracking
+- **Temp List** — A scratchpad for quick additions you don't want cluttering your main list
+- Each search result row has **📋 Main** and **📝 Temp** buttons — click either to add directly to that list
+- Use the **⬆ Promote** button on any Temp entry to move it to the Main list
+- Both lists support WebSocket live prices, polling, tags, and notes
+- An optional note field in search results lets you add context at the time of entry
 
 ## Quick Start
 

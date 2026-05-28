@@ -11,6 +11,7 @@ class StockWatchApp {
     this.filterTag = '';
     this.sortColumn = 'entryDateEST';
     this.sortDirection = 'desc';
+    this.currentList = 'main'; // 'main' or 'temp'
 
     // DOM refs
     this.tableBody = document.getElementById('watchlist-body');
@@ -28,6 +29,8 @@ class StockWatchApp {
     this.themeLightBtn = document.getElementById('theme-light');
     this.themeDarkBtn = document.getElementById('theme-dark');
     this.loadingOverlay = document.getElementById('loading-overlay');
+    this.listToggleMain = document.getElementById('list-toggle-main');
+    this.listToggleTemp = document.getElementById('list-toggle-temp');
   }
 
   // ---- Initialize ----
@@ -382,6 +385,36 @@ class StockWatchApp {
       const col = th.dataset.sort;
       this._toggleSort(col);
     });
+
+    // List toggle buttons (in filters bar)
+    const toggleMain = document.getElementById('list-toggle-main');
+    const toggleTemp = document.getElementById('list-toggle-temp');
+    if (toggleMain) {
+      toggleMain.addEventListener('click', () => {
+        this.currentList = 'main';
+        toggleMain.classList.add('active');
+        toggleTemp.classList.remove('active');
+        this.applyFilters();
+      });
+    }
+    if (toggleTemp) {
+      toggleTemp.addEventListener('click', () => {
+        this.currentList = 'temp';
+        toggleTemp.classList.add('active');
+        toggleMain.classList.remove('active');
+        this.applyFilters();
+      });
+    }
+  }
+
+  // ---- Switch List (set active toggle, then re-apply filters) ----
+  switchList(listName) {
+    this.currentList = listName;
+    const m = document.getElementById('list-toggle-main');
+    const t = document.getElementById('list-toggle-temp');
+    if (m) m.classList.toggle('active', listName === 'main');
+    if (t) t.classList.toggle('active', listName === 'temp');
+    this.applyFilters();
   }
 
   // ---- Search Symbol ----
@@ -419,18 +452,55 @@ class StockWatchApp {
         <div class="search-result-item" data-symbol="${r.symbol}">
           <span class="symbol">${r.symbol}</span>
           <span class="name">${r.description || r.symbol}</span>
-          <button class="btn btn-primary btn-sm">+ Add</button>
+          <input type="text" class="note-input-inline" placeholder="Optional note..." data-symbol="${r.symbol}" maxlength="200">
+          <button class="btn btn-sm btn-add-main" data-list="main" title="Add to Main List">📋 Main</button>
+          <button class="btn btn-sm btn-add-temp" data-list="temp" title="Add to Temp List">📝 Temp</button>
         </div>
       `).join('');
 
-      // Bind click handlers
-      this.searchResults.querySelectorAll('.search-result-item').forEach(item => {
-        item.addEventListener('click', async () => {
-          const symbol = item.dataset.symbol;
-          await this._addBySymbolDirect(symbol);
-          this.searchInput.value = '';
-          this.searchResults.innerHTML = '';
+      // Helper: add stock to a specific list
+      const addTo = async (listName, btn) => {
+        const item = btn.closest('.search-result-item');
+        const symbol = item.dataset.symbol;
+        const noteInput = item.querySelector('.note-input-inline');
+        const note = noteInput ? noteInput.value.trim() : '';
+        // Temporarily set currentList so _addBySymbolDirect assigns correctly
+        const previousList = this.currentList;
+        this.currentList = listName;
+        await this._addBySymbolDirect(symbol, note);
+        this.currentList = previousList;
+        // Update toggle buttons to reflect current view
+        if (this.listToggleMain) this.listToggleMain.classList.toggle('active', this.currentList === 'main');
+        if (this.listToggleTemp) this.listToggleTemp.classList.toggle('active', this.currentList === 'temp');
+        this.searchInput.value = '';
+        this.searchResults.innerHTML = '';
+      };
+
+      // Bind Main button
+      this.searchResults.querySelectorAll('.btn-add-main').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); addTo('main', btn); });
+      });
+
+      // Bind Temp button
+      this.searchResults.querySelectorAll('.btn-add-temp').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); addTo('temp', btn); });
+      });
+
+      // Allow Enter key on the note input (adds to current list by default)
+      this.searchResults.querySelectorAll('.note-input-inline').forEach(input => {
+        input.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const item = input.closest('.search-result-item');
+            const symbol = item.dataset.symbol;
+            const note = input.value.trim();
+            this._addBySymbolDirect(symbol, note);
+            this.searchInput.value = '';
+            this.searchResults.innerHTML = '';
+          }
         });
+        // Prevent click on input from bubbling up
+        input.addEventListener('click', (e) => e.stopPropagation());
       });
     } catch (error) {
       this.searchResults.innerHTML = `<div style="padding:12px;color:var(--negative);">Error: ${error.message}</div>`;
@@ -438,7 +508,7 @@ class StockWatchApp {
   }
 
   // ---- Add Stock by Symbol Directly ----
-  async _addBySymbolDirect(symbol) {
+  async _addBySymbolDirect(symbol, note = '') {
     if (!ConfigManager.hasFinnhubKey()) {
       Utils.showToast('No Finnhub API key configured. Click the ⚙️ settings icon to add one.', 'error');
       return;
@@ -451,17 +521,19 @@ class StockWatchApp {
       return;
     }
 
+    const listLabel = this.currentList === 'main' ? 'Main' : 'Temp';
     this._showLoading('Fetching ' + symbol.toUpperCase() + '...');
 
     try {
       const stockData = await finnhub.getFullStockData(symbol);
 
-      // Build entry with EST timestamp
+      // Build entry with EST timestamp, list assignment, and optional note
       const entry = {
         ...stockData,
         entryDateEST: Utils.getCurrentESTISO(),
-        notes: '',
+        notes: note,
         tags: [],
+        list: this.currentList,
       };
 
       const id = await dataStore.addEntry(entry);
@@ -477,16 +549,16 @@ class StockWatchApp {
       if (isOTC) {
         // OTC: start polling automatically
         this._startPolling(symbol);
-        Utils.showToast(`✅ ${symbol.toUpperCase()} added — OTC polling active (${entry.exchange || '?'})`);
+        Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — OTC polling active (${entry.exchange || '?'})`);
       } else {
         // Regular: auto-subscribe to WebSocket (if < 30 slots)
         const subResult = wsClient.subscribe(symbol);
         if (subResult && subResult.success) {
-          Utils.showToast(`✅ ${symbol.toUpperCase()} added — live prices active`);
+          Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — live prices active`);
         } else if (subResult && subResult.reason === 'limit') {
-          Utils.showToast(`✅ ${symbol.toUpperCase()} added — WebSocket full (${subResult.current}/${subResult.max})`, 'error', 4000);
+          Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — WebSocket full (${subResult.current}/${subResult.max})`, 'error', 4000);
         } else {
-          Utils.showToast(`✅ ${symbol.toUpperCase()} added to watch list`);
+          Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list`);
         }
       }
 
@@ -499,9 +571,24 @@ class StockWatchApp {
     }
   }
 
+  // ---- Promote Entry from Temp to Main ----
+  async promoteEntry(id) {
+    const entry = this.entries.find(e => e.id === id);
+    if (!entry) return;
+
+    entry.list = 'main';
+    await dataStore.updateEntry(id, { list: 'main' });
+    this.applyFilters();
+    this.updateStats();
+    Utils.showToast(`✅ ${entry.symbol} promoted to Main List`);
+  }
+
   // ---- Apply Filters ----
   applyFilters() {
     let filtered = [...this.entries];
+
+    // List filter (always applied)
+    filtered = filtered.filter(e => (e.list || 'main') === this.currentList);
 
     // Date range filter
     if (this.filterDateFromVal) {
@@ -542,8 +629,7 @@ class StockWatchApp {
   }
 
   _applySort() {
-    const list = this.filteredEntries.length || this.isFiltered ? this.filteredEntries :
-      (this.filteredEntries = [...this.entries]);
+    const list = this.filteredEntries;
 
     const col = this.sortColumn;
     const dir = this.sortDirection === 'asc' ? 1 : -1;
@@ -594,7 +680,9 @@ class StockWatchApp {
   }
 
   get displayEntries() {
-    return this.isFiltered ? this.filteredEntries : this.entries;
+    // filterForList always applies; additional criteria add to isFiltered
+    const listEntries = this.entries.filter(e => (e.list || 'main') === this.currentList);
+    return this.isFiltered ? this.filteredEntries : listEntries;
   }
 
   // ---- Render Table ----
@@ -632,6 +720,9 @@ class StockWatchApp {
     this.tableBody.querySelectorAll('.btn-refresh-one').forEach(btn => {
       btn.addEventListener('click', () => this.refreshOnePrice(btn.dataset.id, btn.dataset.symbol));
     });
+    this.tableBody.querySelectorAll('.btn-promote').forEach(btn => {
+      btn.addEventListener('click', () => this.promoteEntry(btn.dataset.id));
+    });
     this.tableBody.querySelectorAll('.ws-toggle').forEach(dot => {
       dot.addEventListener('click', () => {
         const otc = dot.dataset.otc === '1';
@@ -646,24 +737,30 @@ class StockWatchApp {
       ? entry.notes.length > 60 ? entry.notes.substring(0, 60) + '...' : entry.notes
       : 'Click to add notes';
     const hasNotes = entry.notes && entry.notes.trim().length > 0;
+    const isTemp = (entry.list || 'main') === 'temp';
+
+    const promoteBtn = isTemp
+      ? `<button class="btn btn-sm btn-promote" data-id="${entry.id}" title="Move to Main List">⬆</button>`
+      : '';
 
     return `
       <tr>
         <td>
-          <button class="btn btn-sm btn-secondary btn-edit-notes" data-id="${entry.id}" title="Notes: ${notesPreview}">📝</button>
+          ${promoteBtn}
+          <button class="btn btn-sm btn-secondary btn-edit-notes" data-id="${entry.id}" title="Notes: ${Utils.escapeAttr(notesPreview)}">📝</button>
           <button class="btn btn-sm btn-secondary btn-refresh-one" data-id="${entry.id}" data-symbol="${entry.symbol}" title="Refresh Price">🔄</button>
           <button class="btn btn-sm btn-secondary btn-delete" data-id="${entry.id}" title="Delete">🗑</button>
         </td>
         <td class="symbol-cell">${entry.symbol}</td>
-        <td class="company-cell" title="${entry.companyName || ''}">${entry.companyName || entry.symbol}</td>
+        <td class="company-cell" title="${Utils.escapeAttr(entry.companyName || '')}">${entry.companyName || entry.symbol}</td>
         <td class="price-cell">${Utils.formatCurrency(entry.currentPrice)}</td>
         <td class="${Utils.valueClass(entry.currentPercentChange)}">${Utils.formatPercent(entry.currentPercentChange)}</td>
         <td class="price-cell">${Utils.formatCurrency(entry.notedPrice)}</td>
         <td class="${Utils.valueClass(Utils.calcGainLoss(entry.notedPrice, entry.currentPrice))}">${Utils.formatPercent(Utils.calcGainLoss(entry.notedPrice, entry.currentPrice))}</td>
         <td>${entry.sharesOutstanding ? Utils.formatVolume(entry.sharesOutstanding) : '—'}</td>
-        <td title="${(entry.sector || '').length > 20 ? entry.sector : ''}">${entry.sector ? (entry.sector.length > 20 ? entry.sector.substring(0, 20) + '…' : entry.sector) : '—'}</td>
+        <td title="${Utils.escapeAttr((entry.sector || '').length > 20 ? entry.sector : '')}">${entry.sector ? (entry.sector.length > 20 ? entry.sector.substring(0, 20) + '…' : entry.sector) : '—'}</td>
         <td class="exchange-cell">${this._formatExchange(entry.exchange)}</td>
-        <td class="note-dot-cell" title="${entry.notes || ''}"><span class="note-dot ${hasNotes ? 'note-dot-active' : ''}"></span></td>
+        <td class="note-dot-cell" title="${Utils.escapeAttr(entry.notes || '')}"><span class="note-dot ${hasNotes ? 'note-dot-active' : ''}"></span></td>
         <td class="news-cell">${entry.newsHeadlines ? `<span title="${Utils.escapeAttr(entry.newsHeadlines)}" style="cursor:pointer;font-size:1.1rem;">📰</span>` : '—'}</td>
         <td class="col-date" style="font-size:0.75rem;color:var(--text-muted);">${Utils.formatEST(entry.entryDateEST || entry.createdAt, { showSeconds: false })}</td>
         <td class="col-date" style="font-size:0.7rem;color:var(--text-muted);">${entry.quoteTimestamp ? Utils.formatEST(entry.quoteTimestamp, { showSeconds: true }) : '—'}</td>
