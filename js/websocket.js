@@ -202,6 +202,9 @@ class StockWebSocket {
     };
 
     this.ws.onmessage = (event) => {
+      // Reset heartbeat on every message
+      this._resetHeartbeatTimeout();
+
       try {
         const data = JSON.parse(event.data);
         // Log all WebSocket messages to console for debugging
@@ -282,30 +285,22 @@ class StockWebSocket {
 
   _startHeartbeat() {
     this._clearHeartbeat();
-    this._heartbeatTimer = setInterval(() => {
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    // Reset the stale-connection timeout whenever ANY message arrives
+    this._resetHeartbeatTimeout();
+  }
 
-      // Send a ping-like message (Finnhub doesn't support native ping, so use a no-op send)
-      // Actually, WebSocket natively supports ping/pong at the protocol level.
-      // But browser WebSocket API doesn't expose it. We check readyState instead.
-      // If the connection is stale, readyState will eventually change.
-
-      // Alternative: use a small timeout that resets on any message
-      if (this._heartbeatTimeout) clearTimeout(this._heartbeatTimeout);
-      this._heartbeatTimeout = setTimeout(() => {
-        console.warn('[WebSocket] Heartbeat timeout — forcing reconnect');
-        if (this.ws) {
-          this.ws.close(4000, 'Heartbeat timeout');
-        }
-      }, 15000); // 15s without any message = dead connection
-    }, this._heartbeatInterval);
+  // ---- Called on every incoming message to reset the watchdog ----
+  _resetHeartbeatTimeout() {
+    if (this._heartbeatTimeout) clearTimeout(this._heartbeatTimeout);
+    this._heartbeatTimeout = setTimeout(() => {
+      console.warn('[WebSocket] Heartbeat timeout — no messages for 60s — forcing reconnect');
+      if (this.ws) {
+        this.ws.close(4000, 'Heartbeat timeout');
+      }
+    }, 60000); // 60 seconds without any message = dead connection
   }
 
   _clearHeartbeat() {
-    if (this._heartbeatTimer) {
-      clearInterval(this._heartbeatTimer);
-      this._heartbeatTimer = null;
-    }
     if (this._heartbeatTimeout) {
       clearTimeout(this._heartbeatTimeout);
       this._heartbeatTimeout = null;
