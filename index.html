@@ -98,6 +98,7 @@
       </select>
       <button class="btn btn-sm btn-secondary" id="clear-filters-btn">✕ Clear Filters</button>
       <div style="flex:1;"></div>
+      <button class="btn btn-sm btn-secondary" id="toggle-dates-btn" title="Toggle Entry Date & Updated columns">📅 Dates</button>
       <button class="btn btn-primary" id="refresh-btn">🔄 Refresh All Prices</button>
       <button class="btn btn-secondary" id="export-btn">📥 Export CSV</button>
     </div>
@@ -119,8 +120,8 @@
             <th>Exchange</th>
             <th>Notes</th>
             <th>News</th>
-            <th class="sortable" data-sort="entryDateEST">Entry Date (EST) <span class="sort-arrow"></span></th>
-            <th>Updated</th>
+            <th class="sortable col-date" data-sort="entryDateEST">Entry Date (EST) <span class="sort-arrow"></span></th>
+            <th class="col-date">Updated</th>
             <th>WebS</th>
           </tr>
         </thead>

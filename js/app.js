@@ -351,6 +351,20 @@ class StockWatchApp {
       });
     }
 
+    // Toggle date columns
+    const table = document.querySelector('table');
+    const dateColumnsHidden = localStorage.getItem('stockwatchlist_hide-dates') === 'true';
+    if (dateColumnsHidden) {
+      table.classList.add('hide-dates');
+    }
+    const toggleDatesBtn = document.getElementById('toggle-dates-btn');
+    if (toggleDatesBtn) {
+      toggleDatesBtn.addEventListener('click', () => {
+        table.classList.toggle('hide-dates');
+        localStorage.setItem('stockwatchlist_hide-dates', table.classList.contains('hide-dates'));
+      });
+    }
+
     // Settings gear
     const settingsBtn = document.getElementById('settings-btn');
     if (settingsBtn) {
@@ -651,8 +665,8 @@ class StockWatchApp {
         <td class="exchange-cell">${this._formatExchange(entry.exchange)}</td>
         <td class="note-dot-cell" title="${entry.notes || ''}"><span class="note-dot ${hasNotes ? 'note-dot-active' : ''}"></span></td>
         <td class="news-cell">${entry.newsHeadlines ? `<span title="${Utils.escapeAttr(entry.newsHeadlines)}" style="cursor:pointer;font-size:1.1rem;">📰</span>` : '—'}</td>
-        <td style="font-size:0.75rem;color:var(--text-muted);">${Utils.formatEST(entry.entryDateEST || entry.createdAt, { showSeconds: false })}</td>
-        <td style="font-size:0.7rem;color:var(--text-muted);">${entry.quoteTimestamp ? Utils.formatEST(entry.quoteTimestamp, { showSeconds: true }) : '—'}</td>
+        <td class="col-date" style="font-size:0.75rem;color:var(--text-muted);">${Utils.formatEST(entry.entryDateEST || entry.createdAt, { showSeconds: false })}</td>
+        <td class="col-date" style="font-size:0.7rem;color:var(--text-muted);">${entry.quoteTimestamp ? Utils.formatEST(entry.quoteTimestamp, { showSeconds: true }) : '—'}</td>
         <td class="ws-cell">
           <span class="ws-toggle ${entry.isOTC && entry._polling ? 'polling' : wsClient.isSubscribed(entry.symbol) ? 'active' : 'inactive'}"
                 data-symbol="${entry.symbol}"

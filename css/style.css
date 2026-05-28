@@ -945,6 +945,11 @@ tbody tr:hover {
   animation: none;
 }
 
+/* ===== Date Column Toggle ===== */
+.hide-dates .col-date {
+  display: none;
+}
+
 /* ===== Flash Animation on Price Update ===== */
 .flash-update {
   animation: flash-green 0.6s ease-out;
