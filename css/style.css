@@ -849,3 +849,90 @@ tbody tr:hover {
   background: var(--border-color);
   color: var(--text-primary);
 }
+
+/* ===== WebSocket Status Badge ===== */
+.ws-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.ws-status .ws-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.ws-status.connected .ws-dot {
+  background: var(--positive);
+  box-shadow: 0 0 6px var(--positive);
+}
+
+.ws-status.reconnecting .ws-dot {
+  background: var(--warning);
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+
+.ws-status.disconnected .ws-dot,
+.ws-status.connecting .ws-dot {
+  background: var(--negative);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ===== WebS Column Dot ===== */
+.ws-toggle {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid var(--border-color);
+  background: var(--bg-tertiary);
+  flex-shrink: 0;
+}
+
+.ws-toggle.active {
+  background: var(--positive);
+  border-color: var(--positive);
+  box-shadow: 0 0 6px var(--positive);
+  animation: ws-live-pulse 2s ease-in-out infinite;
+}
+
+.ws-toggle.inactive:hover {
+  border-color: var(--positive);
+  background: var(--positive-bg);
+}
+
+.ws-toggle.active:hover {
+  border-color: var(--negative);
+  background: var(--negative);
+  animation: none;
+}
+
+@keyframes ws-live-pulse {
+  0%, 100% { box-shadow: 0 0 4px var(--positive); }
+  50% { box-shadow: 0 0 10px var(--positive); }
+}
+
+/* ===== Flash Animation on Price Update ===== */
+.flash-update {
+  animation: flash-green 0.6s ease-out;
+}
+
+@keyframes flash-green {
+  0% { background-color: var(--positive-bg); }
+  100% { background-color: transparent; }
+}

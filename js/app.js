@@ -64,6 +64,101 @@ class StockWatchApp {
     // Apply initial filter and render
     this.applyFilters();
     this.updateStats();
+
+    // Init WebSocket
+    this._initWebSocket();
+  }
+
+  // ---- WebSocket Initialization ----
+  _initWebSocket() {
+    // Status change handler
+    wsClient.onStatusChange((payload) => {
+      this._updateWsStatus(payload);
+    });
+
+    // Trade handler
+    wsClient.onTrade((trade) => {
+      this._handleWsTrade(trade);
+    });
+
+    // Connect WebSocket
+    wsClient.connect();
+    this._updateWsStatus({ status: wsClient.status, count: wsClient.subscriptionCount, max: wsClient.MAX_SYMBOLS });
+  }
+
+  // ---- Update WebSocket Status Badge ----
+  _updateWsStatus(payload) {
+    const el = document.getElementById('ws-status');
+    if (!el) return;
+    el.className = 'ws-status ' + payload.status;
+    const textEl = el.querySelector('.ws-text');
+    if (textEl) {
+      if (payload.status === 'connected') {
+        textEl.textContent = `WS ${payload.count}/${payload.max}`;
+      } else if (payload.status === 'connecting' || payload.status === 'reconnecting') {
+        textEl.textContent = `WS .../${payload.max}`;
+      } else {
+        textEl.textContent = 'WS Off';
+      }
+    }
+  }
+
+  // ---- Handle Incoming WebSocket Trade ----
+  _handleWsTrade(trade) {
+    // Find matching entries (could be multiple entries for same symbol)
+    let updated = false;
+    for (const entry of this.entries) {
+      if (entry.symbol.toUpperCase() === trade.symbol.toUpperCase()) {
+        const oldPrice = entry.currentPrice;
+        entry.currentPrice = trade.price;
+        entry.currentChange = trade.price - (entry.notedPreviousClose || entry.currentPreviousClose || trade.price);
+        entry.currentPercentChange = entry.notedPreviousClose
+          ? ((trade.price - entry.notedPreviousClose) / entry.notedPreviousClose) * 100
+          : entry.currentPercentChange;
+        entry.currentVolume = (entry.currentVolume || 0) + (trade.volume || 0);
+        entry.quoteTimestamp = new Date(trade.timestamp).toISOString();
+        updated = true;
+
+        // Flash the row if price changed
+        if (oldPrice !== trade.price) {
+          this._flashRow(trade.symbol);
+        }
+      }
+    }
+
+    if (updated) {
+      // Re-render affected rows only (full re-render for simplicity)
+      this.render();
+    }
+  }
+
+  // ---- Flash a Row on Price Update ----
+  _flashRow(symbol) {
+    // Find the row and add flash class, then remove it
+    const rows = this.tableBody.querySelectorAll('tr');
+    for (const row of rows) {
+      const symbolCell = row.querySelector('.symbol-cell');
+      if (symbolCell && symbolCell.textContent.trim().toUpperCase() === symbol.toUpperCase()) {
+        row.classList.add('flash-update');
+        setTimeout(() => row.classList.remove('flash-update'), 600);
+        break;
+      }
+    }
+  }
+
+  // ---- Toggle WebSocket Subscription from the dot ----
+  _toggleWsSubscription(symbol) {
+    const sym = symbol.toUpperCase();
+    if (wsClient.isSubscribed(sym)) {
+      wsClient.unsubscribe(sym);
+    } else {
+      const result = wsClient.subscribe(sym);
+      if (!result.success && result.reason === 'limit') {
+        Utils.showToast(`WebSocket limit reached (${result.current}/${result.max}). Unsubscribe another stock first.`, 'error', 4000);
+      }
+    }
+    // Re-render to update dot color
+    this.render();
   }
 
   // ---- Theme ----
@@ -258,10 +353,20 @@ class StockWatchApp {
       this.entries.unshift(entry);
 
       this._hideLoading();
+
+      // Auto-subscribe to WebSocket (if < 30 slots)
+      const subResult = wsClient.subscribe(symbol);
+      if (subResult && subResult.success) {
+        Utils.showToast(`✅ ${symbol.toUpperCase()} added — live prices active`);
+      } else if (subResult && subResult.reason === 'limit') {
+        Utils.showToast(`✅ ${symbol.toUpperCase()} added — WebSocket full (${subResult.current}/${subResult.max})`, 'error', 4000);
+      } else {
+        Utils.showToast(`✅ ${symbol.toUpperCase()} added to watch list`);
+      }
+
       this.applyFilters();
       this.updateStats();
       this.updateTagFilter();
-      Utils.showToast(`✅ ${symbol.toUpperCase()} added to watch list`);
     } catch (error) {
       this._hideLoading();
       Utils.showToast(error.message, 'error');
@@ -380,7 +485,7 @@ class StockWatchApp {
     if (entries.length === 0) {
       this.tableBody.innerHTML = `
         <tr>
-          <td colspan="13" class="empty-state">
+          <td colspan="14" class="empty-state">
             <div class="empty-icon">📊</div>
             <div>No stocks in your watch list</div>
             <div style="font-size:0.8rem;margin-top:6px;">Search for a symbol above to add one</div>
@@ -400,6 +505,9 @@ class StockWatchApp {
     });
     this.tableBody.querySelectorAll('.btn-refresh-one').forEach(btn => {
       btn.addEventListener('click', () => this.refreshOnePrice(btn.dataset.id, btn.dataset.symbol));
+    });
+    this.tableBody.querySelectorAll('.ws-toggle').forEach(dot => {
+      dot.addEventListener('click', () => this._toggleWsSubscription(dot.dataset.symbol));
     });
   }
 
@@ -429,6 +537,11 @@ class StockWatchApp {
         <td class="note-dot-cell" title="${entry.notes || ''}"><span class="note-dot ${hasNotes ? 'note-dot-active' : ''}"></span></td>
         <td class="news-cell">${entry.newsHeadlines ? `<span title="${Utils.escapeAttr(entry.newsHeadlines)}" style="cursor:pointer;font-size:1.1rem;">📰</span>` : '—'}</td>
         <td style="font-size:0.75rem;color:var(--text-muted);">${Utils.formatEST(entry.entryDateEST || entry.createdAt, { showSeconds: false })}</td>
+        <td class="ws-cell">
+          <span class="ws-toggle ${wsClient.isSubscribed(entry.symbol) ? 'active' : 'inactive'}"
+                data-symbol="${entry.symbol}"
+                title="${wsClient.isSubscribed(entry.symbol) ? 'Unsubscribe from live prices' : 'Subscribe to live prices'}"></span>
+        </td>
       </tr>
     `;
   }
@@ -501,6 +614,10 @@ class StockWatchApp {
 
     await dataStore.deleteEntry(id);
     this.entries = this.entries.filter(e => e.id !== id);
+
+    // Auto-unsubscribe from WebSocket
+    wsClient.unsubscribe(entry.symbol);
+
     this.applyFilters();
     this.updateStats();
     this.updateTagFilter();
