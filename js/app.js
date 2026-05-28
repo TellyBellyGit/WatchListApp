@@ -46,11 +46,17 @@ class StockWatchApp {
 
   // ---- Boot the main app (called after setup is confirmed) ----
   async _bootApp() {
-    // Init data store
-    const cloudConnected = await dataStore.init();
-    this._updateConnectionStatus(cloudConnected);
+    // Init data store and WebSocket in parallel (neither should block the other)
+    const initPromises = [
+      dataStore.init().then(cloudConnected => {
+        this._updateConnectionStatus(cloudConnected);
+      }),
+    ];
 
-    // Load entries
+    // Init WebSocket immediately (don't wait for data store)
+    this._initWebSocket();
+
+    // Load entries from data store
     await this.loadEntries();
 
     // Default date filter to today
@@ -65,8 +71,8 @@ class StockWatchApp {
     this.applyFilters();
     this.updateStats();
 
-    // Init WebSocket
-    this._initWebSocket();
+    // Don't block on data store init — it finishes in background
+    initPromises.forEach(p => p.catch(e => console.warn('[App] Background init failed:', e)));
   }
 
   // ---- WebSocket Initialization ----
