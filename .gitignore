@@ -27,3 +27,6 @@ npm-debug.log*
 
 # Firebase
 .firebase/
+
+# Local config (contains API keys — NEVER commit)
+js/config.js

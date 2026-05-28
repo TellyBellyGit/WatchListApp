@@ -1,7 +1,8 @@
 // ============================================================================
 // FIREBASE CONFIGURATION
 // ============================================================================
-// Replace the placeholder values below with your actual Firebase project config.
+// FIREBASE_CONFIG and USE_FIREBASE are expected to be defined in config.js (gitignored).
+// Copy config.template.js to config.js and insert your real Firebase config values.
 // You can find these in Firebase Console > Project Settings > General > Your apps.
 //
 // Steps:
@@ -9,20 +10,13 @@
 // 2. Create a new project (or use existing)
 // 3. Add a Web App to get your config object
 // 4. In Firestore Database, create a database in "production" or "test" mode
-// 5. Copy the config values below
+// 5. Copy the config values into js/config.js
 // ============================================================================
 
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyYOUR_API_KEY_HERE",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:xxxxxxxxxxxxxxxxxxxx"
-};
+if (typeof FIREBASE_CONFIG === 'undefined') {
+  console.warn('[Config] FIREBASE_CONFIG not found. Firebase features disabled. Copy js/config.template.js to js/config.js to enable cloud sync.');
+}
 
-// Set to false to use localStorage only (no Firebase account needed)
-const USE_FIREBASE = false;
-
-// For localStorage-only mode, data persists in this browser only.
-// Set USE_FIREBASE = true AND fill in FIREBASE_CONFIG above for cloud sync.
+if (typeof USE_FIREBASE === 'undefined') {
+  const USE_FIREBASE = false;
+}

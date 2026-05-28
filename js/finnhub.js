@@ -5,11 +5,12 @@
 // Documentation: https://finnhub.io/docs/api
 // ============================================================================
 
-// ============================================================
-// SET YOUR FINNHUB API KEY HERE (free signup at finnhub.io)
-// ============================================================
-const FINNHUB_API_KEY = 'csv01j9r01qglf5p29n0csv01j9r01qglf5p29ng';
-// ============================================================
+// FINNHUB_API_KEY is expected to be defined in config.js (gitignored).
+// Copy config.template.js to config.js and insert your real key.
+// If not defined, the app will prompt you to set it up.
+if (typeof FINNHUB_API_KEY === 'undefined') {
+  console.error('[Config] FINNHUB_API_KEY not found. Copy js/config.template.js to js/config.js and add your Finnhub API key.');
+}
 
 const FINNHUB_BASE = 'https://finnhub.io/api/v1';
 
