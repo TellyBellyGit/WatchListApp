@@ -324,6 +324,12 @@ class StockWatchApp {
     // Export
     this.exportBtn.addEventListener('click', () => this.exportCSV());
 
+    // Delete All
+    const deleteAllBtn = document.getElementById('delete-all-btn');
+    if (deleteAllBtn) {
+      deleteAllBtn.addEventListener('click', () => this.deleteAllEntries());
+    }
+
     // Filter by date
     this.filterDateFromEl.addEventListener('change', () => {
       this.filterDateFromVal = this.filterDateFromEl.value;
@@ -818,6 +824,124 @@ class StockWatchApp {
 
     // Focus notes field
     setTimeout(() => overlay.querySelector('#edit-notes').focus(), 100);
+  }
+
+  // ---- Delete All Entries (current list) ----
+  async deleteAllEntries() {
+    const listLabel = this.currentList === 'main' ? 'Main' : 'Temp';
+    const count = this.entries.filter(e => (e.list || 'main') === this.currentList).length;
+
+    if (count === 0) {
+      Utils.showToast(`No entries in ${listLabel} list to delete`);
+      return;
+    }
+
+    // Show custom confirmation modal (prompt is unreliable across browsers)
+    const confirmed = await new Promise((resolve) => {
+      // Remove any existing confirm modal
+      document.querySelector('.confirm-overlay')?.remove();
+
+      const overlay = document.createElement('div');
+      overlay.className = 'confirm-overlay';
+      overlay.innerHTML = `
+        <div class="confirm-box">
+          <div class="confirm-icon">⚠️</div>
+          <h3>Delete ALL ${count} entries from ${listLabel} list?</h3>
+          <p class="confirm-warning">This cannot be undone. All ${count} stock${count !== 1 ? 's' : ''} will be permanently deleted from the cloud.</p>
+          <div class="confirm-input-group">
+            <label>Type <strong>${count}</strong> to confirm:</label>
+            <input type="text" class="confirm-input" placeholder="${count}" autocomplete="off">
+          </div>
+          <div class="confirm-error" style="display:none;">Number does not match</div>
+          <div class="confirm-buttons">
+            <button class="btn btn-secondary confirm-cancel">Cancel</button>
+            <button class="btn btn-danger confirm-delete" disabled>Delete All</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      const input = overlay.querySelector('.confirm-input');
+      const deleteBtn = overlay.querySelector('.confirm-delete');
+      const errorEl = overlay.querySelector('.confirm-error');
+
+      // Enable/disable delete button based on input match
+      input.addEventListener('input', () => {
+        const match = input.value.trim() === String(count);
+        deleteBtn.disabled = !match;
+        errorEl.style.display = input.value.trim() && !match ? 'block' : 'none';
+      });
+
+      // Enter key to confirm
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && input.value.trim() === String(count)) {
+          resolve(true);
+          overlay.remove();
+        }
+      });
+
+      // Close on overlay click
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          resolve(false);
+          overlay.remove();
+        }
+      });
+
+      // Cancel button
+      overlay.querySelector('.confirm-cancel').addEventListener('click', () => {
+        resolve(false);
+        overlay.remove();
+      });
+
+      // Delete button
+      deleteBtn.addEventListener('click', () => {
+        if (input.value.trim() === String(count)) {
+          resolve(true);
+          overlay.remove();
+        }
+      });
+
+      // Focus input
+      setTimeout(() => input.focus(), 100);
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    this._showLoading(`Deleting ${count} entries from ${listLabel} list...`);
+
+    try {
+      // Unsubscribe all symbols from WebSocket & stop polling
+      const symbols = new Set();
+      for (const entry of this.entries) {
+        if ((entry.list || 'main') === this.currentList) {
+          symbols.add(entry.symbol);
+          if (entry._polling) {
+            this._stopPolling(entry.symbol);
+          }
+        }
+      }
+      for (const sym of symbols) {
+        wsClient.unsubscribe(sym);
+      }
+
+      // Delete from data store
+      const deleted = await dataStore.deleteAllEntries(this.currentList);
+
+      // Remove from local array
+      this.entries = this.entries.filter(e => (e.list || 'main') !== this.currentList);
+
+      this._hideLoading();
+      this.applyFilters();
+      this.updateStats();
+      Utils.showToast(`🗑 Deleted ${deleted} entries from ${listLabel} list`);
+    } catch (error) {
+      this._hideLoading();
+      Utils.showToast(`Error: ${error.message}`, 'error');
+    }
   }
 
   // ---- Delete Entry ----

@@ -189,6 +189,34 @@ class DataStore {
     }
   }
 
+  // ---- Delete All Entries (optionally filtered by list) ----
+  async deleteAllEntries(listFilter = null) {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      let query = this.db.collection(this.collectionName);
+      if (listFilter) {
+        query = query.where('list', '==', listFilter);
+      }
+      const snapshot = await query.get();
+      const batch = this.db.batch();
+      snapshot.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+      return snapshot.size;
+    } else {
+      const entries = this._getLocal();
+      if (listFilter) {
+        const matching = entries.filter(e => (e.list || 'main') === listFilter);
+        this._setLocal(entries.filter(e => (e.list || 'main') !== listFilter));
+        return matching.length;
+      }
+      const count = entries.length;
+      this._setLocal([]);
+      return count;
+    }
+  }
+
   // ---- Check online status ----
   isCloudConnected() {
     return this.mode === 'firestore';

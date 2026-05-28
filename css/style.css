@@ -687,6 +687,104 @@ tbody tr:hover {
   margin-top: 20px;
 }
 
+/* ===== Delete All Confirmation Modal ===== */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4000;
+  animation: fadeIn 0.2s ease;
+}
+
+.confirm-box {
+  background: var(--bg-secondary);
+  border: 2px solid var(--negative);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  width: 90%;
+  max-width: 440px;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+  animation: slideUp 0.25s ease;
+}
+
+.confirm-icon {
+  font-size: 2.5rem;
+  margin-bottom: 8px;
+}
+
+.confirm-box h3 {
+  margin-bottom: 10px;
+  font-size: 1.05rem;
+  color: var(--negative);
+}
+
+.confirm-warning {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+  line-height: 1.4;
+}
+
+.confirm-input-group {
+  text-align: left;
+  margin-bottom: 8px;
+}
+
+.confirm-input-group label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.confirm-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: inherit;
+  text-align: center;
+  letter-spacing: 0.05em;
+  transition: border-color var(--transition);
+}
+
+.confirm-input:focus {
+  outline: none;
+  border-color: var(--negative);
+  box-shadow: 0 0 0 3px var(--negative-bg);
+}
+
+.confirm-error {
+  color: var(--negative);
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.confirm-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.confirm-buttons .btn {
+  min-width: 100px;
+}
+
+.confirm-buttons .confirm-delete:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* ===== Toast ===== */
 .toast {
   position: fixed;
