@@ -645,9 +645,9 @@ class StockWatchApp {
         <td class="price-cell">${Utils.formatCurrency(entry.currentPrice)}</td>
         <td class="${Utils.valueClass(entry.currentPercentChange)}">${Utils.formatPercent(entry.currentPercentChange)}</td>
         <td class="price-cell">${Utils.formatCurrency(entry.notedPrice)}</td>
-        <td class="${Utils.valueClass(entry.notedPercentChange)}">${Utils.formatPercent(entry.notedPercentChange)}</td>
+        <td class="${Utils.valueClass(Utils.calcGainLoss(entry.notedPrice, entry.currentPrice))}">${Utils.formatPercent(Utils.calcGainLoss(entry.notedPrice, entry.currentPrice))}</td>
         <td>${entry.sharesOutstanding ? Utils.formatVolume(entry.sharesOutstanding) : '—'}</td>
-        <td>${entry.sector || '—'}</td>
+        <td title="${(entry.sector || '').length > 20 ? entry.sector : ''}">${entry.sector ? (entry.sector.length > 20 ? entry.sector.substring(0, 20) + '…' : entry.sector) : '—'}</td>
         <td class="exchange-cell">${this._formatExchange(entry.exchange)}</td>
         <td class="note-dot-cell" title="${entry.notes || ''}"><span class="note-dot ${hasNotes ? 'note-dot-active' : ''}"></span></td>
         <td class="news-cell">${entry.newsHeadlines ? `<span title="${Utils.escapeAttr(entry.newsHeadlines)}" style="cursor:pointer;font-size:1.1rem;">📰</span>` : '—'}</td>
