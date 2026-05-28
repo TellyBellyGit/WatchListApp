@@ -1,22 +1,24 @@
 // ============================================================================
 // FIREBASE CONFIGURATION
 // ============================================================================
-// FIREBASE_CONFIG and USE_FIREBASE are expected to be defined in config.js (gitignored).
-// Copy config.template.js to config.js and insert your real Firebase config values.
-// You can find these in Firebase Console > Project Settings > General > Your apps.
-//
-// Steps:
-// 1. Go to https://console.firebase.google.com
-// 2. Create a new project (or use existing)
-// 3. Add a Web App to get your config object
-// 4. In Firestore Database, create a database in "production" or "test" mode
-// 5. Copy the config values into js/config.js
+// Firebase config is loaded from ConfigManager (localStorage setup screen).
+// Falls back to values defined in config.js for local development.
 // ============================================================================
 
-if (typeof FIREBASE_CONFIG === 'undefined') {
-  console.warn('[Config] FIREBASE_CONFIG not found. Firebase features disabled. Copy js/config.template.js to js/config.js to enable cloud sync.');
-}
+(function _initFirebaseConfig() {
+  // Check ConfigManager (localStorage) first
+  const storedConfig = ConfigManager.getFirebaseConfig();
+  const shouldUse = ConfigManager.shouldUseFirebase();
 
-if (typeof USE_FIREBASE === 'undefined') {
-  const USE_FIREBASE = false;
-}
+  if (storedConfig && storedConfig.apiKey) {
+    // Override global values from localStorage setup
+    if (typeof FIREBASE_CONFIG !== 'undefined') {
+      // config.js pre-defined it; we override by reassigning properties
+      Object.assign(FIREBASE_CONFIG, storedConfig);
+    } else {
+      window.FIREBASE_CONFIG = storedConfig;
+    }
+    window.USE_FIREBASE = true;
+  }
+  // Otherwise, leave whatever config.js set (or defaults)
+})();

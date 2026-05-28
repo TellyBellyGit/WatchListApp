@@ -12,6 +12,46 @@
 <body>
   <div id="loading-overlay" style="display:none;"></div>
 
+  <!-- ====== FIRST-RUN SETUP OVERLAY ====== -->
+  <div id="setup-overlay" style="display:none;">
+    <div class="setup-box">
+      <div class="setup-header">
+        <span class="setup-logo">📈</span>
+        <h2>Welcome to Stock Watch List</h2>
+        <p>Enter your API keys to get started. These are stored only in your browser.</p>
+      </div>
+      <div class="setup-form">
+        <div class="setup-group">
+          <label>Finnhub API Key</label>
+          <input type="password" id="setup-finnhub-key" placeholder="Get a free key at finnhub.io/register" autocomplete="off">
+          <a href="https://finnhub.io/register" target="_blank" class="setup-link">→ Get a free Finnhub API key</a>
+        </div>
+
+        <div class="setup-section-title">Firebase (optional — for cloud sync across devices)</div>
+
+        <div class="setup-group">
+          <label>Firebase API Key</label>
+          <input type="password" id="setup-firebase-apikey" placeholder="AIzaSy..." autocomplete="off">
+        </div>
+        <div class="setup-group">
+          <label>Firebase Auth Domain</label>
+          <input type="text" id="setup-firebase-authdomain" placeholder="project.firebaseapp.com">
+        </div>
+        <div class="setup-group">
+          <label>Firebase Project ID</label>
+          <input type="text" id="setup-firebase-projectid" placeholder="my-project-id">
+        </div>
+
+        <div id="setup-error" class="setup-error" style="display:none;"></div>
+
+        <div class="setup-buttons">
+          <button class="btn btn-secondary" id="setup-skip">Skip Firebase → Use Local Storage Only</button>
+          <button class="btn btn-primary" id="setup-save">Save & Get Started</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="container">
     <!-- ====== HEADER ====== -->
     <div class="header">
@@ -20,6 +60,7 @@
         <div class="subtitle">Momentum Trading Tracker — Times in EST (New York)</div>
       </div>
       <div class="header-right">
+        <button class="btn-settings" id="settings-btn" title="API Settings">⚙️</button>
         <div class="connection-status">
           <span class="connection-dot" id="connection-dot"></span>
           <span id="connection-text">Connecting...</span>
@@ -94,8 +135,9 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
   <!-- App Scripts (order matters) -->
-  <!-- config.js is gitignored — copy config.template.js to config.js and fill in your keys -->
+  <!-- config.js is gitignored — for local dev fallback; config-manager.js is the primary store -->
   <script src="js/config.js"></script>
+  <script src="js/config-manager.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/firestore.js"></script>
   <script src="js/finnhub.js"></script>

@@ -5,13 +5,7 @@
 // Documentation: https://finnhub.io/docs/api
 // ============================================================================
 
-// FINNHUB_API_KEY is expected to be defined in config.js (gitignored).
-// Copy config.template.js to config.js and insert your real key.
-// If not defined, the app will prompt you to set it up.
-if (typeof FINNHUB_API_KEY === 'undefined') {
-  console.error('[Config] FINNHUB_API_KEY not found. Copy js/config.template.js to js/config.js and add your Finnhub API key.');
-}
-
+// API key is fetched from ConfigManager (localStorage), with fallback to config.js for local dev.
 const FINNHUB_BASE = 'https://finnhub.io/api/v1';
 
 class FinnhubAPI {
@@ -195,5 +189,22 @@ class FinnhubAPI {
   }
 }
 
-// Global singleton
-const finnhub = new FinnhubAPI(FINNHUB_API_KEY);
+// Global singleton — lazily created after setup is complete
+window._finnhub = null;
+
+function getFinnhub() {
+  if (!window._finnhub) {
+    const key = ConfigManager.getFinnhubKey();
+    if (!key) return null;
+    window._finnhub = new FinnhubAPI(key);
+  }
+  return window._finnhub;
+}
+
+// Legacy alias for backward compatibility (app.js uses `finnhub` directly)
+Object.defineProperty(window, 'finnhub', {
+  get() {
+    return getFinnhub();
+  },
+  configurable: true
+});
