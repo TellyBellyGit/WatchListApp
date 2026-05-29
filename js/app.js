@@ -740,8 +740,8 @@ class StockWatchApp {
           <button class="btn btn-sm btn-secondary btn-refresh-one" data-id="${entry.id}" data-symbol="${entry.symbol}" title="Refresh Price">🔄</button>
           <button class="btn btn-sm btn-secondary btn-delete" data-id="${entry.id}" title="Delete">🗑</button>
         </td>
-        <td class="symbol-cell">${entry.symbol}</td>
-        <td class="company-cell" title="${Utils.escapeAttr(entry.companyName || '')}">${entry.companyName || entry.symbol}</td>
+        <td class="symbol-cell"><a href="https://www.tradingview.com/chart/?symbol=${entry.symbol}&interval=1" target="_blank" rel="noopener" class="chart-link" title="Open ${entry.symbol} 1-min chart on TradingView">${entry.symbol}</a></td>
+        <td class="company-cell"><a href="https://finance.yahoo.com/quote/${entry.symbol}" target="_blank" rel="noopener" class="yahoo-link" title="Open ${entry.symbol} on Yahoo Finance">${entry.companyName || entry.symbol}</a></td>
         <td class="price-cell">${Utils.formatCurrency(entry.currentPrice)}</td>
         <td class="${Utils.valueClass(entry.currentPercentChange)}">${Utils.formatPercent(entry.currentPercentChange)}</td>
         <td class="price-cell">${Utils.formatCurrency(entry.notedPrice)}</td>

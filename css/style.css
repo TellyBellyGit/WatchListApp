@@ -547,6 +547,30 @@ tbody tr:hover {
   font-size: 0.88rem;
 }
 
+.chart-link {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color var(--transition), text-decoration var(--transition);
+}
+
+.chart-link:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.yahoo-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--transition), text-decoration var(--transition);
+}
+
+.yahoo-link:hover {
+  color: #7209b7;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .company-cell {
   max-width: 180px;
   overflow: hidden;
