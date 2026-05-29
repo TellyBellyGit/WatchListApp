@@ -193,17 +193,21 @@ class DataStore {
   async deleteAllEntries(listFilter = null) {
     await this._ensureInit();
     if (this.mode === 'firestore') {
-      let query = this.db.collection(this.collectionName);
-      if (listFilter) {
-        query = query.where('list', '==', listFilter);
-      }
-      const snapshot = await query.get();
+      const snapshot = await this.db.collection(this.collectionName).get();
       const batch = this.db.batch();
+      let deletedCount = 0;
       snapshot.forEach(doc => {
-        batch.delete(doc.ref);
+        const entry = doc.data();
+        // Apply same client-side filter used in the UI: entries without a
+        // 'list' field are treated as belonging to the 'main' list.
+        const entryList = entry.list || 'main';
+        if (!listFilter || entryList === listFilter) {
+          batch.delete(doc.ref);
+          deletedCount++;
+        }
       });
       await batch.commit();
-      return snapshot.size;
+      return deletedCount;
     } else {
       const entries = this._getLocal();
       if (listFilter) {

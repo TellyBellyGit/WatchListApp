@@ -60,11 +60,6 @@ class StockWatchApp {
     // Load entries from data store (now that Firestore is initialized)
     await this.loadEntries();
 
-    // Default date filter to today
-    const today = Utils.formatESTDateOnly(new Date());
-    this.filterDateFromEl.value = today;
-    this.filterDateFromVal = today;
-
     // Restore add-stock section collapse state (default: visible)
     this._initAddSectionToggle();
 
