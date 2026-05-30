@@ -31,6 +31,8 @@ class StockWebSocket {
 
   // ---- Connect to WebSocket ----
   connect() {
+    // Don't connect if there are no symbols to track
+    if (this.desiredSymbols.size === 0) return;
     if (this._connecting) return;
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return; // Already connected or connecting
@@ -76,7 +78,13 @@ class StockWebSocket {
     this.activeSymbols.delete(sym);
 
     console.log(`[WebSocket] Unsubscribed from ${sym} (${this.desiredSymbols.size}/${this.MAX_SYMBOLS})`);
-    this._notifyStatusChange();
+
+    // If no symbols remain, disconnect the WebSocket entirely
+    if (this.desiredSymbols.size === 0) {
+      this.disconnect();
+    } else {
+      this._notifyStatusChange();
+    }
   }
 
   // ---- Check if a symbol is subscribed ----
