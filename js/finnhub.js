@@ -106,7 +106,38 @@ class FinnhubAPI {
     return await this._call(`/company-news?symbol=${symbol.toUpperCase()}&from=${fromDate}&to=${toDate}`);
   }
 
-  // ---- Fetch All Data for a Symbol (quote + profile + news) ----
+  // ---- Get Key Statistics from Yahoo Finance (free, no API key needed) ----
+  async _getYahooKeyStats(symbol) {
+    const sym = symbol.toUpperCase();
+    const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${sym}?modules=defaultKeyStatistics`;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.warn(`[Yahoo] HTTP ${response.status} for ${sym}`);
+        return null;
+      }
+      const data = await response.json();
+      // Dump the full response to the console for debugging
+      console.log(`[Yahoo] Raw response for ${sym}:`, JSON.stringify(data, null, 2));
+      const result = data?.quoteSummary?.result?.[0];
+      if (!result) {
+        console.warn(`[Yahoo] No result for ${sym}`);
+        return null;
+      }
+      const stats = result.defaultKeyStatistics;
+      console.log(`[Yahoo] ${sym} key stats:`, stats);
+      console.log(`[Yahoo] ${sym} floatShares.raw =`, stats?.floatShares?.raw);
+      return {
+        sharesFloat: stats?.floatShares?.raw ?? null,
+        sharesOutstanding: stats?.sharesOutstanding?.raw ?? null,
+      };
+    } catch (e) {
+      console.error(`[Yahoo] Fetch failed for ${sym}:`, e.message);
+      return null;
+    }
+  }
+
+  // ---- Fetch All Data for a Symbol (quote + profile + news + yahoo stats) ----
   async getFullStockData(symbol) {
     const sym = symbol.toUpperCase();
 
@@ -115,10 +146,11 @@ class FinnhubAPI {
       const todayStr = today.toISOString().split('T')[0];
       const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-      const [quote, profile, news] = await Promise.all([
+      const [quote, profile, news, yahooStats] = await Promise.all([
         this.getQuote(sym),
         this.getCompanyProfile(sym),
-        this.getCompanyNews(sym, oneWeekAgo, todayStr).catch(() => [])
+        this.getCompanyNews(sym, oneWeekAgo, todayStr).catch(() => []),
+        this._getYahooKeyStats(sym).catch(() => null)
       ]);
 
       // Extract news info — scan summaries for ticker mentions
@@ -126,13 +158,16 @@ class FinnhubAPI {
       const hasNewsOnEntry = newsSnippets.length > 0;
       const newsHeadlines = newsSnippets.join(' | ');
 
+      // Use Yahoo float data if available, fallback to Finnhub sharesOutstanding
+      const sharesFloat = yahooStats?.sharesFloat ?? null;
+
       // Build comprehensive data object
       return {
         symbol: sym,
         companyName: profile.name || sym,
         exchange: profile.exchange || '',
         sector: profile.finnhubIndustry || '',
-        sharesOutstanding: profile.shareOutstanding || null,
+        sharesFloat,
 
         // Noted values (frozen snapshot — these will be saved as-is)
         notedPrice: quote.c || 0,

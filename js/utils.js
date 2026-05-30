@@ -138,7 +138,7 @@ const Utils = {
       'Noted % Change', 'Current % Change',
       'Noted Day High', 'Noted Day Low',
       'Current Day High', 'Current Day Low',
-      'Volume', 'Shares Outstanding',
+      'Volume', 'Float',
       'Entry Date (EST)', 'Last Updated (EST)',
       'Tags', 'Notes'
     ];
@@ -157,7 +157,7 @@ const Utils = {
       e.currentDayHigh,
       e.currentDayLow,
       e.currentVolume || 0,
-      e.sharesOutstanding || '',
+      e.sharesFloat || '',
       Utils.formatEST(e.entryDateEST || e.createdAt, { showSeconds: false }),
       Utils.formatEST(e.updatedAt, { showSeconds: false }),
       (e.tags || []).join('; '),
