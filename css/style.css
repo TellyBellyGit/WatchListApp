@@ -1259,3 +1259,161 @@ tbody tr:hover {
   0% { background-color: var(--positive-bg); }
   100% { background-color: transparent; }
 }
+
+/* ===== Float Data Popup ===== */
+.float-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5000;
+  animation: fadeIn 0.2s ease;
+  padding: 20px;
+}
+
+.float-popup {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 28px 30px;
+  width: 100%;
+  max-width: 560px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+  animation: slideUp 0.25s ease;
+}
+
+.float-popup-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.float-popup-header h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.float-popup-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.float-popup-subtitle strong {
+  color: var(--accent);
+}
+
+/* Status banner */
+.float-status {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 500;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.float-status-ok {
+  background: var(--positive-bg);
+  color: var(--positive);
+  border: 1px solid var(--positive);
+}
+
+.float-status-warn {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border: 1px solid var(--warning);
+}
+
+.float-status-info {
+  background: var(--accent-light);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+/* Float input fields */
+.float-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-family: inherit;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: border-color var(--transition);
+}
+
+.float-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.float-input::placeholder {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+/* Float data table */
+.float-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  font-size: 0.85rem;
+  min-width: auto;
+}
+
+.float-table thead {
+  background: var(--bg-tertiary);
+}
+
+.float-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.float-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.float-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.float-value {
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+.float-raw {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.float-popup-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.float-popup-actions .btn {
+  min-width: 140px;
+}

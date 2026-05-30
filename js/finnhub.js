@@ -20,7 +20,6 @@ class FinnhubAPI {
   // ---- Rate Limiter ----
   async _checkRateLimit() {
     const now = Date.now();
-    // Remove timestamps older than the window
     this.callTimestamps = this.callTimestamps.filter(t => now - t < this.rateLimitWindow);
 
     if (this.callTimestamps.length >= this.maxCallsPerWindow) {
@@ -53,13 +52,11 @@ class FinnhubAPI {
   }
 
   // ---- Get Real-Time Quote ----
-  // Returns: { c: currentPrice, d: change, dp: percentChange, h: dayHigh, l: dayLow, o: open, pc: previousClose, t: timestamp }
   async getQuote(symbol) {
     return await this._call(`/quote?symbol=${symbol.toUpperCase()}`);
   }
 
   // ---- Get Company Profile ----
-  // Returns: { name, ticker, exchange, marketCapitalization, shareOutstanding, ipo, logo, weburl, finnhubIndustry }
   async getCompanyProfile(symbol) {
     return await this._call(`/stock/profile2?symbol=${symbol.toUpperCase()}`);
   }
@@ -70,8 +67,6 @@ class FinnhubAPI {
   }
 
   // ---- Scan News for Ticker Mentions ----
-  // Searches article summaries for the ticker symbol; falls back to headlines.
-  // Returns an array of snippet strings (max 5, each truncated to ~150 chars).
   static _scanNewsForSymbol(news, symbol) {
     if (!Array.isArray(news) || news.length === 0) return [];
 
@@ -85,13 +80,11 @@ class FinnhubAPI {
       const headline = article.headline || '';
 
       if (summary && tickerRegex.test(summary)) {
-        // Truncate summary to ~150 chars, breaking at word boundary
         let snippet = summary.length > 150
           ? summary.substring(0, 150).replace(/\s+\S*$/, '') + '...'
           : summary;
         snippets.push(snippet);
       } else if (headline) {
-        // Fallback: use headline if summary doesn't mention the ticker
         snippets.push(headline);
       }
     }
@@ -100,44 +93,11 @@ class FinnhubAPI {
   }
 
   // ---- Get Company News ----
-  // Returns news articles array. Free tier covers 1 year.
-  // Each article: { category, datetime, headline, id, image, related, source, summary, url }
   async getCompanyNews(symbol, fromDate, toDate) {
     return await this._call(`/company-news?symbol=${symbol.toUpperCase()}&from=${fromDate}&to=${toDate}`);
   }
 
-  // ---- Get Key Statistics from Yahoo Finance (free, no API key needed) ----
-  async _getYahooKeyStats(symbol) {
-    const sym = symbol.toUpperCase();
-    const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${sym}?modules=defaultKeyStatistics`;
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        console.warn(`[Yahoo] HTTP ${response.status} for ${sym}`);
-        return null;
-      }
-      const data = await response.json();
-      // Dump the full response to the console for debugging
-      console.log(`[Yahoo] Raw response for ${sym}:`, JSON.stringify(data, null, 2));
-      const result = data?.quoteSummary?.result?.[0];
-      if (!result) {
-        console.warn(`[Yahoo] No result for ${sym}`);
-        return null;
-      }
-      const stats = result.defaultKeyStatistics;
-      console.log(`[Yahoo] ${sym} key stats:`, stats);
-      console.log(`[Yahoo] ${sym} floatShares.raw =`, stats?.floatShares?.raw);
-      return {
-        sharesFloat: stats?.floatShares?.raw ?? null,
-        sharesOutstanding: stats?.sharesOutstanding?.raw ?? null,
-      };
-    } catch (e) {
-      console.error(`[Yahoo] Fetch failed for ${sym}:`, e.message);
-      return null;
-    }
-  }
-
-  // ---- Fetch All Data for a Symbol (quote + profile + news + yahoo stats) ----
+  // ---- Fetch All Data for a Symbol (quote + profile + news) ----
   async getFullStockData(symbol) {
     const sym = symbol.toUpperCase();
 
@@ -146,40 +106,36 @@ class FinnhubAPI {
       const todayStr = today.toISOString().split('T')[0];
       const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-      const [quote, profile, news, yahooStats] = await Promise.all([
+      const [quote, profile, news] = await Promise.all([
         this.getQuote(sym),
         this.getCompanyProfile(sym),
-        this.getCompanyNews(sym, oneWeekAgo, todayStr).catch(() => []),
-        this._getYahooKeyStats(sym).catch(() => null)
+        this.getCompanyNews(sym, oneWeekAgo, todayStr).catch(() => [])
       ]);
 
-      // Extract news info — scan summaries for ticker mentions
       const newsSnippets = FinnhubAPI._scanNewsForSymbol(news, sym);
       const hasNewsOnEntry = newsSnippets.length > 0;
       const newsHeadlines = newsSnippets.join(' | ');
 
-      // Use Yahoo float data if available, fallback to Finnhub sharesOutstanding
-      const sharesFloat = yahooStats?.sharesFloat ?? null;
-
-      // Build comprehensive data object
       return {
         symbol: sym,
         companyName: profile.name || sym,
         exchange: profile.exchange || '',
         sector: profile.finnhubIndustry || '',
-        sharesFloat,
+        sharesFloat: null,
+        sharesOutstanding: null,
+        impliedSharesOutstanding: null,
+        heldPercentInsiders: null,
+        heldPercentInstitutions: null,
 
-        // Noted values (frozen snapshot — these will be saved as-is)
         notedPrice: quote.c || 0,
         notedPercentChange: quote.dp || 0,
         notedChange: quote.d || 0,
-        notedVolume: 0, // Volume not in /quote endpoint; use 0 as placeholder
+        notedVolume: 0,
         notedDayHigh: quote.h || 0,
         notedDayLow: quote.l || 0,
         notedOpen: quote.o || 0,
         notedPreviousClose: quote.pc || 0,
 
-        // Current values (updated on refresh)
         currentPrice: quote.c || 0,
         currentPercentChange: quote.dp || 0,
         currentChange: quote.d || 0,
@@ -189,11 +145,9 @@ class FinnhubAPI {
         currentOpen: quote.o || 0,
         currentPreviousClose: quote.pc || 0,
 
-        // News
         hasNewsOnEntry,
         newsHeadlines,
 
-        // Timestamps
         quoteTimestamp: quote.t ? new Date(quote.t * 1000).toISOString() : null,
       };
     } catch (error) {
@@ -224,7 +178,7 @@ class FinnhubAPI {
   }
 }
 
-// Global singleton — lazily created after setup is complete
+// Global singleton
 window._finnhub = null;
 
 function getFinnhub() {
@@ -236,7 +190,7 @@ function getFinnhub() {
   return window._finnhub;
 }
 
-// Legacy alias for backward compatibility (app.js uses `finnhub` directly)
+// Legacy alias for backward compatibility
 Object.defineProperty(window, 'finnhub', {
   get() {
     return getFinnhub();

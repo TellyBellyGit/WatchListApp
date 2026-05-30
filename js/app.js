@@ -483,7 +483,7 @@ class StockWatchApp {
       datalist.innerHTML = allTags.map(t => `<option value="${Utils.escapeAttr(t)}">`).join('');
       this.searchResults.appendChild(datalist);
 
-      // Helper: add stock to a specific list
+      // Helper: add stock to a specific list — now shows float popup first
       const addTo = async (listName, btn) => {
         const item = btn.closest('.search-result-item');
         const symbol = item.dataset.symbol;
@@ -492,14 +492,10 @@ class StockWatchApp {
         const tags = tagStr ? tagStr.split(',').map(t => t.trim()).filter(Boolean) : [];
         const noteInput = item.querySelector('.note-input-inline');
         const note = noteInput ? noteInput.value.trim() : '';
-        // Switch to the target list so the view updates
-        this.currentList = listName;
-        await this._addBySymbolDirect(symbol, note, tags);
+        await this._fetchAndConfirmAdd(symbol, listName, tags, note);
         // Update toggle buttons to reflect the active list
         if (this.listToggleMain) this.listToggleMain.classList.toggle('active', this.currentList === 'main');
         if (this.listToggleTemp) this.listToggleTemp.classList.toggle('active', this.currentList === 'temp');
-        this.searchInput.value = '';
-        this.searchResults.innerHTML = '';
       };
 
       // Bind Main button
@@ -531,6 +527,178 @@ class StockWatchApp {
     } catch (error) {
       this.searchResults.innerHTML = `<div style="padding:12px;color:var(--negative);">Error: ${error.message}</div>`;
     }
+  }
+
+  // ---- Fetch data, then show float popup for confirmation ----
+  async _fetchAndConfirmAdd(symbol, listName, tags = [], note = '') {
+    if (!ConfigManager.hasFinnhubKey()) {
+      Utils.showToast('No Finnhub API key configured. Click the ⚙️ settings icon to add one.', 'error');
+      return;
+    }
+
+    // Check if already in list
+    const exists = this.entries.some(e => e.symbol.toUpperCase() === symbol.toUpperCase());
+    if (exists) {
+      Utils.showToast(`${symbol.toUpperCase()} is already in your watch list`, 'error');
+      return;
+    }
+
+    this._showLoading(`Fetching ${symbol.toUpperCase()}...`);
+
+    try {
+      const stockData = await finnhub.getFullStockData(symbol);
+      this._hideLoading();
+
+      // Float popup disabled — add directly with null float data
+      const floatData = {
+        sharesOutstanding: null,
+        impliedSharesOutstanding: null,
+        sharesFloat: null,
+        heldPercentInsiders: null,
+        heldPercentInstitutions: null,
+      };
+      await this._addEntryFromData(symbol, stockData, listName, tags, note, floatData);
+    } catch (error) {
+      this._hideLoading();
+      Utils.showToast(error.message, 'error');
+    }
+  }
+
+  // ---- Show Float Data Popup (manual entry) ----
+  async _showFloatPopup(symbol, stockData, listName, tags, note) {
+    document.querySelector('.float-popup-overlay')?.remove();
+
+    const listLabel = listName === 'main' ? 'Main' : 'Temp';
+    const listEmoji = listName === 'main' ? '📋' : '📝';
+
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'float-popup-overlay';
+      overlay.innerHTML = `
+        <div class="float-popup">
+          <div class="float-popup-header">
+            <h2>${symbol} — Float & Ownership Data</h2>
+            <p class="float-popup-subtitle">Adding to <strong>${listEmoji} ${listLabel} List</strong></p>
+          </div>
+          <div class="float-status float-status-info">ℹ️ Enter float/ownership data manually (from Yahoo Finance or your broker)</div>
+          <table class="float-table">
+            <thead>
+              <tr><th>Field</th><th>Value</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="float-label">Shares Outstanding</td>
+                <td><input type="number" class="float-input" id="float-sharesOutstanding" placeholder="e.g. 16000000000" min="0" step="1"></td>
+              </tr>
+              <tr>
+                <td class="float-label">Implied Shares Outstanding</td>
+                <td><input type="number" class="float-input" id="float-impliedSO" placeholder="e.g. 15800000000" min="0" step="1"></td>
+              </tr>
+              <tr>
+                <td class="float-label">Float</td>
+                <td><input type="number" class="float-input" id="float-sharesFloat" placeholder="e.g. 15500000000" min="0" step="1"></td>
+              </tr>
+              <tr>
+                <td class="float-label">% Held by Insiders</td>
+                <td><input type="number" class="float-input" id="float-insiders" placeholder="e.g. 0.15" min="0" max="100" step="0.01"></td>
+              </tr>
+              <tr>
+                <td class="float-label">% Held by Institutions</td>
+                <td><input type="number" class="float-input" id="float-institutions" placeholder="e.g. 65.3" min="0" max="100" step="0.01"></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="float-popup-actions">
+            <button class="btn btn-secondary float-popup-cancel">Cancel</button>
+            <button class="btn btn-primary float-popup-confirm">✅ Confirm Add to ${listLabel}</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      // Helpers to read inputs
+      const getNum = (id) => {
+        const val = overlay.querySelector(`#${id}`).value.trim();
+        return val === '' ? null : parseFloat(val);
+      };
+
+      // Close on overlay click
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.remove();
+          resolve();
+        }
+      });
+
+      // Cancel
+      overlay.querySelector('.float-popup-cancel').addEventListener('click', () => {
+        overlay.remove();
+        resolve();
+      });
+
+      // Confirm — read manual values and add
+      overlay.querySelector('.float-popup-confirm').addEventListener('click', async () => {
+        const floatData = {
+          sharesOutstanding: getNum('float-sharesOutstanding'),
+          impliedSharesOutstanding: getNum('float-impliedSO'),
+          sharesFloat: getNum('float-sharesFloat'),
+          heldPercentInsiders: getNum('float-insiders'),
+          heldPercentInstitutions: getNum('float-institutions'),
+        };
+        overlay.remove();
+        await this._addEntryFromData(symbol, stockData, listName, tags, note, floatData);
+        resolve();
+      });
+
+      // Focus first input
+      setTimeout(() => overlay.querySelector('#float-sharesOutstanding')?.focus(), 100);
+    });
+  }
+
+  // ---- Add entry using pre-fetched data with manual float values ----
+  async _addEntryFromData(symbol, stockData, listName, tags, note, floatData) {
+    const listLabel = listName === 'main' ? 'Main' : 'Temp';
+
+    const entry = {
+      ...stockData,
+      sharesOutstanding: floatData.sharesOutstanding,
+      impliedSharesOutstanding: floatData.impliedSharesOutstanding,
+      sharesFloat: floatData.sharesFloat,
+      heldPercentInsiders: floatData.heldPercentInsiders,
+      heldPercentInstitutions: floatData.heldPercentInstitutions,
+      entryDateEST: Utils.getCurrentESTISO(),
+      notes: note,
+      tags: tags,
+      list: listName,
+    };
+
+    const id = await dataStore.addEntry(entry);
+    entry.id = id;
+    this.entries.unshift(entry);
+
+    const isOTC = this._isOTC(entry.exchange);
+    entry.isOTC = isOTC;
+
+    if (isOTC) {
+      this._startPolling(symbol);
+      Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — OTC polling active (${entry.exchange || '?'})`);
+    } else {
+      const subResult = wsClient.subscribe(symbol);
+      if (subResult && subResult.success) {
+        Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — live prices active`);
+      } else if (subResult && subResult.reason === 'limit') {
+        Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — WebSocket full (${subResult.current}/${subResult.max})`, 'error', 4000);
+      } else {
+        Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list`);
+      }
+    }
+
+    this.currentList = listName;
+    this.applyFilters();
+    this.updateStats();
+    this.searchInput.value = '';
+    this.searchResults.innerHTML = '';
   }
 
   // ---- Add Stock by Symbol Directly ----
@@ -837,9 +1005,13 @@ class StockWatchApp {
           <label>Notes</label>
           <textarea id="edit-notes" rows="3" placeholder="Add your trading notes...">${(entry.notes || '').replace(/"/g, '"')}</textarea>
         </div>
-        <div class="form-group">
+          <div class="form-group">
           <label>Tags (comma-separated, e.g., Breakout, Gap Up, High Volume)</label>
           <input type="text" id="edit-tags" value="${(entry.tags || []).join(', ')}" placeholder="e.g., Breakout, Momentum">
+        </div>
+        <div class="form-group">
+          <label>Float (Shares Float)</label>
+          <input type="number" id="edit-float" value="${entry.sharesFloat || ''}" placeholder="e.g. 15500000000" min="0" step="1">
         </div>
         <div class="modal-buttons">
           <button class="btn btn-secondary" id="modal-cancel">Cancel</button>
@@ -863,12 +1035,15 @@ class StockWatchApp {
       const notes = overlay.querySelector('#edit-notes').value.trim();
       const tagsStr = overlay.querySelector('#edit-tags').value.trim();
       const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+      const floatVal = overlay.querySelector('#edit-float').value.trim();
+      const sharesFloat = floatVal === '' ? null : parseFloat(floatVal);
 
       // Update entry
       entry.notes = notes;
       entry.tags = tags;
+      entry.sharesFloat = sharesFloat;
 
-      await dataStore.updateEntry(id, { notes, tags });
+      await dataStore.updateEntry(id, { notes, tags, sharesFloat });
       this.render();
       overlay.remove();
       Utils.showToast('Notes & tags updated');
