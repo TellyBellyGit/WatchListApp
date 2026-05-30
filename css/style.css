@@ -349,6 +349,32 @@ body {
   margin-right: 12px;
 }
 
+/* Tag input inline (inside search results) */
+.tag-input-inline {
+  flex: 1;
+  margin: 0 8px;
+  padding: 6px 10px;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: inherit;
+  transition: border-color var(--transition);
+  min-width: 120px;
+}
+
+.tag-input-inline:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+.tag-input-inline::placeholder {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* Note input inline (inside search results) */
 .note-input-inline {
   flex: 1;
@@ -407,42 +433,45 @@ body {
 .filters-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 0;
+  gap: 8px;
+  padding: 12px 0;
   flex-wrap: wrap;
 }
 
-.filters-bar label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.filters-bar input[type="date"] {
-  padding: 8px 12px;
+.filters-bar input[type="date"],
+.filters-bar .filter-date-input {
+  width: 130px;
+  padding: 5px 8px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: var(--bg-secondary);
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  height: 30px;
 }
 
-.filters-bar input[type="date"]:focus {
+.filters-bar input[type="date"]:focus,
+.filters-bar .filter-date-input:focus {
   outline: none;
   border-color: var(--accent);
 }
 
 .tag-filter {
-  padding: 6px 12px;
+  width: 140px;
+  padding: 5px 8px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
   background: var(--bg-secondary);
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  height: 30px;
+}
+
+.tag-filter:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 /* ===== Summary Stats ===== */
@@ -972,6 +1001,14 @@ tbody tr:hover {
   background: var(--positive);
   opacity: 1;
   box-shadow: 0 0 4px var(--positive);
+}
+
+/* ===== Tag Badges Row (in table) ===== */
+.tag-badges-row {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
 }
 
 /* ===== Setup Overlay (First-Run) ===== */

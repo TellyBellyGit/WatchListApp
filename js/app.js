@@ -387,6 +387,15 @@ class StockWatchApp {
       });
     }
 
+    // Tag filter dropdown
+    const tagFilter = document.getElementById('filter-tag');
+    if (tagFilter) {
+      tagFilter.addEventListener('change', () => {
+        this.filterTag = tagFilter.value;
+        this.applyFilters();
+      });
+    }
+
     // Toggle add-stock section visibility
     if (this.toggleAddSectionBtn && this.addStockSection) {
       this.toggleAddSectionBtn.addEventListener('click', () => {
@@ -447,25 +456,45 @@ class StockWatchApp {
         }
       }
 
-      this.searchResults.innerHTML = results.slice(0, 8).map(r => `
+      // Collect all unique tags from existing entries for the datalist
+      const allTags = [...new Set(this.entries.flatMap(e => e.tags || []))].sort();
+      const tagDatalistId = 'tag-suggestions';
+
+      this.searchResults.innerHTML = results.slice(0, 8).map(r => {
+        const desc = r.description || r.symbol;
+        const truncatedDesc = desc.length > 30 ? desc.substring(0, 30) + '…' : desc;
+        return `
         <div class="search-result-item" data-symbol="${r.symbol}">
           <span class="symbol">${r.symbol}</span>
-          <span class="name">${r.description || r.symbol}</span>
+          <span class="name" title="${Utils.escapeAttr(desc)}">${Utils.escapeAttr(truncatedDesc)}</span>
+          <input type="text" class="tag-input-inline" placeholder="Tags (e.g. Pre-market)..." list="${tagDatalistId}" data-symbol="${r.symbol}" autocomplete="off">
           <input type="text" class="note-input-inline" placeholder="Optional note..." data-symbol="${r.symbol}" maxlength="200">
           <button class="btn btn-sm btn-add-main" data-list="main" title="Add to Main List">📋 Main</button>
           <button class="btn btn-sm btn-add-temp" data-list="temp" title="Add to Temp List">📝 Temp</button>
         </div>
-      `).join('');
+        `;
+      }).join('');
+
+      // Append a hidden datalist for tag suggestions
+      const existingDatalist = document.getElementById(tagDatalistId);
+      if (existingDatalist) existingDatalist.remove();
+      const datalist = document.createElement('datalist');
+      datalist.id = tagDatalistId;
+      datalist.innerHTML = allTags.map(t => `<option value="${Utils.escapeAttr(t)}">`).join('');
+      this.searchResults.appendChild(datalist);
 
       // Helper: add stock to a specific list
       const addTo = async (listName, btn) => {
         const item = btn.closest('.search-result-item');
         const symbol = item.dataset.symbol;
+        const tagInput = item.querySelector('.tag-input-inline');
+        const tagStr = tagInput ? tagInput.value.trim() : '';
+        const tags = tagStr ? tagStr.split(',').map(t => t.trim()).filter(Boolean) : [];
         const noteInput = item.querySelector('.note-input-inline');
         const note = noteInput ? noteInput.value.trim() : '';
         // Switch to the target list so the view updates
         this.currentList = listName;
-        await this._addBySymbolDirect(symbol, note);
+        await this._addBySymbolDirect(symbol, note, tags);
         // Update toggle buttons to reflect the active list
         if (this.listToggleMain) this.listToggleMain.classList.toggle('active', this.currentList === 'main');
         if (this.listToggleTemp) this.listToggleTemp.classList.toggle('active', this.currentList === 'temp');
@@ -505,7 +534,7 @@ class StockWatchApp {
   }
 
   // ---- Add Stock by Symbol Directly ----
-  async _addBySymbolDirect(symbol, note = '') {
+  async _addBySymbolDirect(symbol, note = '', tags = []) {
     if (!ConfigManager.hasFinnhubKey()) {
       Utils.showToast('No Finnhub API key configured. Click the ⚙️ settings icon to add one.', 'error');
       return;
@@ -524,12 +553,12 @@ class StockWatchApp {
     try {
       const stockData = await finnhub.getFullStockData(symbol);
 
-      // Build entry with EST timestamp, list assignment, and optional note
+      // Build entry with EST timestamp, list assignment, tags, and optional note
       const entry = {
         ...stockData,
         entryDateEST: Utils.getCurrentESTISO(),
         notes: note,
-        tags: [],
+        tags: tags,
         list: this.currentList,
       };
 
@@ -579,12 +608,22 @@ class StockWatchApp {
     Utils.showToast(`✅ ${entry.symbol} promoted to Main List`);
   }
 
+  // ---- Collect all unique tags across all entries ----
+  _getAllTags() {
+    return [...new Set(this.entries.flatMap(e => e.tags || []))].sort();
+  }
+
   // ---- Apply Filters ----
   applyFilters() {
     let filtered = [...this.entries];
 
     // List filter (always applied)
     filtered = filtered.filter(e => (e.list || 'main') === this.currentList);
+
+    // Tag filter
+    if (this.filterTag) {
+      filtered = filtered.filter(e => (e.tags || []).includes(this.filterTag));
+    }
 
     // Date range filter
     if (this.filterDateFromVal) {
@@ -600,9 +639,22 @@ class StockWatchApp {
       });
     }
 
+    // Update the tag filter dropdown options
+    this._updateTagFilterDropdown();
+
     this.filteredEntries = filtered;
     this._applySort();
     this.render();
+  }
+
+  // ---- Update the tag filter dropdown with all available tags ----
+  _updateTagFilterDropdown() {
+    const tagFilter = document.getElementById('filter-tag');
+    if (!tagFilter) return;
+    const selectedVal = tagFilter.value;
+    const allTags = this._getAllTags();
+    tagFilter.innerHTML = '<option value="">All Tags</option>' + allTags.map(t => `<option value="${Utils.escapeAttr(t)}">${Utils.escapeAttr(t)}</option>`).join('');
+    tagFilter.value = selectedVal;
   }
 
   // ---- Sort ----
@@ -665,7 +717,7 @@ class StockWatchApp {
   }
 
   get isFiltered() {
-    return !!(this.filterDateFromVal || this.filterDateToVal);
+    return !!(this.filterDateFromVal || this.filterDateToVal || this.filterTag);
   }
 
   get displayEntries() {
@@ -732,6 +784,11 @@ class StockWatchApp {
       ? `<button class="btn btn-sm btn-promote" data-id="${entry.id}" title="Move to Main List">⬆</button>`
       : '';
 
+    // Render tags as badges
+    const tagsHtml = (entry.tags && entry.tags.length > 0)
+      ? `<div class="tag-badges-row">${entry.tags.map(t => `<span class="tag-badge">${Utils.escapeAttr(t)}</span>`).join(' ')}</div>`
+      : '';
+
     return `
       <tr>
         <td>
@@ -749,7 +806,7 @@ class StockWatchApp {
         <td>${entry.sharesOutstanding ? Utils.formatVolume(entry.sharesOutstanding) : '—'}</td>
         <td title="${Utils.escapeAttr((entry.sector || '').length > 20 ? entry.sector : '')}">${entry.sector ? (entry.sector.length > 20 ? entry.sector.substring(0, 20) + '…' : entry.sector) : '—'}</td>
         <td class="exchange-cell">${this._formatExchange(entry.exchange)}</td>
-        <td class="note-dot-cell" title="${Utils.escapeAttr(entry.notes || '')}"><span class="note-dot ${hasNotes ? 'note-dot-active' : ''}"></span></td>
+        <td class="note-dot-cell" title="${Utils.escapeAttr(entry.notes || '')}"><span class="note-dot ${hasNotes ? 'note-dot-active' : ''}"></span>${tagsHtml}</td>
         <td class="news-cell">${entry.newsHeadlines ? `<span title="${Utils.escapeAttr(entry.newsHeadlines)}" style="cursor:pointer;font-size:1.1rem;">📰</span>` : '—'}</td>
         <td class="col-date" style="font-size:0.75rem;color:var(--text-muted);">${Utils.formatEST(entry.entryDateEST || entry.createdAt, { showSeconds: false })}</td>
         <td class="col-date" style="font-size:0.7rem;color:var(--text-muted);">${entry.quoteTimestamp ? Utils.formatEST(entry.quoteTimestamp, { showSeconds: true }) : '—'}</td>
