@@ -7,8 +7,8 @@ class StockWatchApp {
     this.entries = [];
     this.filteredEntries = [];
     this.filterDateFromVal = null;
-    this.filterDateToVal = null;
     this.filterTag = '';
+    this.dateFilterMode = 'today'; // 'today' or 'all'
     this.sortColumn = 'entryDateEST';
     this.sortDirection = 'desc';
     this.currentList = 'main'; // 'main' or 'temp'
@@ -21,7 +21,9 @@ class StockWatchApp {
     this.refreshBtn = document.getElementById('refresh-btn');
     this.exportBtn = document.getElementById('export-btn');
     this.filterDateFromEl = document.getElementById('filter-date-from');
-    this.filterDateToEl = document.getElementById('filter-date-to');
+    this.dayArrowLeft = document.getElementById('day-arrow-left');
+    this.dayArrowRight = document.getElementById('day-arrow-right');
+    this.btnTodayAll = document.getElementById('btn-today-all');
     this.toggleAddSectionBtn = document.getElementById('toggle-add-section');
     this.addStockSection = document.getElementById('add-stock-section');
     this.statsBar = document.getElementById('stats-bar');
@@ -65,6 +67,13 @@ class StockWatchApp {
 
     // Bind events
     this._bindEvents();
+
+    // Default to today's date
+    const today = Utils.formatESTDateOnly(new Date());
+    this.filterDateFromEl.value = today;
+    this.filterDateFromVal = today;
+    this.dateFilterMode = 'today';
+    this._updateDayNavUI();
 
     // Apply initial filter and render
     this.applyFilters();
@@ -296,6 +305,71 @@ class StockWatchApp {
     this.entries = await dataStore.getAllEntries();
   }
 
+  // ---- Update Day Navigation UI (arrows, today/all button) ----
+  _updateDayNavUI() {
+    const isToday = this.dateFilterMode === 'today';
+
+    // Arrow buttons: disabled when in 'all' mode
+    if (this.dayArrowLeft) this.dayArrowLeft.disabled = !isToday;
+    if (this.dayArrowRight) this.dayArrowRight.disabled = !isToday;
+
+    // Today/All toggle button
+    if (this.btnTodayAll) {
+      if (isToday) {
+        this.btnTodayAll.textContent = '📅 Today';
+        this.btnTodayAll.classList.add('active');
+      } else {
+        this.btnTodayAll.textContent = '🌐 All';
+        this.btnTodayAll.classList.remove('active');
+      }
+    }
+  }
+
+  // ---- Navigate date by offset days (uses UTC to avoid timezone shifting) ----
+  _navigateDay(offset) {
+    if (!this.filterDateFromVal) return;
+
+    const parts = this.filterDateFromVal.split('-');
+    if (parts.length !== 3) return;
+
+    const y = parseInt(parts[0]);
+    const m = parseInt(parts[1]);
+    const d = parseInt(parts[2]);
+
+    // Use pure date arithmetic on the YYYY-MM-DD string — no Date object
+    const date = new Date(Date.UTC(y, m - 1, d));
+    date.setUTCDate(date.getUTCDate() + offset);
+
+    const ny = date.getUTCFullYear();
+    const nm = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const nd = String(date.getUTCDate()).padStart(2, '0');
+    const newDateStr = `${ny}-${nm}-${nd}`;
+
+    this.filterDateFromEl.value = newDateStr;
+    this.filterDateFromVal = newDateStr;
+    this.dateFilterMode = 'today';
+    this._updateDayNavUI();
+    this.applyFilters();
+  }
+
+  // ---- Toggle between Today and All mode ----
+  _toggleTodayAll() {
+    if (this.dateFilterMode === 'today') {
+      // Switch to All
+      this.dateFilterMode = 'all';
+      this.filterDateFromEl.value = '';
+      this.filterDateFromVal = null;
+    } else {
+      // Switch to Today
+      this.dateFilterMode = 'today';
+      const today = Utils.formatESTDateOnly(new Date());
+      this.filterDateFromEl.value = today;
+      this.filterDateFromVal = today;
+    }
+    this._updateDayNavUI();
+    this.applyFilters();
+  }
+
   // ---- Bind Events ----
   _bindEvents() {
     // Search
@@ -325,15 +399,26 @@ class StockWatchApp {
       deleteAllBtn.addEventListener('click', () => this.deleteAllEntries());
     }
 
-    // Filter by date
+    // Date filter input — single date picker, filters for exact day
     this.filterDateFromEl.addEventListener('change', () => {
       this.filterDateFromVal = this.filterDateFromEl.value;
+      this.dateFilterMode = 'today';
+      this._updateDayNavUI();
       this.applyFilters();
     });
-    this.filterDateToEl.addEventListener('change', () => {
-      this.filterDateToVal = this.filterDateToEl.value;
-      this.applyFilters();
-    });
+
+    // Day navigation arrows
+    if (this.dayArrowLeft) {
+      this.dayArrowLeft.addEventListener('click', () => this._navigateDay(-1));
+    }
+    if (this.dayArrowRight) {
+      this.dayArrowRight.addEventListener('click', () => this._navigateDay(1));
+    }
+
+    // Today/All toggle
+    if (this.btnTodayAll) {
+      this.btnTodayAll.addEventListener('click', () => this._toggleTodayAll());
+    }
 
     // Toggle date columns
     const table = document.querySelector('table');
@@ -793,17 +878,11 @@ class StockWatchApp {
       filtered = filtered.filter(e => (e.tags || []).includes(this.filterTag));
     }
 
-    // Date range filter
+    // Single date filter — exact day match
     if (this.filterDateFromVal) {
       filtered = filtered.filter(e => {
         const entryDate = Utils.formatESTDateOnly(e.entryDateEST || e.createdAt);
-        return entryDate >= this.filterDateFromVal;
-      });
-    }
-    if (this.filterDateToVal) {
-      filtered = filtered.filter(e => {
-        const entryDate = Utils.formatESTDateOnly(e.entryDateEST || e.createdAt);
-        return entryDate <= this.filterDateToVal;
+        return entryDate === this.filterDateFromVal;
       });
     }
 
@@ -885,7 +964,7 @@ class StockWatchApp {
   }
 
   get isFiltered() {
-    return !!(this.filterDateFromVal || this.filterDateToVal || this.filterTag);
+    return !!(this.filterDateFromVal || this.filterTag);
   }
 
   get displayEntries() {
@@ -1334,6 +1413,8 @@ class StockWatchApp {
           const today = Utils.formatESTDateOnly(new Date());
           this.filterDateFromEl.value = today;
           this.filterDateFromVal = today;
+          this.dateFilterMode = 'today';
+          this._updateDayNavUI();
           this.applyFilters();
           this.updateStats();
         });

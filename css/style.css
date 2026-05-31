@@ -238,6 +238,63 @@ body {
   border-color: var(--warning);
 }
 
+/* ===== Day Navigation Arrows (filters bar) ===== */
+.btn-arrow {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.btn-arrow:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.btn-arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ===== Today/All Toggle Button (filters bar) ===== */
+.btn-today-all {
+  padding: 5px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.btn-today-all:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-today-all.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+
 /* ===== Section Toggle Button ===== */
 .btn-toggle-section {
   background: none;

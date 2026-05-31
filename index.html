@@ -81,8 +81,10 @@
 
     <!-- ====== FILTERS BAR ====== -->
     <div class="filters-bar">
-      <input type="date" id="filter-date-from" title="From date" class="filter-date-input">
-      <input type="date" id="filter-date-to" title="To date" class="filter-date-input">
+      <input type="date" id="filter-date-from" title="Filter by entry date" class="filter-date-input">
+      <button class="btn btn-sm btn-arrow" id="day-arrow-left" title="Previous day">◀</button>
+      <button class="btn btn-sm btn-arrow" id="day-arrow-right" title="Next day">▶</button>
+      <button class="btn btn-sm btn-today-all" id="btn-today-all" title="Toggle between Today and Show All">📅 Today</button>
       <select class="tag-filter" id="filter-tag">
         <option value="">All Tags</option>
       </select>
