@@ -531,6 +531,27 @@ body {
   border-color: var(--accent);
 }
 
+/* ===== Day Badge ===== */
+.day-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--accent-light);
+  color: var(--accent);
+  white-space: nowrap;
+  line-height: 1.4;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  letter-spacing: 0.02em;
+}
+
+.day-badge:empty {
+  display: none;
+}
+
 /* ===== Summary Stats ===== */
 .stats-bar {
   display: flex;

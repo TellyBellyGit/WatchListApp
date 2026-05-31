@@ -74,6 +74,7 @@ class StockWatchApp {
     this.filterDateFromVal = today;
     this.dateFilterMode = 'today';
     this._updateDayNavUI();
+    this._updateDayBadge();
 
     // Apply initial filter and render
     this.applyFilters();
@@ -325,6 +326,28 @@ class StockWatchApp {
     }
   }
 
+  // ---- Update Day Badge (day of week pill) ----
+  _updateDayBadge() {
+    const badge = document.getElementById('day-badge');
+    if (!badge) return;
+
+    if (this.dateFilterMode === 'today' && this.filterDateFromVal) {
+      const parts = this.filterDateFromVal.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0]);
+        const m = parseInt(parts[1]) - 1;
+        const d = parseInt(parts[2]);
+        const date = new Date(y, m, d);
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        badge.textContent = dayNames[date.getDay()];
+        return;
+      }
+    }
+
+    // All mode or invalid date — clear the badge (CSS hides empty)
+    badge.textContent = '';
+  }
+
   // ---- Navigate date by offset days (uses UTC to avoid timezone shifting) ----
   _navigateDay(offset) {
     if (!this.filterDateFromVal) return;
@@ -349,6 +372,7 @@ class StockWatchApp {
     this.filterDateFromVal = newDateStr;
     this.dateFilterMode = 'today';
     this._updateDayNavUI();
+    this._updateDayBadge();
     this.applyFilters();
   }
 
@@ -367,6 +391,7 @@ class StockWatchApp {
       this.filterDateFromVal = today;
     }
     this._updateDayNavUI();
+    this._updateDayBadge();
     this.applyFilters();
   }
 
@@ -404,6 +429,7 @@ class StockWatchApp {
       this.filterDateFromVal = this.filterDateFromEl.value;
       this.dateFilterMode = 'today';
       this._updateDayNavUI();
+      this._updateDayBadge();
       this.applyFilters();
     });
 
@@ -1415,6 +1441,7 @@ class StockWatchApp {
           this.filterDateFromVal = today;
           this.dateFilterMode = 'today';
           this._updateDayNavUI();
+          this._updateDayBadge();
           this.applyFilters();
           this.updateStats();
         });
