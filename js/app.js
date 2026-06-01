@@ -558,11 +558,20 @@ class StockWatchApp {
       if (results.length === 0) {
         // Try direct quote lookup if search returns nothing
         try {
-          await this._addBySymbolDirect(query);
-          this.searchInput.value = '';
+          const stockData = await finnhub.getFullStockData(query);
+          // Validate: Finnhub often returns a 0-price response for non-existent tickers
+          // Check if the data looks like a real stock (has a price > 0 or a distinct company name)
+          const isValid = (stockData.currentPrice > 0) || 
+                          (stockData.companyName && stockData.companyName.toUpperCase() !== query);
+          if (isValid) {
+            this._renderSingleSearchResult(query, stockData);
+          } else {
+            this._showNotFoundDialog(query);
+          }
           return;
         } catch {
-          this.searchResults.innerHTML = '<div style="padding:12px;color:var(--text-muted);">No results found for "' + query + '"</div>';
+          // Direct quote also failed — show "not found" dialog with manual add option
+          this._showNotFoundDialog(query);
           return;
         }
       }
@@ -640,6 +649,239 @@ class StockWatchApp {
     }
   }
 
+  // ---- Render a single search result (used when Finnhub search returns 0 but direct quote succeeds) ----
+  _renderSingleSearchResult(symbol, stockData) {
+    const allTags = [...new Set(this.entries.flatMap(e => e.tags || []))].sort();
+    const tagDatalistId = 'tag-suggestions';
+
+    this.searchResults.innerHTML = `
+      <div class="search-result-item" data-symbol="${symbol}">
+        <span class="symbol">${symbol}</span>
+        <span class="name" title="${Utils.escapeAttr(stockData.companyName || symbol)}">${Utils.escapeAttr((stockData.companyName || symbol).length > 30 ? (stockData.companyName || symbol).substring(0, 30) + '…' : (stockData.companyName || symbol))}</span>
+        <span class="exchange-badge" style="font-size:0.75rem;color:var(--text-muted);margin-left:8px;">${this._formatExchange(stockData.exchange)}</span>
+        <input type="text" class="tag-input-inline" placeholder="Tags (e.g. Pre-market)..." list="${tagDatalistId}" data-symbol="${symbol}" autocomplete="off">
+        <input type="text" class="note-input-inline" placeholder="Optional note..." data-symbol="${symbol}" maxlength="200">
+        <button class="btn btn-sm btn-add-main" data-list="main" title="Add to Main List">📋 Main</button>
+        <button class="btn btn-sm btn-add-temp" data-list="temp" title="Add to Temp List">📝 Temp</button>
+      </div>
+    `;
+
+    // Append hidden datalist for tag suggestions
+    const existingDatalist = document.getElementById(tagDatalistId);
+    if (existingDatalist) existingDatalist.remove();
+    const datalist = document.createElement('datalist');
+    datalist.id = tagDatalistId;
+    datalist.innerHTML = allTags.map(t => `<option value="${Utils.escapeAttr(t)}">`).join('');
+    this.searchResults.appendChild(datalist);
+
+    // Helper: add stock to a specific list
+    const addTo = async (listName, btn) => {
+      const item = btn.closest('.search-result-item');
+      const symbol = item.dataset.symbol;
+      const tagInput = item.querySelector('.tag-input-inline');
+      const tagStr = tagInput ? tagInput.value.trim() : '';
+      const tags = tagStr ? tagStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+      const noteInput = item.querySelector('.note-input-inline');
+      const note = noteInput ? noteInput.value.trim() : '';
+      await this._addFromExistingData(symbol, stockData, listName, tags, note);
+      if (this.listToggleMain) this.listToggleMain.classList.toggle('active', this.currentList === 'main');
+      if (this.listToggleTemp) this.listToggleTemp.classList.toggle('active', this.currentList === 'temp');
+    };
+
+    // Bind Main button
+    this.searchResults.querySelectorAll('.btn-add-main').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); addTo('main', btn); });
+    });
+
+    // Bind Temp button
+    this.searchResults.querySelectorAll('.btn-add-temp').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); addTo('temp', btn); });
+    });
+  }
+
+  // ---- Show "Not Found" dialog with manual add option ----
+  _showNotFoundDialog(symbol) {
+    this.searchResults.innerHTML = `
+      <div class="not-found-dialog" style="padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;text-align:center;">
+        <div style="font-size:1.5rem;margin-bottom:8px;">🔍</div>
+        <div style="font-weight:600;margin-bottom:4px;">Ticker Not Found</div>
+        <div style="color:var(--text-muted);margin-bottom:12px;">"${symbol}" was not found via the Finnhub API. It may be listed on an exchange not covered by Finnhub.</div>
+        <div style="margin-bottom:12px;font-size:0.85rem;color:var(--text-muted);">Would you like to add it manually?</div>
+        <div style="display:flex;gap:8px;justify-content:center;">
+          <button class="btn btn-secondary" id="not-found-cancel">Cancel</button>
+          <button class="btn btn-primary" id="not-found-manual">✏️ Add Manually</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('not-found-cancel').addEventListener('click', () => {
+      this.searchResults.innerHTML = '';
+    });
+
+    document.getElementById('not-found-manual').addEventListener('click', () => {
+      this._showManualAddForm(symbol);
+    });
+  }
+
+  // ---- Show Manual Add Form (when ticker not found via API) ----
+  _showManualAddForm(symbol) {
+    const allTags = [...new Set(this.entries.flatMap(e => e.tags || []))].sort();
+    const tagDatalistId = 'tag-suggestions-manual';
+
+    this.searchResults.innerHTML = `
+      <div class="manual-add-form" style="padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;">
+        <div style="font-weight:600;margin-bottom:12px;">✏️ Manual Add — ${symbol}</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:3px;">Symbol</label>
+            <input type="text" id="manual-symbol" value="${symbol}" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);" readonly>
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:3px;">Company Name</label>
+            <input type="text" id="manual-company-name" placeholder="e.g. My Company Inc." style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);">
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:3px;">Exchange</label>
+            <input type="text" id="manual-exchange" placeholder="e.g. NASDAQ, NYSE, OTC" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);">
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:3px;">Current Price</label>
+            <input type="number" id="manual-price" placeholder="e.g. 150.25" min="0" step="0.01" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);">
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:3px;">Tags (comma-separated)</label>
+            <input type="text" id="manual-tags" placeholder="e.g. Breakout, Momentum" list="${tagDatalistId}" autocomplete="off" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);">
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;color:var(--text-muted);margin-bottom:3px;">Notes</label>
+            <input type="text" id="manual-notes" placeholder="Optional note..." maxlength="200" style="width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
+          <button class="btn btn-secondary" id="manual-cancel">Cancel</button>
+          <button class="btn btn-sm btn-add-main" data-list="main" style="margin:0;">📋 Add to Main</button>
+          <button class="btn btn-sm btn-add-temp" data-list="temp" style="margin:0;">📝 Add to Temp</button>
+        </div>
+      </div>
+    `;
+
+    // Append hidden datalist for tag suggestions
+    const existingDatalist = document.getElementById(tagDatalistId);
+    if (existingDatalist) existingDatalist.remove();
+    const datalist = document.createElement('datalist');
+    datalist.id = tagDatalistId;
+    datalist.innerHTML = allTags.map(t => `<option value="${Utils.escapeAttr(t)}">`).join('');
+    document.getElementById('search-results').appendChild(datalist);
+
+    // Cancel button
+    document.getElementById('manual-cancel').addEventListener('click', () => {
+      this.searchResults.innerHTML = '';
+    });
+
+    // Helper to perform manual add
+    const manualAddTo = async (listName) => {
+      const sym = document.getElementById('manual-symbol').value.trim().toUpperCase();
+      const companyName = document.getElementById('manual-company-name').value.trim();
+      const exchange = document.getElementById('manual-exchange').value.trim();
+      const priceStr = document.getElementById('manual-price').value.trim();
+      const priceVal = priceStr === '' ? 0 : parseFloat(priceStr);
+      const tagsStr = document.getElementById('manual-tags').value.trim();
+      const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+      const notes = document.getElementById('manual-notes').value.trim();
+
+      if (!sym) return;
+
+      // Check cross-list duplicate
+      if (!this._checkCrossListDuplicate(sym, listName)) return;
+
+      // Build manual stock data using user-entered price
+      const stockData = {
+        symbol: sym,
+        companyName: companyName || sym,
+        exchange: exchange || '',
+        sector: '',
+        notedPrice: priceVal,
+        notedPercentChange: 0,
+        notedChange: 0,
+        notedVolume: 0,
+        notedDayHigh: priceVal,
+        notedDayLow: priceVal,
+        notedOpen: priceVal,
+        notedPreviousClose: priceVal,
+        currentPrice: priceVal,
+        currentPercentChange: 0,
+        currentChange: 0,
+        currentVolume: 0,
+        currentDayHigh: priceVal,
+        currentDayLow: priceVal,
+        currentOpen: priceVal,
+        currentPreviousClose: priceVal,
+        hasNewsOnEntry: false,
+        newsHeadlines: '',
+        quoteTimestamp: null,
+        sharesFloat: null,
+        sharesOutstanding: null,
+        impliedSharesOutstanding: null,
+        heldPercentInsiders: null,
+        heldPercentInstitutions: null,
+      };
+
+      const floatData = {
+        sharesOutstanding: null,
+        impliedSharesOutstanding: null,
+        sharesFloat: null,
+        heldPercentInsiders: null,
+        heldPercentInstitutions: null,
+      };
+
+      await this._addEntryFromData(sym, stockData, listName, tags, notes, floatData);
+
+      if (this.listToggleMain) this.listToggleMain.classList.toggle('active', this.currentList === 'main');
+      if (this.listToggleTemp) this.listToggleTemp.classList.toggle('active', this.currentList === 'temp');
+    };
+
+    // Bind Main button
+    this.searchResults.querySelector('.btn-add-main').addEventListener('click', () => manualAddTo('main'));
+
+    // Bind Temp button
+    this.searchResults.querySelector('.btn-add-temp').addEventListener('click', () => manualAddTo('temp'));
+
+    // Enter key on notes field submits to current list
+    document.getElementById('manual-notes').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') manualAddTo(this.currentList);
+    });
+  }
+
+  // ---- Add from pre-fetched data without refetching (used by single result card) ----
+  async _addFromExistingData(symbol, stockData, listName, tags = [], note = '') {
+    // Check cross-list duplicate
+    if (!this._checkCrossListDuplicate(symbol, listName)) return;
+
+    const floatData = {
+      sharesOutstanding: null,
+      impliedSharesOutstanding: null,
+      sharesFloat: null,
+      heldPercentInsiders: null,
+      heldPercentInstitutions: null,
+    };
+    await this._addEntryFromData(symbol, stockData, listName, tags, note, floatData);
+  }
+
+  // ---- Check cross-list duplicate: return true if allowed, false if blocked ----
+  _checkCrossListDuplicate(symbol, listName) {
+    const sym = symbol.toUpperCase();
+    const targetList = listName || 'main';
+    const otherList = targetList === 'main' ? 'temp' : 'main';
+
+    const existsInTarget = this.entries.some(e => e.symbol.toUpperCase() === sym && (e.list || 'main') === targetList);
+    if (existsInTarget) {
+      Utils.showToast(`${sym} is already in the ${targetList === 'main' ? 'Main' : 'Temp'} list. Try adding it to the ${otherList === 'main' ? 'Main' : 'Temp'} list instead.`, 'error', 5000);
+      return false;
+    }
+
+    return true;
+  }
+
   // ---- Fetch data, then show float popup for confirmation ----
   async _fetchAndConfirmAdd(symbol, listName, tags = [], note = '') {
     if (!ConfigManager.hasFinnhubKey()) {
@@ -647,12 +889,8 @@ class StockWatchApp {
       return;
     }
 
-    // Check if already in list
-    const exists = this.entries.some(e => e.symbol.toUpperCase() === symbol.toUpperCase());
-    if (exists) {
-      Utils.showToast(`${symbol.toUpperCase()} is already in your watch list`, 'error');
-      return;
-    }
+    // Check cross-list duplicate
+    if (!this._checkCrossListDuplicate(symbol, listName)) return;
 
     this._showLoading(`Fetching ${symbol.toUpperCase()}...`);
 
@@ -791,19 +1029,8 @@ class StockWatchApp {
     const isOTC = this._isOTC(entry.exchange);
     entry.isOTC = isOTC;
 
-    if (isOTC) {
-      this._startPolling(symbol);
-      Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — OTC polling active (${entry.exchange || '?'})`);
-    } else {
-      const subResult = wsClient.subscribe(symbol);
-      if (subResult && subResult.success) {
-        Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — live prices active`);
-      } else if (subResult && subResult.reason === 'limit') {
-        Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — WebSocket full (${subResult.current}/${subResult.max})`, 'error', 4000);
-      } else {
-        Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list`);
-      }
-    }
+    // No auto WebSocket subscription or polling — user must manually enable via WebS column button
+    Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — click WebS dot to enable live prices`);
 
     this.currentList = listName;
     this.applyFilters();
@@ -819,12 +1046,8 @@ class StockWatchApp {
       return;
     }
 
-    // Check if already in list
-    const exists = this.entries.some(e => e.symbol.toUpperCase() === symbol.toUpperCase());
-    if (exists) {
-      Utils.showToast(`${symbol.toUpperCase()} is already in your watch list`, 'error');
-      return;
-    }
+    // Check cross-list duplicate
+    if (!this._checkCrossListDuplicate(symbol, this.currentList)) return;
 
     const listLabel = this.currentList === 'main' ? 'Main' : 'Temp';
     this._showLoading('Fetching ' + symbol.toUpperCase() + '...');
@@ -847,25 +1070,12 @@ class StockWatchApp {
 
       this._hideLoading();
 
-      // Detect OTC stocks — skip WebSocket, use polling instead
+      // Detect OTC stocks
       const isOTC = this._isOTC(entry.exchange);
       entry.isOTC = isOTC;
 
-      if (isOTC) {
-        // OTC: start polling automatically
-        this._startPolling(symbol);
-        Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — OTC polling active (${entry.exchange || '?'})`);
-      } else {
-        // Regular: auto-subscribe to WebSocket (if < 30 slots)
-        const subResult = wsClient.subscribe(symbol);
-        if (subResult && subResult.success) {
-          Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — live prices active`);
-        } else if (subResult && subResult.reason === 'limit') {
-          Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — WebSocket full (${subResult.current}/${subResult.max})`, 'error', 4000);
-        } else {
-          Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list`);
-        }
-      }
+      // No auto WebSocket subscription or polling — user must manually enable via WebS column button
+      Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — click WebS dot to enable live prices`);
 
       this.applyFilters();
       this.updateStats();
