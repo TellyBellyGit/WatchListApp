@@ -55,5 +55,32 @@ const ConfigManager = {
     const config = this.get() || {};
     config.finnhubKey = key;
     this.save(config);
+  },
+
+  // ---- Check if Alpha Vantage key is configured ----
+  hasAlphaVantageKey() {
+    const config = this.get();
+    if (config && config.alphaVantageKey && config.alphaVantageKey !== 'YOUR_ALPHA_VANTAGE_API_KEY_HERE') return true;
+    // Fallback to global var for local dev with config.js
+    if (typeof ALPHA_VANTAGE_API_KEY !== 'undefined' && ALPHA_VANTAGE_API_KEY && ALPHA_VANTAGE_API_KEY !== 'YOUR_ALPHA_VANTAGE_API_KEY_HERE') return true;
+    return false;
+  },
+
+  // ---- Get Alpha Vantage key (tries localStorage first, then global var) ----
+  getAlphaVantageKey() {
+    const config = this.get();
+    if (config && config.alphaVantageKey) return config.alphaVantageKey;
+    // Fallback to global var for local dev with config.js
+    if (typeof ALPHA_VANTAGE_API_KEY !== 'undefined' && ALPHA_VANTAGE_API_KEY !== 'YOUR_ALPHA_VANTAGE_API_KEY_HERE') {
+      return ALPHA_VANTAGE_API_KEY;
+    }
+    return null;
+  },
+
+  // ---- Save Alpha Vantage key ----
+  saveAlphaVantageKey(key) {
+    const config = this.get() || {};
+    config.alphaVantageKey = key;
+    this.save(config);
   }
 };

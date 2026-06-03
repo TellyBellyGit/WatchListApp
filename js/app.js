@@ -344,14 +344,13 @@ class StockWatchApp {
     if (this.dayArrowLeft) this.dayArrowLeft.disabled = !isToday;
     if (this.dayArrowRight) this.dayArrowRight.disabled = !isToday;
 
-    // Today/All toggle button
+    // All toggle button — always says "📅 All", blue background when All mode is ON
     if (this.btnTodayAll) {
+      this.btnTodayAll.textContent = '📅 All';
       if (isToday) {
-        this.btnTodayAll.textContent = '📅 Today';
-        this.btnTodayAll.classList.add('active');
-      } else {
-        this.btnTodayAll.textContent = '🌐 All';
         this.btnTodayAll.classList.remove('active');
+      } else {
+        this.btnTodayAll.classList.add('active');
       }
     }
   }
@@ -1047,13 +1046,31 @@ class StockWatchApp {
     // Check cross-list duplicate
     if (!this._checkCrossListDuplicate(symbol, listName)) return;
 
-    const floatData = {
+    // Try Alpha Vantage for float data (non-blocking; fall back to null)
+    let floatData = {
       sharesOutstanding: null,
       impliedSharesOutstanding: null,
       sharesFloat: null,
       heldPercentInsiders: null,
       heldPercentInstitutions: null,
     };
+
+    const av = alphavantage;
+    if (av) {
+      try {
+        const avData = await av.getFloatData(symbol);
+        if (avData && !avData._error) {
+          // Enrich stockData with Alpha Vantage fundamentals
+          if (avData.sector && !stockData.sector) stockData.sector = avData.sector;
+          if (avData.companyName && stockData.companyName === symbol.toUpperCase()) stockData.companyName = avData.companyName;
+          if (avData.exchange && !stockData.exchange) stockData.exchange = avData.exchange;
+          floatData = avData;
+        }
+      } catch (err) {
+        console.warn(`[App] Alpha Vantage exception in _addFromExistingData for ${symbol}:`, err.message);
+      }
+    }
+
     await this._addEntryFromData(symbol, stockData, listName, tags, note, floatData);
   }
 
@@ -1079,7 +1096,7 @@ class StockWatchApp {
     return true;
   }
 
-  // ---- Fetch data, then show float popup for confirmation ----
+  // ---- Fetch data with Alpha Vantage → Finnhub fallback ----
   async _fetchAndConfirmAdd(symbol, listName, tags = [], note = '') {
     if (!ConfigManager.hasFinnhubKey()) {
       Utils.showToast('No Finnhub API key configured. Click the ⚙️ settings icon to add one.', 'error');
@@ -1091,18 +1108,53 @@ class StockWatchApp {
 
     this._showLoading(`Fetching ${symbol.toUpperCase()}...`);
 
+    // Step 1: Try Alpha Vantage for float/fundamental data
+    let avData = null;
+    const sym = symbol.toUpperCase();
+    const av = alphavantage;
+    if (av) {
+      try {
+        avData = await av.getFloatData(sym);
+        if (avData._error) {
+          console.warn(`[App] Alpha Vantage failed for ${sym}: ${avData._reason}, falling back to Finnhub only`);
+          avData = null;
+        }
+      } catch (err) {
+        console.warn(`[App] Alpha Vantage exception for ${sym}:`, err.message);
+        avData = null;
+      }
+    }
+
+    // Step 2: Fetch Finnhub data (always needed for price/quote)
     const stockData = await finnhub.getFullStockData(symbol);
     this._hideLoading();
 
-    // Float popup disabled — add directly with null float data
-    const floatData = {
-      sharesOutstanding: null,
-      impliedSharesOutstanding: null,
-      sharesFloat: null,
-      heldPercentInsiders: null,
-      heldPercentInstitutions: null,
-    };
-    await this._addEntryFromData(symbol, stockData, listName, tags, note, floatData);
+    // Step 3: Merge — use Alpha Vantage float data if available, enrich sector/name
+    if (avData && !avData._error) {
+      // Use Alpha Vantage fundamental data where Finnhub may be sparse
+      if (avData.sector && !stockData.sector) stockData.sector = avData.sector;
+      if (avData.companyName && stockData.companyName === sym) stockData.companyName = avData.companyName;
+      if (avData.exchange && !stockData.exchange) stockData.exchange = avData.exchange;
+
+      const floatData = {
+        sharesOutstanding: avData.sharesOutstanding,
+        impliedSharesOutstanding: avData.impliedSharesOutstanding,
+        sharesFloat: avData.sharesFloat,
+        heldPercentInsiders: avData.heldPercentInsiders,
+        heldPercentInstitutions: avData.heldPercentInstitutions,
+      };
+      await this._addEntryFromData(symbol, stockData, listName, tags, note, floatData);
+    } else {
+      // Alpha Vantage unavailable or failed — add with null float (user can edit manually)
+      const floatData = {
+        sharesOutstanding: null,
+        impliedSharesOutstanding: null,
+        sharesFloat: null,
+        heldPercentInsiders: null,
+        heldPercentInstitutions: null,
+      };
+      await this._addEntryFromData(symbol, stockData, listName, tags, note, floatData);
+    }
   }
 
   // ---- Show Float Data Popup (manual entry) ----
@@ -1231,7 +1283,7 @@ class StockWatchApp {
     this.searchResults.innerHTML = '';
   }
 
-  // ---- Add Stock by Symbol Directly ----
+  // ---- Add Stock by Symbol Directly (Alpha Vantage → Finnhub fallback) ----
   async _addBySymbolDirect(symbol, note = '', tags = []) {
     if (!ConfigManager.hasFinnhubKey()) {
       Utils.showToast('No Finnhub API key configured. Click the ⚙️ settings icon to add one.', 'error');
@@ -1245,11 +1297,37 @@ class StockWatchApp {
     this._showLoading('Fetching ' + symbol.toUpperCase() + '...');
 
     try {
+      const sym = symbol.toUpperCase();
+
+      // Try Alpha Vantage for float data (non-blocking)
+      let avData = null;
+      const av = alphavantage;
+      if (av) {
+        try {
+          avData = await av.getFloatData(sym);
+          if (avData._error) avData = null;
+        } catch (err) {
+          console.warn(`[App] Alpha Vantage exception in _addBySymbolDirect for ${sym}:`, err.message);
+        }
+      }
+
       const stockData = await finnhub.getFullStockData(symbol);
+
+      // Merge Alpha Vantage data if available
+      if (avData && !avData._error) {
+        if (avData.sector && !stockData.sector) stockData.sector = avData.sector;
+        if (avData.companyName && stockData.companyName === sym) stockData.companyName = avData.companyName;
+        if (avData.exchange && !stockData.exchange) stockData.exchange = avData.exchange;
+      }
 
       // Build entry with EST timestamp, list assignment, tags, and optional note
       const entry = {
         ...stockData,
+        sharesOutstanding: avData ? avData.sharesOutstanding : null,
+        impliedSharesOutstanding: avData ? avData.impliedSharesOutstanding : null,
+        sharesFloat: avData ? avData.sharesFloat : null,
+        heldPercentInsiders: avData ? avData.heldPercentInsiders : null,
+        heldPercentInstitutions: avData ? avData.heldPercentInstitutions : null,
         entryDateEST: Utils.getCurrentESTISO(),
         notes: note,
         tags: tags,
@@ -1794,6 +1872,7 @@ class StockWatchApp {
     const overlay = document.getElementById('setup-overlay');
     const errorEl = document.getElementById('setup-error');
     const finnhubInput = document.getElementById('setup-finnhub-key');
+    const avInput = document.getElementById('setup-alphavantage-key');
     const saveBtn = document.getElementById('setup-save');
 
     overlay.style.display = 'flex';
@@ -1803,15 +1882,17 @@ class StockWatchApp {
       const config = ConfigManager.get();
       if (config) {
         finnhubInput.value = config.finnhubKey || '';
+        if (avInput) avInput.value = config.alphaVantageKey || '';
       }
       document.querySelector('.setup-header h2').textContent = '⚙️ API Settings';
-      document.querySelector('.setup-header p').textContent = 'Update your Finnhub API key. Cloud sync via Firebase is always on.';
+      document.querySelector('.setup-header p').textContent = 'Update your API keys. Cloud sync via Firebase is always on.';
       saveBtn.textContent = 'Save Changes';
     }
 
     // Save handler
     const saveHandler = () => {
       const finnhubKey = finnhubInput.value.trim();
+      const avKey = avInput ? avInput.value.trim() : '';
 
       if (!finnhubKey) {
         errorEl.textContent = 'Finnhub API key is required to use this app.';
@@ -1823,13 +1904,21 @@ class StockWatchApp {
 
       // Save to localStorage
       ConfigManager.saveFinnhubKey(finnhubKey);
+      if (avKey) {
+        ConfigManager.saveAlphaVantageKey(avKey);
+      }
 
       overlay.style.display = 'none';
 
-      // Reset the finnhub singleton so it picks up the new key
+      // Reset singletons so they pick up the new keys
       delete window._finnhub;
       Object.defineProperty(window, 'finnhub', {
         get() { return getFinnhub(); },
+        configurable: true
+      });
+      delete window._alphavantage;
+      Object.defineProperty(window, 'alphavantage', {
+        get() { return getAlphaVantage(); },
         configurable: true
       });
 
