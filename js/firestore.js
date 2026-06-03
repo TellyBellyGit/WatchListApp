@@ -226,6 +226,96 @@ class DataStore {
     return this.mode === 'firestore';
   }
 
+  // ==========================================================================
+  // Daily Notes — keyed by date string "YYYY-MM-DD"
+  // ==========================================================================
+
+  // ---- Get a daily note by date ----
+  async getDailyNote(dateStr) {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        const doc = await this.db.collection('daily_notes').doc(dateStr).get();
+        if (doc.exists) {
+          return { date: dateStr, ...doc.data() };
+        }
+        return null;
+      } catch (e) {
+        console.warn('[DataStore] Failed to get daily note:', e.message);
+        return this._getLocalNote(dateStr);
+      }
+    } else {
+      return this._getLocalNote(dateStr);
+    }
+  }
+
+  // ---- Save a daily note ----
+  async saveDailyNote(dateStr, data) {
+    await this._ensureInit();
+    const doc = {
+      content: data.content || '',
+      sentiment: data.sentiment || null,  // 'bullish' | 'neutral' | 'bearish'
+      updatedAt: new Date().toISOString()
+    };
+
+    if (this.mode === 'firestore') {
+      try {
+        await this.db.collection('daily_notes').doc(dateStr).set(doc, { merge: true });
+      } catch (e) {
+        console.warn('[DataStore] Failed to save daily note to Firestore, falling back to local:', e.message);
+        this._setLocalNote(dateStr, doc);
+      }
+    } else {
+      this._setLocalNote(dateStr, doc);
+    }
+  }
+
+  // ---- Get all dates that have notes (for indicator dots) ----
+  async getAllNoteDates() {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        const snapshot = await this.db.collection('daily_notes').get();
+        const dates = [];
+        snapshot.forEach(doc => dates.push(doc.id));
+        return dates;
+      } catch (e) {
+        console.warn('[DataStore] Failed to get all note dates:', e.message);
+        return Object.keys(this._getLocalNotes());
+      }
+    } else {
+      return Object.keys(this._getLocalNotes());
+    }
+  }
+
+  // ---- Local Storage Helpers for Daily Notes ----
+  _getLocalNotes() {
+    try {
+      const raw = localStorage.getItem('stockwatchlist_daily_notes');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  _setLocalNotes(notes) {
+    localStorage.setItem('stockwatchlist_daily_notes', JSON.stringify(notes));
+  }
+
+  _getLocalNote(dateStr) {
+    const notes = this._getLocalNotes();
+    if (notes[dateStr]) {
+      return { date: dateStr, ...notes[dateStr] };
+    }
+    return null;
+  }
+
+  _setLocalNote(dateStr, data) {
+    const notes = this._getLocalNotes();
+    notes[dateStr] = { ...notes[dateStr], ...data };
+    this._setLocalNotes(notes);
+  }
+
   // ---- Local Storage Helpers (fallback/cache) ----
   _getLocal() {
     try {

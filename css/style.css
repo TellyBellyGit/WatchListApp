@@ -1495,3 +1495,377 @@ tbody tr:hover {
 .float-popup-actions .btn {
   min-width: 140px;
 }
+
+/* ==========================================================================
+   Daily Notes Panel
+   ========================================================================== */
+.daily-notes-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.daily-notes-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.daily-notes-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.daily-notes-date {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.daily-notes-sentiment {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.daily-notes-sentiment.bullish {
+  background: var(--positive-bg);
+  color: var(--positive);
+}
+
+.daily-notes-sentiment.neutral {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.daily-notes-sentiment.bearish {
+  background: var(--negative-bg);
+  color: var(--negative);
+}
+
+.daily-notes-word-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.daily-notes-edit-btn {
+  font-size: 0.8rem;
+  padding: 4px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: all var(--transition);
+}
+
+.daily-notes-edit-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.daily-notes-content {
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-height: 350px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.daily-notes-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  display: block;
+  margin: 12px 0;
+  border: 1px solid var(--border-color);
+}
+
+.daily-notes-content .empty-notes {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 0.85rem;
+}
+
+.daily-notes-content h1,
+.daily-notes-content h2,
+.daily-notes-content h3 {
+  color: var(--text-primary);
+  margin: 16px 0 8px 0;
+  font-weight: 600;
+}
+
+.daily-notes-content h1 { font-size: 1.2rem; }
+.daily-notes-content h2 { font-size: 1.05rem; }
+.daily-notes-content h3 { font-size: 0.95rem; }
+
+.daily-notes-content strong,
+.daily-notes-content b {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.daily-notes-content ul,
+.daily-notes-content ol {
+  padding-left: 24px;
+  margin: 8px 0;
+}
+
+.daily-notes-content li {
+  margin-bottom: 4px;
+}
+
+.daily-notes-content code {
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.85em;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+}
+
+.daily-notes-content pre {
+  background: var(--bg-tertiary);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+  font-size: 0.85em;
+  margin: 12px 0;
+}
+
+.daily-notes-content blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  color: var(--text-muted);
+  margin: 12px 0;
+}
+
+.daily-notes-content a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.daily-notes-close {
+  display: block;
+  margin-top: 12px;
+  font-size: 0.78rem;
+  padding: 3px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--transition);
+}
+
+.daily-notes-close:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+/* Daily notes button — blue background when today has a note */
+.btn-notes-toggle.has-note {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+/* ==========================================================================
+   Notes Editor Modal
+   ========================================================================== */
+.notes-editor-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.notes-editor-modal {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+}
+
+.notes-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.notes-editor-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.notes-editor-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.notes-editor-save-status {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.notes-editor-save-status.saved {
+  color: var(--positive);
+}
+
+.notes-editor-save-status.unsaved {
+  color: var(--warning);
+}
+
+.notes-editor-sentiment-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.notes-editor-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.sentiment-btn {
+  font-size: 0.78rem;
+  padding: 4px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--transition);
+}
+
+.sentiment-btn:hover {
+  border-color: var(--accent);
+}
+
+.sentiment-btn.active[data-sentiment="bullish"] {
+  background: var(--positive-bg);
+  color: var(--positive);
+  border-color: var(--positive);
+}
+
+.sentiment-btn.active[data-sentiment="neutral"] {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.sentiment-btn.active[data-sentiment="bearish"] {
+  background: var(--negative-bg);
+  color: var(--negative);
+  border-color: var(--negative);
+}
+
+.notes-editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  flex-wrap: wrap;
+}
+
+.fmt-btn {
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--transition);
+}
+
+.fmt-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.fmt-btn[data-fmt="bold"] { font-weight: 800; }
+.fmt-btn[data-fmt="italic"] { font-style: italic; }
+.fmt-btn[data-fmt="code"] { font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace; }
+
+.notes-editor-textarea {
+  flex: 1;
+  min-height: 350px;
+  padding: 20px;
+  border: none;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  resize: vertical;
+  outline: none;
+}
+
+.notes-editor-textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.notes-editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  border-top: 1px solid var(--border-color);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.notes-editor-char-count {
+  color: var(--text-muted);
+}
+
+.notes-editor-hint {
+  color: var(--text-muted);
+  opacity: 0.7;
+}

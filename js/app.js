@@ -34,6 +34,32 @@ class StockWatchApp {
     this.loadingOverlay = document.getElementById('loading-overlay');
     this.listToggleMain = document.getElementById('list-toggle-main');
     this.listToggleTemp = document.getElementById('list-toggle-temp');
+
+    // Daily Notes refs
+    this.dailyNotesPanel = document.getElementById('daily-notes-panel');
+    this.dailyNotesContent = document.getElementById('daily-notes-content');
+    this.dailyNotesDate = document.getElementById('daily-notes-date');
+    this.dailyNotesSentiment = document.getElementById('daily-notes-sentiment');
+    this.dailyNotesWordCount = document.getElementById('daily-notes-word-count');
+    this.btnDailyNotes = document.getElementById('btn-daily-notes');
+    this.dailyNotesEditBtn = document.getElementById('daily-notes-edit-btn');
+    this.dailyNotesClose = document.getElementById('daily-notes-close');
+    this.notesEditorOverlay = document.getElementById('notes-editor-overlay');
+    this.notesEditorTextarea = document.getElementById('notes-editor-textarea');
+    this.notesEditorDate = document.getElementById('notes-editor-date');
+    this.notesEditorSaveStatus = document.getElementById('notes-editor-save-status');
+    this.notesEditorCharCount = document.getElementById('notes-editor-char-count');
+    this.notesEditorClose = document.getElementById('notes-editor-close');
+    this.sentimentBullish = document.getElementById('sentiment-bullish');
+    this.sentimentNeutral = document.getElementById('sentiment-neutral');
+    this.sentimentBearish = document.getElementById('sentiment-bearish');
+
+    // Daily Notes state
+    this._dailyNoteDates = new Set();     // dates that have notes (for indicator dots)
+    this._dailyNoteSentiment = null;       // current sentiment for open editor
+    this._dailyNoteSaveTimer = null;       // debounce timer for auto-save
+    this._dailyNoteDirty = false;          // unsaved changes flag
+    this._dailyNoteDisplayDate = null;     // date currently shown in panel
   }
 
   // ---- Initialize ----
@@ -75,6 +101,9 @@ class StockWatchApp {
     this.dateFilterMode = 'today';
     this._updateDayNavUI();
     this._updateDayBadge();
+
+    // Init daily notes system
+    await this._initDailyNotes();
 
     // Apply initial filter and render
     this.applyFilters();
@@ -403,15 +432,6 @@ class StockWatchApp {
     });
     this.searchBtn.addEventListener('click', () => this.searchSymbol());
 
-    // Debounced search on input
-    this.searchInput.addEventListener('input', Utils.debounce(() => {
-      if (this.searchInput.value.length >= 2) {
-        this.searchSymbol();
-      } else {
-        this.searchResults.innerHTML = '';
-      }
-    }, 400));
-
     // Refresh
     this.refreshBtn.addEventListener('click', () => this.refreshAllPrices());
 
@@ -515,6 +535,64 @@ class StockWatchApp {
         localStorage.setItem('stockwatchlist_add-section-collapsed', collapsed);
       });
     }
+
+    // Daily Notes button — toggle editor
+    if (this.btnDailyNotes) {
+      this.btnDailyNotes.addEventListener('click', () => this._openDailyNotesEditor());
+    }
+
+    // Daily Notes Edit button in panel
+    if (this.dailyNotesEditBtn) {
+      this.dailyNotesEditBtn.addEventListener('click', () => this._openDailyNotesEditor());
+    }
+
+    // Daily Notes Hide button
+    if (this.dailyNotesClose) {
+      this.dailyNotesClose.addEventListener('click', () => this._hideDailyNotesPanel());
+    }
+
+    // Notes Editor — Close button
+    if (this.notesEditorClose) {
+      this.notesEditorClose.addEventListener('click', () => this._closeDailyNotesEditor());
+    }
+
+    // Notes Editor — Close on overlay click
+    if (this.notesEditorOverlay) {
+      this.notesEditorOverlay.addEventListener('click', (e) => {
+        if (e.target === this.notesEditorOverlay) {
+          this._closeDailyNotesEditor();
+        }
+      });
+    }
+
+    // Notes Editor — auto-save on input with debounce
+    if (this.notesEditorTextarea) {
+      this.notesEditorTextarea.addEventListener('input', () => this._onNoteEditorInput());
+      // Word/char counter
+      this.notesEditorTextarea.addEventListener('input', () => this._updateNoteCharCount());
+    }
+
+    // Formatting toolbar buttons
+    const toolbar = document.getElementById('notes-editor-toolbar');
+    if (toolbar) {
+      toolbar.addEventListener('click', (e) => {
+        const btn = e.target.closest('.fmt-btn');
+        if (!btn) return;
+        const fmt = btn.dataset.fmt;
+        this._applyFormatting(fmt);
+      });
+    }
+
+    // Sentiment buttons
+    if (this.sentimentBullish) {
+      this.sentimentBullish.addEventListener('click', () => this._setSentiment('bullish'));
+    }
+    if (this.sentimentNeutral) {
+      this.sentimentNeutral.addEventListener('click', () => this._setSentiment('neutral'));
+    }
+    if (this.sentimentBearish) {
+      this.sentimentBearish.addEventListener('click', () => this._setSentiment('bearish'));
+    }
   }
 
   // ---- Init Add-Stock Section Toggle State ----
@@ -549,16 +627,42 @@ class StockWatchApp {
       return;
     }
 
-    this.searchResults.innerHTML = '<div style="padding:12px;color:var(--text-muted);"><span class="spinner"></span> Searching...</div>';
+    // Disable search input & button during search
+    this.searchInput.disabled = true;
+    this.searchBtn.disabled = true;
+    this._searchCancelled = false;
+
+    // Show cancelable "retrieving data" overlay
+    this.searchResults.innerHTML = `
+      <div class="search-loading-overlay" style="padding:24px;text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:8px;">
+        <span class="spinner" style="display:inline-block;margin-bottom:12px;"></span>
+        <div style="font-weight:600;margin-bottom:8px;">Retrieving data for ${query}...</div>
+        <button class="btn btn-secondary" id="search-cancel-btn">Cancel</button>
+      </div>
+    `;
+
+    // Bind cancel button
+    const cancelBtn = document.getElementById('search-cancel-btn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        this._searchCancelled = true;
+        this.searchResults.innerHTML = '';
+        this._enableSearchInput();
+      });
+    }
 
     try {
       const result = await finnhub.searchSymbol(query);
+      if (this._searchCancelled) return;
+
       const results = (result.result || []).filter(r => r.type === 'Common Stock' && !r.symbol.includes('.'));
 
       if (results.length === 0) {
         // Try direct quote lookup if search returns nothing
         try {
           const stockData = await finnhub.getFullStockData(query);
+          if (this._searchCancelled) return;
+
           // Validate: Finnhub often returns a 0-price response for non-existent tickers
           // Check if the data looks like a real stock (has a price > 0 or a distinct company name)
           const isValid = (stockData.currentPrice > 0) || 
@@ -568,13 +672,18 @@ class StockWatchApp {
           } else {
             this._showNotFoundDialog(query);
           }
+          this._enableSearchInput();
           return;
         } catch {
+          if (this._searchCancelled) return;
           // Direct quote also failed — show "not found" dialog with manual add option
           this._showNotFoundDialog(query);
+          this._enableSearchInput();
           return;
         }
       }
+
+      if (this._searchCancelled) return;
 
       // Collect all unique tags from existing entries for the datalist
       const allTags = [...new Set(this.entries.flatMap(e => e.tags || []))].sort();
@@ -612,10 +721,35 @@ class StockWatchApp {
         const tags = tagStr ? tagStr.split(',').map(t => t.trim()).filter(Boolean) : [];
         const noteInput = item.querySelector('.note-input-inline');
         const note = noteInput ? noteInput.value.trim() : '';
-        await this._fetchAndConfirmAdd(symbol, listName, tags, note);
-        // Update toggle buttons to reflect the active list
-        if (this.listToggleMain) this.listToggleMain.classList.toggle('active', this.currentList === 'main');
-        if (this.listToggleTemp) this.listToggleTemp.classList.toggle('active', this.currentList === 'temp');
+
+        // Immediately disable card to prevent duplicate clicks and give instant feedback
+        const originalBtnText = btn.textContent;
+        item.querySelectorAll('button').forEach(b => b.disabled = true);
+        btn.textContent = '\u23F3 Adding\u2026';
+        item.querySelectorAll('input').forEach(i => i.disabled = true);
+        item.style.opacity = '0.5';
+        item.style.pointerEvents = 'none';
+
+        const enableCard = () => {
+          if (!item.isConnected) return; // card already removed on success
+          item.querySelectorAll('button').forEach(b => b.disabled = false);
+          btn.textContent = originalBtnText;
+          item.querySelectorAll('input').forEach(i => i.disabled = false);
+          item.style.opacity = '1';
+          item.style.pointerEvents = 'auto';
+        };
+
+        try {
+          await this._fetchAndConfirmAdd(symbol, listName, tags, note);
+          enableCard(); // re-enables if add was aborted (e.g. duplicate)
+          // Update toggle buttons to reflect the active list
+          if (this.listToggleMain) this.listToggleMain.classList.toggle('active', this.currentList === 'main');
+          if (this.listToggleTemp) this.listToggleTemp.classList.toggle('active', this.currentList === 'temp');
+        } catch (error) {
+          enableCard();
+          this._hideLoading();
+          Utils.showToast(error.message, 'error');
+        }
       };
 
       // Bind Main button
@@ -644,9 +778,20 @@ class StockWatchApp {
         // Prevent click on input from bubbling up
         input.addEventListener('click', (e) => e.stopPropagation());
       });
+
+      this._enableSearchInput();
     } catch (error) {
+      if (this._searchCancelled) return;
       this.searchResults.innerHTML = `<div style="padding:12px;color:var(--negative);">Error: ${error.message}</div>`;
+      this._enableSearchInput();
     }
+  }
+
+  // ---- Re-enable search input & button, focus cursor ----
+  _enableSearchInput() {
+    this.searchInput.disabled = false;
+    this.searchBtn.disabled = false;
+    this.searchInput.focus();
   }
 
   // ---- Render a single search result (used when Finnhub search returns 0 but direct quote succeeds) ----
@@ -683,9 +828,34 @@ class StockWatchApp {
       const tags = tagStr ? tagStr.split(',').map(t => t.trim()).filter(Boolean) : [];
       const noteInput = item.querySelector('.note-input-inline');
       const note = noteInput ? noteInput.value.trim() : '';
-      await this._addFromExistingData(symbol, stockData, listName, tags, note);
-      if (this.listToggleMain) this.listToggleMain.classList.toggle('active', this.currentList === 'main');
-      if (this.listToggleTemp) this.listToggleTemp.classList.toggle('active', this.currentList === 'temp');
+
+      // Immediately disable card to prevent duplicate clicks and give instant feedback
+      const originalBtnText = btn.textContent;
+      item.querySelectorAll('button').forEach(b => b.disabled = true);
+      btn.textContent = '\u23F3 Adding\u2026';
+      item.querySelectorAll('input').forEach(i => i.disabled = true);
+      item.style.opacity = '0.5';
+      item.style.pointerEvents = 'none';
+
+      const enableCard = () => {
+        if (!item.isConnected) return; // card already removed on success
+        item.querySelectorAll('button').forEach(b => b.disabled = false);
+        btn.textContent = originalBtnText;
+        item.querySelectorAll('input').forEach(i => i.disabled = false);
+        item.style.opacity = '1';
+        item.style.pointerEvents = 'auto';
+      };
+
+      try {
+        await this._addFromExistingData(symbol, stockData, listName, tags, note);
+        enableCard(); // re-enables if add was aborted (e.g. duplicate)
+        if (this.listToggleMain) this.listToggleMain.classList.toggle('active', this.currentList === 'main');
+        if (this.listToggleTemp) this.listToggleTemp.classList.toggle('active', this.currentList === 'temp');
+      } catch (error) {
+        enableCard();
+        this._hideLoading();
+        Utils.showToast(error.message, 'error');
+      }
     };
 
     // Bind Main button
@@ -868,14 +1038,21 @@ class StockWatchApp {
   }
 
   // ---- Check cross-list duplicate: return true if allowed, false if blocked ----
+  // Allows the same ticker in the same list as long as the entry date is different.
   _checkCrossListDuplicate(symbol, listName) {
     const sym = symbol.toUpperCase();
     const targetList = listName || 'main';
-    const otherList = targetList === 'main' ? 'temp' : 'main';
+    const todayEST = Utils.formatESTDateOnly(new Date());
 
-    const existsInTarget = this.entries.some(e => e.symbol.toUpperCase() === sym && (e.list || 'main') === targetList);
+    const existsInTarget = this.entries.some(e => {
+      if (e.symbol.toUpperCase() !== sym) return false;
+      if ((e.list || 'main') !== targetList) return false;
+      const entryDate = Utils.formatESTDateOnly(e.entryDateEST || e.createdAt);
+      return entryDate === todayEST;
+    });
+
     if (existsInTarget) {
-      Utils.showToast(`${sym} is already in the ${targetList === 'main' ? 'Main' : 'Temp'} list. Try adding it to the ${otherList === 'main' ? 'Main' : 'Temp'} list instead.`, 'error', 5000);
+      Utils.showToast(`${sym} is already in the ${targetList === 'main' ? 'Main' : 'Temp'} list for ${todayEST}. It can be added again on a different date.`, 'error', 5000);
       return false;
     }
 
@@ -894,23 +1071,18 @@ class StockWatchApp {
 
     this._showLoading(`Fetching ${symbol.toUpperCase()}...`);
 
-    try {
-      const stockData = await finnhub.getFullStockData(symbol);
-      this._hideLoading();
+    const stockData = await finnhub.getFullStockData(symbol);
+    this._hideLoading();
 
-      // Float popup disabled — add directly with null float data
-      const floatData = {
-        sharesOutstanding: null,
-        impliedSharesOutstanding: null,
-        sharesFloat: null,
-        heldPercentInsiders: null,
-        heldPercentInstitutions: null,
-      };
-      await this._addEntryFromData(symbol, stockData, listName, tags, note, floatData);
-    } catch (error) {
-      this._hideLoading();
-      Utils.showToast(error.message, 'error');
-    }
+    // Float popup disabled — add directly with null float data
+    const floatData = {
+      sharesOutstanding: null,
+      impliedSharesOutstanding: null,
+      sharesFloat: null,
+      heldPercentInsiders: null,
+      heldPercentInstitutions: null,
+    };
+    await this._addEntryFromData(symbol, stockData, listName, tags, note, floatData);
   }
 
   // ---- Show Float Data Popup (manual entry) ----
@@ -1128,6 +1300,7 @@ class StockWatchApp {
     this.filteredEntries = filtered;
     this._applySort();
     this.render();
+    this._updateNotesButtonIndicator();
   }
 
   // ---- Update the tag filter dropdown with all available tags ----
@@ -1668,6 +1841,357 @@ class StockWatchApp {
         if (e.key === 'Enter') boundSave();
       });
     });
+  }
+
+  // ==========================================================================
+  // Daily Notes Methods
+  // ==========================================================================
+
+  // ---- Initialize daily notes (called once at boot) ----
+  async _initDailyNotes() {
+    try {
+      const dates = await dataStore.getAllNoteDates();
+      this._dailyNoteDates = new Set(dates);
+      this._updateNotesButtonIndicator();
+    } catch (e) {
+      console.warn('[DailyNotes] Failed to load note dates:', e.message);
+    }
+  }
+
+  // ---- Update the Notes button — blue background when current date has a note ----
+  _updateNotesButtonIndicator() {
+    if (!this.btnDailyNotes) return;
+    const dateStr = this.filterDateFromVal || Utils.formatESTDateOnly(new Date());
+    if (this._dailyNoteDates.has(dateStr)) {
+      this.btnDailyNotes.classList.add('has-note');
+    } else {
+      this.btnDailyNotes.classList.remove('has-note');
+    }
+  }
+
+  // ---- Open the daily notes editor modal ----
+  async _openDailyNotesEditor() {
+    const dateStr = this.filterDateFromVal || Utils.formatESTDateOnly(new Date());
+
+    // Format date for display
+    const parts = dateStr.split('-');
+    const displayDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
+      .toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    this.notesEditorDate.textContent = displayDate;
+    this._dailyNoteSentiment = null;
+    this._dailyNoteDirty = false;
+    this._updateSentimentButtons();
+
+    // Load existing note for this date
+    try {
+      const note = await dataStore.getDailyNote(dateStr);
+      if (note) {
+        this.notesEditorTextarea.value = note.content || '';
+        this._dailyNoteSentiment = note.sentiment || null;
+      } else {
+        this.notesEditorTextarea.value = '';
+        this._dailyNoteSentiment = null;
+      }
+      this._updateSentimentButtons();
+    } catch (e) {
+      console.warn('[DailyNotes] Failed to load note:', e.message);
+      this.notesEditorTextarea.value = '';
+    }
+
+    this._updateNoteCharCount();
+    this.notesEditorSaveStatus.textContent = '';
+    this.notesEditorSaveStatus.className = 'notes-editor-save-status';
+    this.notesEditorOverlay.style.display = 'flex';
+
+    // Focus textarea
+    setTimeout(() => this.notesEditorTextarea.focus(), 100);
+  }
+
+  // ---- Close the daily notes editor (save if dirty) ----
+  async _closeDailyNotesEditor() {
+    // Clear any pending auto-save
+    if (this._dailyNoteSaveTimer) {
+      clearTimeout(this._dailyNoteSaveTimer);
+      this._dailyNoteSaveTimer = null;
+    }
+
+    // Save if dirty
+    if (this._dailyNoteDirty) {
+      await this._doSaveDailyNote();
+    }
+
+    this.notesEditorOverlay.style.display = 'none';
+  }
+
+  // ---- Apply text formatting from toolbar ----
+  _applyFormatting(fmt) {
+    const ta = this.notesEditorTextarea;
+    if (!ta) return;
+
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const selected = ta.value.substring(start, end);
+
+    let prefix = '', suffix = '', replacement = '';
+    const lineStart = ta.value.lastIndexOf('\n', start - 1) + 1;
+    const lineEnd = ta.value.indexOf('\n', end);
+    const lineEndPos = lineEnd === -1 ? ta.value.length : lineEnd;
+    const lineContent = ta.value.substring(lineStart, lineEndPos);
+
+    switch (fmt) {
+      case 'bold':
+        prefix = '**'; suffix = '**';
+        replacement = selected ? `**${selected}**` : '**bold text**';
+        break;
+      case 'italic':
+        prefix = '*'; suffix = '*';
+        replacement = selected ? `*${selected}*` : '*italic text*';
+        break;
+      case 'heading':
+        replacement = selected ? `## ${selected}` : `## Heading`;
+        ta.setRangeText(replacement + '\n', lineStart, lineEndPos);
+        this._onNoteEditorInput();
+        this._updateNoteCharCount();
+        return;
+      case 'bullet':
+        replacement = selected ? selected.split('\n').map(l => `- ${l}`).join('\n') : '- List item';
+        ta.setRangeText(replacement, start, end);
+        this._onNoteEditorInput();
+        this._updateNoteCharCount();
+        return;
+      case 'number':
+        replacement = selected ? selected.split('\n').map((l, i) => `${i + 1}. ${l}`).join('\n') : '1. List item';
+        ta.setRangeText(replacement, start, end);
+        this._onNoteEditorInput();
+        this._updateNoteCharCount();
+        return;
+      case 'code':
+        prefix = '`'; suffix = '`';
+        replacement = selected ? `\`${selected}\`` : '`code`';
+        break;
+      case 'link':
+        prefix = '['; suffix = '](url)';
+        replacement = selected ? `[${selected}](url)` : '[link text](url)';
+        break;
+      default:
+        return;
+    }
+
+    ta.setRangeText(replacement, start, end);
+    // Select the placeholder text if nothing was selected
+    if (!selected) {
+      const newStart = start + prefix.length;
+      const newEnd = newStart + replacement.length - prefix.length - suffix.length;
+      ta.selectionStart = prefix === '[' ? newStart : newEnd;
+      ta.selectionEnd = newEnd;
+    }
+    ta.focus();
+    this._onNoteEditorInput();
+    this._updateNoteCharCount();
+  }
+
+  // ---- Input handler — trigger auto-save with 2s debounce ----
+  _onNoteEditorInput() {
+    this._dailyNoteDirty = true;
+
+    if (this._dailyNoteSaveTimer) {
+      clearTimeout(this._dailyNoteSaveTimer);
+    }
+
+    this.notesEditorSaveStatus.textContent = 'Unsaved changes...';
+    this.notesEditorSaveStatus.className = 'notes-editor-save-status unsaved';
+
+    this._dailyNoteSaveTimer = setTimeout(async () => {
+      await this._doSaveDailyNote();
+    }, 2000);
+  }
+
+  // ---- Update word/character count in editor ----
+  _updateNoteCharCount() {
+    if (!this.notesEditorCharCount || !this.notesEditorTextarea) return;
+    const text = this.notesEditorTextarea.value;
+    const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const charCount = text.length;
+    this.notesEditorCharCount.textContent = `${wordCount} words / ${charCount} chars`;
+  }
+
+  // ---- Set sentiment in the editor ----
+  _setSentiment(sentiment) {
+    if (this._dailyNoteSentiment === sentiment) {
+      this._dailyNoteSentiment = null;
+    } else {
+      this._dailyNoteSentiment = sentiment;
+    }
+    this._updateSentimentButtons();
+    this._dailyNoteDirty = true;
+
+    // Trigger auto-save
+    if (this._dailyNoteSaveTimer) clearTimeout(this._dailyNoteSaveTimer);
+    this.notesEditorSaveStatus.textContent = 'Unsaved changes...';
+    this.notesEditorSaveStatus.className = 'notes-editor-save-status unsaved';
+    this._dailyNoteSaveTimer = setTimeout(async () => {
+      await this._doSaveDailyNote();
+    }, 2000);
+  }
+
+  // ---- Update sentiment button active states ----
+  _updateSentimentButtons() {
+    if (this.sentimentBullish) {
+      this.sentimentBullish.classList.toggle('active', this._dailyNoteSentiment === 'bullish');
+    }
+    if (this.sentimentNeutral) {
+      this.sentimentNeutral.classList.toggle('active', this._dailyNoteSentiment === 'neutral');
+    }
+    if (this.sentimentBearish) {
+      this.sentimentBearish.classList.toggle('active', this._dailyNoteSentiment === 'bearish');
+    }
+  }
+
+  // ---- Actually save the daily note ----
+  async _doSaveDailyNote() {
+    if (!this._dailyNoteDirty) return;
+
+    const dateStr = this.filterDateFromVal || Utils.formatESTDateOnly(new Date());
+    const content = this.notesEditorTextarea.value;
+
+    try {
+      await dataStore.saveDailyNote(dateStr, {
+        content: content,
+        sentiment: this._dailyNoteSentiment
+      });
+
+      this._dailyNoteDirty = false;
+      this._dailyNoteDates.add(dateStr);
+      this._updateNotesButtonIndicator();
+
+      this.notesEditorSaveStatus.textContent = 'Saved';
+      this.notesEditorSaveStatus.className = 'notes-editor-save-status saved';
+
+      // Refresh the display panel if it's showing this date
+      if (this._dailyNoteDisplayDate === dateStr && this.dailyNotesPanel.style.display !== 'none') {
+        this._renderDailyNotePanel(dateStr, content, this._dailyNoteSentiment);
+      }
+    } catch (e) {
+      console.warn('[DailyNotes] Failed to save:', e.message);
+      this.notesEditorSaveStatus.textContent = 'Save failed';
+      this.notesEditorSaveStatus.className = 'notes-editor-save-status unsaved';
+    }
+  }
+
+  // ---- Load and display daily note in the panel for the current date ----
+  async _loadDailyNotePanel() {
+    const dateStr = this.filterDateFromVal;
+    if (!dateStr) {
+      this._hideDailyNotesPanel();
+      return;
+    }
+
+    this._dailyNoteDisplayDate = dateStr;
+
+    // Format date for display
+    const parts = dateStr.split('-');
+    const displayDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
+      .toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    this.dailyNotesDate.textContent = displayDate;
+
+    try {
+      const note = await dataStore.getDailyNote(dateStr);
+      if (note && note.content) {
+        this._renderDailyNotePanel(dateStr, note.content, note.sentiment);
+        this.dailyNotesPanel.style.display = 'block';
+      } else {
+        this._renderDailyNotePanel(dateStr, '', null);
+        this.dailyNotesPanel.style.display = 'block';
+      }
+    } catch (e) {
+      console.warn('[DailyNotes] Failed to load note for panel:', e.message);
+      this.dailyNotesPanel.style.display = 'none';
+    }
+  }
+
+  // ---- Render the daily note content in the panel ----
+  _renderDailyNotePanel(dateStr, content, sentiment) {
+    // Sentiment badge
+    if (this.dailyNotesSentiment) {
+      if (sentiment) {
+        const labels = { bullish: 'Bullish', neutral: 'Neutral', bearish: 'Bearish' };
+        this.dailyNotesSentiment.textContent = labels[sentiment] || '';
+        this.dailyNotesSentiment.className = 'daily-notes-sentiment ' + sentiment;
+      } else {
+        this.dailyNotesSentiment.textContent = '';
+        this.dailyNotesSentiment.className = 'daily-notes-sentiment';
+      }
+    }
+
+    // Word count
+    if (this.dailyNotesWordCount) {
+      const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
+      this.dailyNotesWordCount.textContent = wordCount > 0 ? `${wordCount} words` : '';
+    }
+
+    // Render content with formatting
+    if (content) {
+      this.dailyNotesContent.innerHTML = this._renderFormattedContent(content);
+    } else {
+      this.dailyNotesContent.innerHTML = '<span class="empty-notes">No notes for this date. Click Edit to add notes.</span>';
+    }
+  }
+
+  // ---- Render formatted note content (simple markdown-like syntax) ----
+  _renderFormattedContent(content) {
+    // Escape HTML first
+    let html = content
+      .replace(/&/g, '&')
+      .replace(/</g, '<')
+      .replace(/>/g, '>');
+
+    // Code blocks (```...```)
+    html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+
+    // Inline code (`...`)
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    // Bold (**...**)
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+    // Italic (*...*)
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+    // Headings (## ...)
+    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+
+    // Links [text](url)
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+
+    // Bullet lists — group consecutive "- " lines into <ul>
+    html = html.replace(/((?:^- .+(?:\n|$))+)/gm, (match) => {
+      const items = match.trim().split('\n').map(line =>
+        '<li>' + line.replace(/^- /, '') + '</li>'
+      ).join('');
+      return '<ul>' + items + '</ul>';
+    });
+
+    // Numbered lists — group consecutive "1. ", "2. "... lines into <ol>
+    html = html.replace(/((?:^\d+\. .+(?:\n|$))+)/gm, (match) => {
+      const items = match.trim().split('\n').map(line =>
+        '<li>' + line.replace(/^\d+\. /, '') + '</li>'
+      ).join('');
+      return '<ol>' + items + '</ol>';
+    });
+
+    // Double newlines to paragraph breaks
+    html = html.replace(/\n\n/g, '<br><br>');
+
+    return html;
+  }
+
+  // ---- Hide the daily notes panel ----
+  _hideDailyNotesPanel() {
+    if (this.dailyNotesPanel) {
+      this.dailyNotesPanel.style.display = 'none';
+    }
+    this._dailyNoteDisplayDate = null;
   }
 
   // ---- Export CSV ----
