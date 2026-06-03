@@ -319,6 +319,10 @@ body {
   display: none;
 }
 
+.add-stock-section.hidden {
+  display: none;
+}
+
 /* ===== Add Stock Section ===== */
 .add-stock-section {
   background: var(--bg-secondary);

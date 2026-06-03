@@ -26,6 +26,7 @@ class StockWatchApp {
     this.btnTodayAll = document.getElementById('btn-today-all');
     this.toggleAddSectionBtn = document.getElementById('toggle-add-section');
     this.addStockSection = document.getElementById('add-stock-section');
+    this.globalToggleAddSectionBtn = document.getElementById('toggle-add-section-global');
     this.statsBar = document.getElementById('stats-bar');
     this.connectionDot = document.getElementById('connection-dot');
     this.connectionText = document.getElementById('connection-text');
@@ -536,6 +537,16 @@ class StockWatchApp {
       });
     }
 
+    // Global toggle — hide/show entire Add Stock section from title bar
+    if (this.globalToggleAddSectionBtn && this.addStockSection) {
+      this.globalToggleAddSectionBtn.addEventListener('click', () => {
+        const hidden = this.addStockSection.classList.toggle('hidden');
+        this.globalToggleAddSectionBtn.textContent = hidden ? '🔎' : '🔍';
+        this.globalToggleAddSectionBtn.title = hidden ? 'Show Add Stock Section' : 'Hide Add Stock Section';
+        localStorage.setItem('stockwatchlist_add-section-hidden', hidden);
+      });
+    }
+
     // Daily Notes button — toggle editor
     if (this.btnDailyNotes) {
       this.btnDailyNotes.addEventListener('click', () => this._openDailyNotesEditor());
@@ -597,10 +608,19 @@ class StockWatchApp {
 
   // ---- Init Add-Stock Section Toggle State ----
   _initAddSectionToggle() {
+    // Restore collapsed state
     const collapsed = localStorage.getItem('stockwatchlist_add-section-collapsed') === 'true';
     if (collapsed && this.addStockSection && this.toggleAddSectionBtn) {
       this.addStockSection.classList.add('collapsed');
       this.toggleAddSectionBtn.textContent = '▶';
+    }
+
+    // Restore fully hidden state (title bar toggle)
+    const hidden = localStorage.getItem('stockwatchlist_add-section-hidden') === 'true';
+    if (hidden && this.addStockSection && this.globalToggleAddSectionBtn) {
+      this.addStockSection.classList.add('hidden');
+      this.globalToggleAddSectionBtn.textContent = '🔎';
+      this.globalToggleAddSectionBtn.title = 'Show Add Stock Section';
     }
   }
 
