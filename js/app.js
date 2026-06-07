@@ -2,6 +2,15 @@
 // STOCK WATCH LIST — Main Application Logic
 // ============================================================================
 
+// ---- Extensible Watch List Definitions ----
+// To add a new list: add an entry here, then add a matching
+// <button id="list-toggle-{id}"> in index.html.
+const KNOWN_LISTS = [
+  { id: 'main',  label: 'Main',  emoji: '📋' },
+  { id: 'swing', label: 'Swing', emoji: '💹' },
+  { id: 'temp',  label: 'Temp',  emoji: '📝' }
+];
+
 class StockWatchApp {
   constructor() {
     this.entries = [];
@@ -11,7 +20,7 @@ class StockWatchApp {
     this.dateFilterMode = 'today'; // 'today' or 'all'
     this.sortColumn = 'entryDateEST';
     this.sortDirection = 'desc';
-    this.currentList = 'main'; // 'main' or 'temp'
+    this.currentList = 'main';
 
     // DOM refs
     this.tableBody = document.getElementById('watchlist-body');
@@ -33,8 +42,13 @@ class StockWatchApp {
     this.themeLightBtn = document.getElementById('theme-light');
     this.themeDarkBtn = document.getElementById('theme-dark');
     this.loadingOverlay = document.getElementById('loading-overlay');
-    this.listToggleMain = document.getElementById('list-toggle-main');
-    this.listToggleTemp = document.getElementById('list-toggle-temp');
+
+    // List toggle buttons (dynamic — one per KNOWN_LISTS entry)
+    this.listToggleButtons = {};
+    for (const list of KNOWN_LISTS) {
+      const btn = document.getElementById('list-toggle-' + list.id);
+      if (btn) this.listToggleButtons[list.id] = btn;
+    }
 
     // Daily Notes refs
     this.dailyNotesPanel = document.getElementById('daily-notes-panel');
@@ -498,22 +512,13 @@ class StockWatchApp {
       this._toggleSort(col);
     });
 
-    // List toggle buttons (in filters bar)
-    const toggleMain = document.getElementById('list-toggle-main');
-    const toggleTemp = document.getElementById('list-toggle-temp');
-    if (toggleMain) {
-      toggleMain.addEventListener('click', () => {
-        this.currentList = 'main';
-        toggleMain.classList.add('active');
-        toggleTemp.classList.remove('active');
-        this.applyFilters();
-      });
-    }
-    if (toggleTemp) {
-      toggleTemp.addEventListener('click', () => {
-        this.currentList = 'temp';
-        toggleTemp.classList.add('active');
-        toggleMain.classList.remove('active');
+    // List toggle buttons (in filters bar) — dynamic from KNOWN_LISTS
+    for (const list of KNOWN_LISTS) {
+      const btn = document.getElementById('list-toggle-' + list.id);
+      if (!btn) continue;
+      btn.addEventListener('click', () => {
+        this.currentList = list.id;
+        this._updateListToggleActive();
         this.applyFilters();
       });
     }
@@ -623,13 +628,23 @@ class StockWatchApp {
     }
   }
 
+  // ---- Look up list info by id (fallback to first known list) ----
+  _getListInfo(listId) {
+    return KNOWN_LISTS.find(l => l.id === listId) || KNOWN_LISTS[0];
+  }
+
+  // ---- Update list toggle button active states ----
+  _updateListToggleActive() {
+    for (const list of KNOWN_LISTS) {
+      const btn = this.listToggleButtons[list.id];
+      if (btn) btn.classList.toggle('active', this.currentList === list.id);
+    }
+  }
+
   // ---- Switch List (set active toggle, then re-apply filters) ----
   switchList(listName) {
     this.currentList = listName;
-    const m = document.getElementById('list-toggle-main');
-    const t = document.getElementById('list-toggle-temp');
-    if (m) m.classList.toggle('active', listName === 'main');
-    if (t) t.classList.toggle('active', listName === 'temp');
+    this._updateListToggleActive();
     this.applyFilters();
   }
 
@@ -711,14 +726,14 @@ class StockWatchApp {
       this.searchResults.innerHTML = results.slice(0, 8).map(r => {
         const desc = r.description || r.symbol;
         const truncatedDesc = desc.length > 30 ? desc.substring(0, 30) + '…' : desc;
+        const activeInfo = this._getListInfo(this.currentList);
         return `
         <div class="search-result-item" data-symbol="${r.symbol}">
           <span class="symbol">${r.symbol}</span>
           <span class="name" title="${Utils.escapeAttr(desc)}">${Utils.escapeAttr(truncatedDesc)}</span>
           <input type="text" class="tag-input-inline" placeholder="Tags (e.g. Pre-market)..." list="${tagDatalistId}" data-symbol="${r.symbol}" autocomplete="off">
           <input type="text" class="note-input-inline" placeholder="Optional note..." data-symbol="${r.symbol}" maxlength="200">
-          <button class="btn btn-sm btn-add-main" data-list="main" title="Add to Main List">📋 Main</button>
-          <button class="btn btn-sm btn-add-temp" data-list="temp" title="Add to Temp List">📝 Temp</button>
+          <button class="btn btn-sm btn-add" title="Add to ${activeInfo.label} List">${activeInfo.emoji} Add</button>
         </div>
         `;
       }).join('');
@@ -731,8 +746,8 @@ class StockWatchApp {
       datalist.innerHTML = allTags.map(t => `<option value="${Utils.escapeAttr(t)}">`).join('');
       this.searchResults.appendChild(datalist);
 
-      // Helper: add stock to a specific list — now shows float popup first
-      const addTo = async (listName, btn) => {
+      // Helper: add stock to the currently active list
+      const addTo = async (btn) => {
         const item = btn.closest('.search-result-item');
         const symbol = item.dataset.symbol;
         const tagInput = item.querySelector('.tag-input-inline');
@@ -740,6 +755,7 @@ class StockWatchApp {
         const tags = tagStr ? tagStr.split(',').map(t => t.trim()).filter(Boolean) : [];
         const noteInput = item.querySelector('.note-input-inline');
         const note = noteInput ? noteInput.value.trim() : '';
+        const listName = this.currentList;
 
         // Immediately disable card to prevent duplicate clicks and give instant feedback
         const originalBtnText = btn.textContent;
@@ -761,9 +777,7 @@ class StockWatchApp {
         try {
           await this._fetchAndConfirmAdd(symbol, listName, tags, note);
           enableCard(); // re-enables if add was aborted (e.g. duplicate)
-          // Update toggle buttons to reflect the active list
-          if (this.listToggleMain) this.listToggleMain.classList.toggle('active', this.currentList === 'main');
-          if (this.listToggleTemp) this.listToggleTemp.classList.toggle('active', this.currentList === 'temp');
+          this._updateListToggleActive();
         } catch (error) {
           enableCard();
           this._hideLoading();
@@ -771,14 +785,9 @@ class StockWatchApp {
         }
       };
 
-      // Bind Main button
-      this.searchResults.querySelectorAll('.btn-add-main').forEach(btn => {
-        btn.addEventListener('click', (e) => { e.stopPropagation(); addTo('main', btn); });
-      });
-
-      // Bind Temp button
-      this.searchResults.querySelectorAll('.btn-add-temp').forEach(btn => {
-        btn.addEventListener('click', (e) => { e.stopPropagation(); addTo('temp', btn); });
+      // Bind single Add button
+      this.searchResults.querySelectorAll('.btn-add').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); addTo(btn); });
       });
 
       // Allow Enter key on the note input (adds to current list by default)
@@ -817,6 +826,7 @@ class StockWatchApp {
   _renderSingleSearchResult(symbol, stockData) {
     const allTags = [...new Set(this.entries.flatMap(e => e.tags || []))].sort();
     const tagDatalistId = 'tag-suggestions';
+    const activeInfo = this._getListInfo(this.currentList);
 
     this.searchResults.innerHTML = `
       <div class="search-result-item" data-symbol="${symbol}">
@@ -825,8 +835,7 @@ class StockWatchApp {
         <span class="exchange-badge" style="font-size:0.75rem;color:var(--text-muted);margin-left:8px;">${this._formatExchange(stockData.exchange)}</span>
         <input type="text" class="tag-input-inline" placeholder="Tags (e.g. Pre-market)..." list="${tagDatalistId}" data-symbol="${symbol}" autocomplete="off">
         <input type="text" class="note-input-inline" placeholder="Optional note..." data-symbol="${symbol}" maxlength="200">
-        <button class="btn btn-sm btn-add-main" data-list="main" title="Add to Main List">📋 Main</button>
-        <button class="btn btn-sm btn-add-temp" data-list="temp" title="Add to Temp List">📝 Temp</button>
+        <button class="btn btn-sm btn-add" title="Add to ${activeInfo.label} List">${activeInfo.emoji} Add</button>
       </div>
     `;
 
@@ -838,8 +847,8 @@ class StockWatchApp {
     datalist.innerHTML = allTags.map(t => `<option value="${Utils.escapeAttr(t)}">`).join('');
     this.searchResults.appendChild(datalist);
 
-    // Helper: add stock to a specific list
-    const addTo = async (listName, btn) => {
+    // Helper: add stock to the currently active list
+    const addTo = async (btn) => {
       const item = btn.closest('.search-result-item');
       const symbol = item.dataset.symbol;
       const tagInput = item.querySelector('.tag-input-inline');
@@ -847,6 +856,7 @@ class StockWatchApp {
       const tags = tagStr ? tagStr.split(',').map(t => t.trim()).filter(Boolean) : [];
       const noteInput = item.querySelector('.note-input-inline');
       const note = noteInput ? noteInput.value.trim() : '';
+      const listName = this.currentList;
 
       // Immediately disable card to prevent duplicate clicks and give instant feedback
       const originalBtnText = btn.textContent;
@@ -868,8 +878,7 @@ class StockWatchApp {
       try {
         await this._addFromExistingData(symbol, stockData, listName, tags, note);
         enableCard(); // re-enables if add was aborted (e.g. duplicate)
-        if (this.listToggleMain) this.listToggleMain.classList.toggle('active', this.currentList === 'main');
-        if (this.listToggleTemp) this.listToggleTemp.classList.toggle('active', this.currentList === 'temp');
+        this._updateListToggleActive();
       } catch (error) {
         enableCard();
         this._hideLoading();
@@ -877,14 +886,9 @@ class StockWatchApp {
       }
     };
 
-    // Bind Main button
-    this.searchResults.querySelectorAll('.btn-add-main').forEach(btn => {
-      btn.addEventListener('click', (e) => { e.stopPropagation(); addTo('main', btn); });
-    });
-
-    // Bind Temp button
-    this.searchResults.querySelectorAll('.btn-add-temp').forEach(btn => {
-      btn.addEventListener('click', (e) => { e.stopPropagation(); addTo('temp', btn); });
+    // Bind single Add button
+    this.searchResults.querySelectorAll('.btn-add').forEach(btn => {
+      btn.addEventListener('click', (e) => { e.stopPropagation(); addTo(btn); });
     });
   }
 
@@ -948,8 +952,7 @@ class StockWatchApp {
         </div>
         <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
           <button class="btn btn-secondary" id="manual-cancel">Cancel</button>
-          <button class="btn btn-sm btn-add-main" data-list="main" style="margin:0;">📋 Add to Main</button>
-          <button class="btn btn-sm btn-add-temp" data-list="temp" style="margin:0;">📝 Add to Temp</button>
+          <button class="btn btn-sm btn-add" id="manual-add-btn" style="margin:0;">${this._getListInfo(this.currentList).emoji} Add</button>
         </div>
       </div>
     `;
@@ -1025,15 +1028,11 @@ class StockWatchApp {
 
       await this._addEntryFromData(sym, stockData, listName, tags, notes, floatData);
 
-      if (this.listToggleMain) this.listToggleMain.classList.toggle('active', this.currentList === 'main');
-      if (this.listToggleTemp) this.listToggleTemp.classList.toggle('active', this.currentList === 'temp');
+      this._updateListToggleActive();
     };
 
-    // Bind Main button
-    this.searchResults.querySelector('.btn-add-main').addEventListener('click', () => manualAddTo('main'));
-
-    // Bind Temp button
-    this.searchResults.querySelector('.btn-add-temp').addEventListener('click', () => manualAddTo('temp'));
+    // Bind single Add button
+    document.getElementById('manual-add-btn').addEventListener('click', () => manualAddTo(this.currentList));
 
     // Enter key on notes field submits to current list
     document.getElementById('manual-notes').addEventListener('keypress', (e) => {
@@ -1089,7 +1088,8 @@ class StockWatchApp {
     });
 
     if (existsInTarget) {
-      Utils.showToast(`${sym} is already in the ${targetList === 'main' ? 'Main' : 'Temp'} list for ${todayEST}. It can be added again on a different date.`, 'error', 5000);
+      const listLabel = this._getListInfo(targetList).label;
+      Utils.showToast(`${sym} is already in the ${listLabel} list for ${todayEST}. It can be added again on a different date.`, 'error', 5000);
       return false;
     }
 
@@ -1161,8 +1161,9 @@ class StockWatchApp {
   async _showFloatPopup(symbol, stockData, listName, tags, note) {
     document.querySelector('.float-popup-overlay')?.remove();
 
-    const listLabel = listName === 'main' ? 'Main' : 'Temp';
-    const listEmoji = listName === 'main' ? '📋' : '📝';
+    const listInfo = this._getListInfo(listName);
+    const listLabel = listInfo.label;
+    const listEmoji = listInfo.emoji;
 
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
@@ -1251,7 +1252,7 @@ class StockWatchApp {
 
   // ---- Add entry using pre-fetched data with manual float values ----
   async _addEntryFromData(symbol, stockData, listName, tags, note, floatData) {
-    const listLabel = listName === 'main' ? 'Main' : 'Temp';
+    const listLabel = this._getListInfo(listName).label;
 
     const entry = {
       ...stockData,
@@ -1293,7 +1294,7 @@ class StockWatchApp {
     // Check cross-list duplicate
     if (!this._checkCrossListDuplicate(symbol, this.currentList)) return;
 
-    const listLabel = this.currentList === 'main' ? 'Main' : 'Temp';
+    const listLabel = this._getListInfo(this.currentList).label;
     this._showLoading('Fetching ' + symbol.toUpperCase() + '...');
 
     try {
@@ -1551,7 +1552,7 @@ class StockWatchApp {
           <button class="btn btn-sm btn-secondary btn-refresh-one" data-id="${entry.id}" data-symbol="${entry.symbol}" title="Refresh Price">🔄</button>
           <button class="btn btn-sm btn-secondary btn-delete" data-id="${entry.id}" title="Delete">🗑</button>
         </td>
-        <td class="symbol-cell"><a href="https://www.tradingview.com/chart/?symbol=${entry.symbol}&interval=1" target="_blank" rel="noopener" class="chart-link" title="Open ${entry.symbol} 1-min chart on TradingView">${entry.symbol}</a></td>
+        <td class="symbol-cell"><a href="https://www.tradingview.com/chart/?symbol=${entry.symbol}&interval=${(entry.list === 'swing') ? 'D' : '1'}" target="_blank" rel="noopener" class="chart-link" title="Open ${entry.symbol} ${(entry.list === 'swing') ? 'daily' : '1-min'} chart on TradingView">${entry.symbol}</a></td>
         <td class="company-cell"><a href="https://finance.yahoo.com/quote/${entry.symbol}" target="_blank" rel="noopener" class="yahoo-link" title="Open ${entry.symbol} on Yahoo Finance">${entry.companyName || entry.symbol}</a></td>
         <td class="price-cell">${Utils.formatCurrency(entry.currentPrice)}</td>
         <td class="${Utils.valueClass(entry.currentPercentChange)}">${Utils.formatPercent(entry.currentPercentChange)}</td>
@@ -1641,7 +1642,7 @@ class StockWatchApp {
 
   // ---- Delete All Entries (current list) ----
   async deleteAllEntries() {
-    const listLabel = this.currentList === 'main' ? 'Main' : 'Temp';
+    const listLabel = this._getListInfo(this.currentList).label;
     const count = this.entries.filter(e => (e.list || 'main') === this.currentList).length;
 
     if (count === 0) {

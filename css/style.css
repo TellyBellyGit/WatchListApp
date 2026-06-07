@@ -201,9 +201,8 @@ body {
   box-shadow: 0 0 0 2px var(--accent-light);
 }
 
-/* ===== Main / Temp Add Buttons in Search Results ===== */
-.btn-add-main,
-.btn-add-temp {
+/* ===== Single Add Button in Search Results ===== */
+.btn-add {
   padding: 5px 10px;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
@@ -214,28 +213,14 @@ body {
   transition: all var(--transition);
   font-family: inherit;
   margin-left: 6px;
-}
-
-.btn-add-main {
   background: var(--accent-light);
   color: var(--accent);
 }
 
-.btn-add-main:hover {
+.btn-add:hover {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
-}
-
-.btn-add-temp {
-  background: var(--warning-bg);
-  color: var(--warning);
-}
-
-.btn-add-temp:hover {
-  background: var(--warning);
-  color: #fff;
-  border-color: var(--warning);
 }
 
 /* ===== Day Navigation Arrows (filters bar) ===== */
