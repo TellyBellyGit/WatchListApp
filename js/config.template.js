@@ -7,3 +7,6 @@
 
 // Finnhub API Key (free signup at https://finnhub.io)
 const FINNHUB_API_KEY = 'YOUR_FINNHUB_API_KEY_HERE';
+
+// Alpha Vantage API Key (free signup at https://www.alphavantage.co/support/#api-key)
+const ALPHA_VANTAGE_API_KEY = 'YOUR_ALPHA_VANTAGE_API_KEY_HERE';
