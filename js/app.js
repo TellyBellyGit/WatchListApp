@@ -746,6 +746,19 @@ class StockWatchApp {
       datalist.innerHTML = allTags.map(t => `<option value="${Utils.escapeAttr(t)}">`).join('');
       this.searchResults.appendChild(datalist);
 
+      // Append Cancel button
+      const cancelDiv = document.createElement('div');
+      cancelDiv.className = 'search-cancel-row';
+      cancelDiv.innerHTML = `<button class="btn btn-secondary" id="search-cancel-btn">Cancel</button>`;
+      this.searchResults.appendChild(cancelDiv);
+
+      document.getElementById('search-cancel-btn').addEventListener('click', () => {
+        this._searchCancelled = true;
+        this.searchResults.innerHTML = '';
+        this.searchInput.value = '';
+        this._enableSearchInput();
+      });
+
       // Helper: add stock to the currently active list
       const addTo = async (btn) => {
         const item = btn.closest('.search-result-item');
@@ -846,6 +859,18 @@ class StockWatchApp {
     datalist.id = tagDatalistId;
     datalist.innerHTML = allTags.map(t => `<option value="${Utils.escapeAttr(t)}">`).join('');
     this.searchResults.appendChild(datalist);
+
+    // Append Cancel button
+    const cancelDiv = document.createElement('div');
+    cancelDiv.className = 'search-cancel-row';
+    cancelDiv.innerHTML = `<button class="btn btn-secondary" id="search-results-cancel-btn">Cancel</button>`;
+    this.searchResults.appendChild(cancelDiv);
+
+    document.getElementById('search-results-cancel-btn').addEventListener('click', () => {
+      this.searchResults.innerHTML = '';
+      this.searchInput.value = '';
+      this._enableSearchInput();
+    });
 
     // Helper: add stock to the currently active list
     const addTo = async (btn) => {
@@ -1801,6 +1826,27 @@ class StockWatchApp {
       if (entry) {
         Object.assign(entry, data);
         await dataStore.updateEntry(id, data);
+
+        // If float data is missing, try Alpha Vantage for fundamentals
+        if (entry.sharesFloat == null) {
+          const av = alphavantage;
+          if (av) {
+            try {
+              const avData = await av.getFloatData(symbol);
+              if (avData && !avData._error) {
+                const floatUpdate = {
+                  sharesFloat: avData.sharesFloat,
+                  sharesOutstanding: avData.sharesOutstanding,
+                  impliedSharesOutstanding: avData.impliedSharesOutstanding,
+                };
+                Object.assign(entry, floatUpdate);
+                await dataStore.updateEntry(id, floatUpdate);
+              }
+            } catch (err) {
+              console.warn(`[App] Alpha Vantage float fetch failed for ${symbol}:`, err.message);
+            }
+          }
+        }
       }
     }
 
