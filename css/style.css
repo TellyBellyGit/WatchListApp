@@ -1950,10 +1950,13 @@ tbody tr:hover {
   color: var(--text-muted);
   font-weight: 500;
   cursor: default;
+  background: transparent !important;
+  -webkit-text-fill-color: var(--text-muted);
+  opacity: 1;
 }
 
 .price-action-dropdown-item.placeholder:hover {
-  background: none;
+  background: transparent !important;
   color: var(--text-muted);
 }
 
