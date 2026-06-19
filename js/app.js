@@ -21,6 +21,7 @@ class StockWatchApp {
     this.sortColumn = 'entryDateEST';
     this.sortDirection = 'desc';
     this.currentList = 'main';
+    this.allListsMode = false;
 
     // DOM refs
     this.tableBody = document.getElementById('watchlist-body');
@@ -524,12 +525,38 @@ class StockWatchApp {
       this._toggleSort(col);
     });
 
+    // All Lists toggle button
+    const allToggleBtn = document.getElementById('list-toggle-all');
+    if (allToggleBtn) {
+      allToggleBtn.addEventListener('click', () => {
+        this.allListsMode = true;
+        // Clear date filter so all dates are shown
+        this.filterDateFromEl.value = '';
+        this.filterDateFromVal = null;
+        this.dateFilterMode = 'all';
+        this._updateDayNavUI();
+        this._updateDayBadge();
+        this._updateListToggleActive();
+        this.applyFilters();
+      });
+    }
+
     // List toggle buttons (in filters bar) — dynamic from KNOWN_LISTS
     for (const list of KNOWN_LISTS) {
       const btn = document.getElementById('list-toggle-' + list.id);
       if (!btn) continue;
       btn.addEventListener('click', () => {
         this.currentList = list.id;
+        this.allListsMode = false;
+        // Restore today filter if coming from All mode
+        if (!this.filterDateFromVal) {
+          const today = Utils.formatESTDateOnly(new Date());
+          this.filterDateFromEl.value = today;
+          this.filterDateFromVal = today;
+          this.dateFilterMode = 'today';
+          this._updateDayNavUI();
+          this._updateDayBadge();
+        }
         this._updateListToggleActive();
         this.applyFilters();
       });
@@ -649,9 +676,12 @@ class StockWatchApp {
 
   // ---- Update list toggle button active states ----
   _updateListToggleActive() {
+    const allBtn = document.getElementById('list-toggle-all');
+    if (allBtn) allBtn.classList.toggle('active', this.allListsMode);
+
     for (const list of KNOWN_LISTS) {
       const btn = this.listToggleButtons[list.id];
-      if (btn) btn.classList.toggle('active', this.currentList === list.id);
+      if (btn) btn.classList.toggle('active', !this.allListsMode && this.currentList === list.id);
     }
   }
 
@@ -1416,8 +1446,10 @@ class StockWatchApp {
   applyFilters() {
     let filtered = [...this.entries];
 
-    // List filter (always applied)
-    filtered = filtered.filter(e => (e.list || 'main') === this.currentList);
+    // List filter — skipped when All Lists mode is active
+    if (!this.allListsMode) {
+      filtered = filtered.filter(e => (e.list || 'main') === this.currentList);
+    }
 
     // Tag filter
     if (this.filterTag) {
@@ -1515,7 +1547,10 @@ class StockWatchApp {
   }
 
   get displayEntries() {
-    // filterForList always applies; additional criteria add to isFiltered
+    if (this.allListsMode) {
+      return this.isFiltered ? this.filteredEntries : [...this.entries];
+    }
+    // When in single-list mode, filterForList always applies; additional criteria add to isFiltered
     const listEntries = this.entries.filter(e => (e.list || 'main') === this.currentList);
     return this.isFiltered ? this.filteredEntries : listEntries;
   }
