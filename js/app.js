@@ -43,6 +43,15 @@ class StockWatchApp {
     this.themeDarkBtn = document.getElementById('theme-dark');
     this.loadingOverlay = document.getElementById('loading-overlay');
 
+    // Price Action education dropdown refs
+    this.priceActionBtn = document.getElementById('price-action-btn');
+    this.priceActionDropdown = document.getElementById('price-action-dropdown');
+    this.checklistOverlay = document.getElementById('checklist-overlay');
+    this.checklistBody = document.getElementById('checklist-body');
+    this.checklistCounter = document.getElementById('checklist-counter');
+    this.checklistCancelBtn = document.getElementById('checklist-cancel');
+    this.checklistResetBtn = document.getElementById('checklist-reset');
+
     // List toggle buttons (dynamic — one per KNOWN_LISTS entry)
     this.listToggleButtons = {};
     for (const list of KNOWN_LISTS) {
@@ -608,6 +617,61 @@ class StockWatchApp {
     if (this.sentimentBearish) {
       this.sentimentBearish.addEventListener('click', () => this._setSentiment('bearish'));
     }
+
+    // Price Action dropdown toggle
+    if (this.priceActionBtn && this.priceActionDropdown) {
+      this.priceActionBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._togglePriceActionDropdown();
+      });
+
+      // Dropdown item clicks
+      this.priceActionDropdown.querySelectorAll('.price-action-dropdown-item:not(.placeholder)').forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const action = item.dataset.action;
+          this.priceActionDropdown.classList.remove('visible');
+          this.priceActionBtn.classList.remove('active');
+          if (action === 'chart-checklist') {
+            this._openChartChecklist();
+          }
+        });
+      });
+    }
+
+    // Chart Checklist overlay
+    if (this.checklistCancelBtn) {
+      this.checklistCancelBtn.addEventListener('click', () => this._closeChartChecklist());
+    }
+    if (this.checklistResetBtn) {
+      this.checklistResetBtn.addEventListener('click', () => this._resetChecklist());
+    }
+    if (this.checklistOverlay) {
+      this.checklistOverlay.addEventListener('click', (e) => {
+        if (e.target === this.checklistOverlay) {
+          this._closeChartChecklist();
+        }
+      });
+    }
+    if (this.checklistBody) {
+      this.checklistBody.addEventListener('click', (e) => {
+        const item = e.target.closest('.checklist-item');
+        if (item) {
+          item.classList.toggle('checked');
+          this._updateChecklistCounter();
+        }
+      });
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (this.priceActionDropdown && this.priceActionDropdown.classList.contains('visible')) {
+        if (!this.priceActionBtn.contains(e.target) && !this.priceActionDropdown.contains(e.target)) {
+          this.priceActionDropdown.classList.remove('visible');
+          this.priceActionBtn.classList.remove('active');
+        }
+      }
+    });
   }
 
   // ---- Init Add-Stock Section Toggle State ----
@@ -2373,6 +2437,46 @@ class StockWatchApp {
 
   _hideLoading() {
     this.loadingOverlay.style.display = 'none';
+  }
+
+  // ==========================================================================
+  // Price Action Dropdown & Chart Checklist Methods
+  // ==========================================================================
+
+  // ---- Toggle the Price Action dropdown ----
+  _togglePriceActionDropdown() {
+    if (!this.priceActionDropdown || !this.priceActionBtn) return;
+    const isVisible = this.priceActionDropdown.classList.toggle('visible');
+    this.priceActionBtn.classList.toggle('active', isVisible);
+  }
+
+  // ---- Open the Chart Checklist overlay ----
+  _openChartChecklist() {
+    if (!this.checklistOverlay) return;
+    this.checklistOverlay.classList.add('visible');
+    this._updateChecklistCounter();
+  }
+
+  // ---- Close the Chart Checklist overlay ----
+  _closeChartChecklist() {
+    if (!this.checklistOverlay) return;
+    this.checklistOverlay.classList.remove('visible');
+  }
+
+  // ---- Reset all checklist checkboxes ----
+  _resetChecklist() {
+    if (!this.checklistBody) return;
+    const items = this.checklistBody.querySelectorAll('.checklist-item.checked');
+    items.forEach(item => item.classList.remove('checked'));
+    this._updateChecklistCounter();
+  }
+
+  // ---- Update the checked/total counter ----
+  _updateChecklistCounter() {
+    if (!this.checklistCounter || !this.checklistBody) return;
+    const total = this.checklistBody.querySelectorAll('.checklist-item').length;
+    const checked = this.checklistBody.querySelectorAll('.checklist-item.checked').length;
+    this.checklistCounter.textContent = `${checked} / ${total}`;
   }
 }
 

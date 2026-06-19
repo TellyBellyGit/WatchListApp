@@ -55,6 +55,16 @@
         <div class="subtitle">Momentum Trading Tracker — Times in EST (New York)</div>
       </div>
       <div class="header-right">
+        <!-- Price Action Education Dropdown -->
+        <div class="price-action-wrapper">
+          <button class="btn-price-action" id="price-action-btn">Price Action</button>
+          <div class="price-action-dropdown" id="price-action-dropdown">
+            <button class="price-action-dropdown-item" data-action="chart-checklist">📋 Chart Checklist</button>
+            <button class="price-action-dropdown-item placeholder" disabled>📖 Candlestick Patterns</button>
+            <button class="price-action-dropdown-item placeholder" disabled>📐 Support & Resistance</button>
+            <button class="price-action-dropdown-item placeholder" disabled>📊 Volume Analysis</button>
+          </div>
+        </div>
         <button class="btn-settings" id="settings-btn" title="API Settings">⚙️</button>
         <button class="btn-settings" id="toggle-add-section-global" title="Toggle Add Stock Section">🔍</button>
         <div class="connection-status">
@@ -183,6 +193,66 @@
         <div class="notes-editor-footer">
           <span class="notes-editor-char-count" id="notes-editor-char-count">0 words / 0 chars</span>
           <span class="notes-editor-hint">Paste images with Ctrl+V</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== CHART CHECKLIST OVERLAY ====== -->
+    <div class="chart-checklist-overlay" id="checklist-overlay">
+      <div class="chart-checklist-modal">
+        <div class="chart-checklist-header">
+          <h2>📋 Chart Checklist</h2>
+          <span class="chart-checklist-counter" id="checklist-counter">0 / 11</span>
+        </div>
+        <div class="chart-checklist-body" id="checklist-body">
+          <div class="checklist-item" data-index="0">
+            <div class="checklist-checkbox"></div>
+            <span class="checklist-label"><strong>Determine the Market Cycle:</strong> Identify if the price is in a clear trend, a messy channel, or a sideways trading range.</span>
+          </div>
+          <div class="checklist-item" data-index="1">
+            <div class="checklist-checkbox"></div>
+            <span class="checklist-label"><strong>Locate Key Magnets:</strong> Mark all prior highs/lows, moving averages, trading range boundaries, and open gaps.</span>
+          </div>
+          <div class="checklist-item" data-index="2">
+            <div class="checklist-checkbox"></div>
+            <span class="checklist-label"><strong>Monitor the Vacuum Effect:</strong> Check if sudden price acceleration is just an institutional rush to hit a magnet target.</span>
+          </div>
+          <div class="checklist-item" data-index="3">
+            <div class="checklist-checkbox"></div>
+            <span class="checklist-label"><strong>Evaluate Breakout Bars:</strong> Look for strong trend bars closing far beyond established support or resistance levels.</span>
+          </div>
+          <div class="checklist-item" data-index="4">
+            <div class="checklist-checkbox"></div>
+            <span class="checklist-label"><strong>Count Pullback Legs:</strong> Track the counter-trend legs to spot high-probability High 2 bull flags or Low 2 bear flags.</span>
+          </div>
+          <div class="checklist-item" data-index="5">
+            <div class="checklist-checkbox"></div>
+            <span class="checklist-label"><strong>Scan for Wedge Pushes:</strong> Count the distinct pushes to see if a three-push pattern signals a flag or trend exhaustion.</span>
+          </div>
+          <div class="checklist-item" data-index="6">
+            <div class="checklist-checkbox"></div>
+            <span class="checklist-label"><strong>Identify Micro-Channels:</strong> Watch for tight 10-bar streaks without pullbacks that signal an unsustainable climax.</span>
+          </div>
+          <div class="checklist-item" data-index="7">
+            <div class="checklist-checkbox"></div>
+            <span class="checklist-label"><strong>Check for Final Flags:</strong> Look for horizontal pullbacks or tight trading ranges forming late in a trend near major magnets.</span>
+          </div>
+          <div class="checklist-item" data-index="8">
+            <div class="checklist-checkbox"></div>
+            <span class="checklist-label"><strong>Project Measured Moves:</strong> Calculate structural targets using Leg 1 = Leg 2 or trading range heights.</span>
+          </div>
+          <div class="checklist-item" data-index="9">
+            <div class="checklist-checkbox"></div>
+            <span class="checklist-label"><strong>Analyze the Opening Structure:</strong> Observe the first 60–90 minutes to spot potential daily highs, lows, or opening reversals.</span>
+          </div>
+          <div class="checklist-item" data-index="10">
+            <div class="checklist-checkbox"></div>
+            <span class="checklist-label"><strong>Assess the Trader's Dilemma:</strong> Weigh whether you are buying high probability with a wide stop or low probability with a tight stop.</span>
+          </div>
+        </div>
+        <div class="chart-checklist-footer">
+          <button class="checklist-reset-btn" id="checklist-reset">↺ Reset</button>
+          <button class="btn btn-secondary" id="checklist-cancel">Cancel</button>
         </div>
       </div>
     </div>

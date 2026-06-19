@@ -1858,3 +1858,294 @@ tbody tr:hover {
   color: var(--text-muted);
   opacity: 0.7;
 }
+
+/* ==========================================================================
+   Price Action Dropdown & Chart Checklist
+   ========================================================================== */
+
+/* Price Action pill button in header */
+.btn-price-action {
+  position: relative;
+  padding: 7px 18px;
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--transition);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn-price-action:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-price-action.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+.btn-price-action::after {
+  content: '▾';
+  font-size: 0.6rem;
+  margin-left: 2px;
+}
+
+/* Dropdown menu */
+.price-action-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  min-width: 240px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 500;
+  display: none;
+  animation: fadeIn 0.15s ease;
+  overflow: hidden;
+}
+
+.price-action-dropdown.visible {
+  display: block;
+}
+
+.price-action-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 16px;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition);
+}
+
+.price-action-dropdown-item:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.price-action-dropdown-item:first-child {
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.price-action-dropdown-item.placeholder {
+  color: var(--text-muted);
+  font-weight: 500;
+  cursor: default;
+}
+
+.price-action-dropdown-item.placeholder:hover {
+  background: none;
+  color: var(--text-muted);
+}
+
+/* Dropdown wrapper for positioning */
+.price-action-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Chart Checklist Overlay */
+.chart-checklist-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fadeIn 0.2s ease;
+}
+
+.chart-checklist-overlay.visible {
+  display: flex;
+}
+
+/* Chart Checklist Modal */
+.chart-checklist-modal {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 650px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+  animation: slideUp 0.25s ease;
+}
+
+.chart-checklist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+}
+
+.chart-checklist-header h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-checklist-counter {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  padding: 3px 10px;
+  border-radius: 10px;
+}
+
+.chart-checklist-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 24px;
+}
+
+/* Individual checklist item */
+.checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  margin: 6px 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: var(--bg-primary);
+  cursor: pointer;
+  transition: all var(--transition);
+  user-select: none;
+}
+
+.checklist-item:hover {
+  border-color: var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.checklist-item.checked {
+  border-color: var(--positive);
+  background: var(--positive-bg);
+}
+
+.checklist-item.checked .checklist-label {
+  color: var(--positive);
+}
+
+/* Custom checkbox */
+.checklist-checkbox {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  margin-top: 1px;
+}
+
+.checklist-item.checked .checklist-checkbox {
+  background: var(--positive);
+  border-color: var(--positive);
+}
+
+.checklist-checkbox::after {
+  content: '';
+  display: none;
+  width: 6px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  margin-top: -1px;
+}
+
+.checklist-item.checked .checklist-checkbox::after {
+  display: block;
+}
+
+.checklist-item:hover .checklist-checkbox {
+  border-color: var(--accent);
+}
+
+.checklist-item.checked:hover .checklist-checkbox {
+  border-color: var(--positive);
+}
+
+/* Checklist label text */
+.checklist-label {
+  flex: 1;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  transition: color var(--transition);
+}
+
+.checklist-label strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Chart Checklist Footer */
+.chart-checklist-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  border-top: 1px solid var(--border-color);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.chart-checklist-footer .btn {
+  min-width: 110px;
+  justify-content: center;
+}
+
+.checklist-reset-btn {
+  font-size: 0.78rem;
+  padding: 4px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--transition);
+}
+
+.checklist-reset-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+  background: var(--bg-tertiary);
+}
