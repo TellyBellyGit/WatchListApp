@@ -11,6 +11,26 @@ const KNOWN_LISTS = [
   { id: 'temp',  label: 'Temp',  emoji: '📝' }
 ];
 
+// ---- Strength Scoring Signal Definitions ----
+const STRENGTH_SIGNALS = [
+  { id: 'premarket_hold',    signal: 'Pre-market hold',          pts: 1, desc: 'Price is above yesterday\'s close at the open. Bonus: gap up with no immediate fade.' },
+  { id: 'higher_low',        signal: 'Higher low confirmed',     pts: 2, desc: 'After the first pullback from the opening high, the low is above the pre-market low. This is the most important signal.' },
+  { id: 'vwap_reclaim',      signal: 'VWAP reclaim & hold',      pts: 2, desc: 'After any dip to or below VWAP, price bounced and closed candles back above it.' },
+  { id: 'volume_pattern',    signal: 'Volume pattern correct',   pts: 2, desc: 'Big opening volume, quiet on pullback, expanding again on continuation.' },
+  { id: 'ema_stack',         signal: 'EMA stack bullish',        pts: 1, desc: '50 EMA > 200 EMA on the 1-min chart, and price is above the 50 EMA.' },
+  { id: 'no_distribution',   signal: 'No distribution',          pts: 2, desc: 'No large red candles with heavy volume (sellers dumping). Pullbacks are orderly, low-volume.' }
+];
+
+const STRENGTH_RESULTS = [
+  { min: 8,  max: 10, reading: 'Strong trending day',   bias: 'Long bias. Buy pullbacks to VWAP or 50 EMA. Trail stop below higher lows.',                                     cssClass: 'strong' },
+  { min: 5,  max: 7,  reading: 'Mixed / watch & wait',  bias: 'Wait for a clear signal — either a confirmed flip level break or a re-test of VWAP that holds cleanly.',       cssClass: 'mixed' },
+  { min: 0,  max: 4,  reading: 'Weak / avoid',          bias: 'No long bias. If short-oriented, look for bounces into VWAP resistance to fade.',                              cssClass: 'weak' }
+];
+
+function _getStrengthResult(totalScore) {
+  return STRENGTH_RESULTS.find(r => totalScore >= r.min && totalScore <= r.max) || null;
+}
+
 class StockWatchApp {
   constructor() {
     this.entries = [];
@@ -52,6 +72,20 @@ class StockWatchApp {
     this.checklistCounter = document.getElementById('checklist-counter');
     this.checklistCancelBtn = document.getElementById('checklist-cancel');
     this.checklistResetBtn = document.getElementById('checklist-reset');
+
+    // Strength Scoring overlay refs
+    this.strengthScoringOverlay = document.getElementById('strength-scoring-overlay');
+    this.strengthScoringBody = document.getElementById('strength-scoring-body');
+    this.strengthScoringSymbol = document.getElementById('strength-scoring-symbol');
+    this.strengthScoreTotal = document.getElementById('strength-score-total');
+    this.strengthScoringResult = document.getElementById('strength-scoring-result');
+    this.scoringResultReading = document.getElementById('scoring-result-reading');
+    this.scoringResultBias = document.getElementById('scoring-result-bias');
+    this.strengthScoringCloseBtn = document.getElementById('strength-scoring-close');
+    this.strengthScoringResetBtn = document.getElementById('strength-scoring-reset');
+
+    // Strength Scoring state
+    this._strengthScoreEntryId = null; // which entry's score is being edited
 
     // List toggle buttons (dynamic — one per KNOWN_LISTS entry)
     this.listToggleButtons = {};
@@ -649,6 +683,9 @@ class StockWatchApp {
     }
 
     // (Price Action / Chart Checklist events are bound in _bindPriceActionEvents)
+
+    // Strength Scoring overlay events
+    this._bindStrengthScoringEvents();
   }
 
   // ---- Init Add-Stock Section Toggle State ----
@@ -681,7 +718,14 @@ class StockWatchApp {
 
     for (const list of KNOWN_LISTS) {
       const btn = this.listToggleButtons[list.id];
-      if (btn) btn.classList.toggle('active', !this.allListsMode && this.currentList === list.id);
+      if (!btn) continue;
+
+      // Active state: blue highlight for the currently selected list
+      btn.classList.toggle('active', !this.allListsMode && this.currentList === list.id);
+
+      // Has-data state: off-white highlight for inactive lists that contain entries
+      const hasEntries = this.entries.some(e => (e.list || 'main') === list.id);
+      btn.classList.toggle('has-data', !this.allListsMode && hasEntries && this.currentList !== list.id);
     }
   }
 
@@ -1467,6 +1511,9 @@ class StockWatchApp {
     // Update the tag filter dropdown options
     this._updateTagFilterDropdown();
 
+    // Update list toggle button states (has-data indicators)
+    this._updateListToggleActive();
+
     this.filteredEntries = filtered;
     this._applySort();
     this.render();
@@ -1599,6 +1646,9 @@ class StockWatchApp {
         this._toggleWsSubscription(dot.dataset.symbol, otc);
       });
     });
+    this.tableBody.querySelectorAll('.strength-score-circle').forEach(circle => {
+      circle.addEventListener('click', () => this._openStrengthScore(circle.dataset.id));
+    });
   }
 
   // ---- Render Single Row ----
@@ -1618,6 +1668,17 @@ class StockWatchApp {
       ? `<div class="tag-badges-row">${entry.tags.map(t => `<span class="tag-badge">${Utils.escapeAttr(t)}</span>`).join(' ')}</div>`
       : '';
 
+    // Strength score circle — always neutral grey, score number inside, tooltip from result table
+    const hasScore = (entry.strengthScore != null && entry.strengthScore >= 0);
+    const displayScore = hasScore ? entry.strengthScore : 0;
+    let scoreTitle = 'Strength Score — click to score';
+    if (hasScore) {
+      const result = _getStrengthResult(entry.strengthScore);
+      scoreTitle = result
+        ? `Strength Score: ${entry.strengthScore} — ${result.reading}`
+        : `Strength Score: ${entry.strengthScore}`;
+    }
+
     return `
       <tr>
         <td>
@@ -1625,6 +1686,7 @@ class StockWatchApp {
           <button class="btn btn-sm btn-secondary btn-edit-notes" data-id="${entry.id}" title="Notes: ${Utils.escapeAttr(notesPreview)}">📝</button>
           <button class="btn btn-sm btn-secondary btn-refresh-one" data-id="${entry.id}" data-symbol="${entry.symbol}" title="Refresh Price">🔄</button>
           <button class="btn btn-sm btn-secondary btn-delete" data-id="${entry.id}" title="Delete">🗑</button>
+          <button class="strength-score-circle" data-id="${entry.id}" title="${Utils.escapeAttr(scoreTitle)}">${displayScore}</button>
         </td>
         <td class="symbol-cell"><a href="https://www.tradingview.com/chart/?symbol=${entry.symbol}&interval=${(entry.list === 'swing') ? 'D' : '1'}" target="_blank" rel="noopener" class="chart-link" title="Open ${entry.symbol} ${(entry.list === 'swing') ? 'daily' : '1-min'} chart on TradingView">${entry.symbol}</a></td>
         <td class="company-cell"><a href="https://finance.yahoo.com/quote/${entry.symbol}" target="_blank" rel="noopener" class="yahoo-link" title="Open ${entry.symbol} on Yahoo Finance">${entry.companyName || entry.symbol}</a></td>
@@ -2520,6 +2582,174 @@ class StockWatchApp {
     const total = this.checklistBody.querySelectorAll('.checklist-item').length;
     const checked = this.checklistBody.querySelectorAll('.checklist-item.checked').length;
     this.checklistCounter.textContent = `${checked} / ${total}`;
+  }
+
+  // ==========================================================================
+  // Strength Scoring Methods
+  // ==========================================================================
+
+  // ---- Bind strength scoring overlay events ----
+  _bindStrengthScoringEvents() {
+    if (this.strengthScoringCloseBtn) {
+      this.strengthScoringCloseBtn.addEventListener('click', () => this._closeStrengthScore());
+    }
+    if (this.strengthScoringResetBtn) {
+      this.strengthScoringResetBtn.addEventListener('click', () => this._resetStrengthScore());
+    }
+    if (this.strengthScoringOverlay) {
+      this.strengthScoringOverlay.addEventListener('click', (e) => {
+        if (e.target === this.strengthScoringOverlay) {
+          this._closeStrengthScore();
+        }
+      });
+    }
+    if (this.strengthScoringBody) {
+      this.strengthScoringBody.addEventListener('click', (e) => {
+        const item = e.target.closest('.scoring-item');
+        if (item) {
+          item.classList.toggle('checked');
+          this._updateStrengthScore();
+        }
+      });
+    }
+  }
+
+  // ---- Open the Strength Scoring overlay for a given entry ----
+  _openStrengthScore(entryId) {
+    const entry = this.entries.find(e => e.id === entryId);
+    if (!entry) return;
+    this._strengthScoreEntryId = entryId;
+
+    // Set symbol in header
+    if (this.strengthScoringSymbol) {
+      this.strengthScoringSymbol.textContent = entry.symbol;
+    }
+
+    // Get currently checked signal IDs
+    const checkedIds = new Set(entry.strengthSignals || []);
+
+    // Build signal items HTML
+    const itemsHtml = STRENGTH_SIGNALS.map(s => {
+      const checked = checkedIds.has(s.id) ? ' checked' : '';
+      const plusSign = s.pts > 0 ? '+' : '';
+      return `
+        <div class="scoring-item${checked}" data-signal="${s.id}">
+          <div class="scoring-checkbox"></div>
+          <div class="scoring-label">
+            <strong>${s.signal}</strong>
+            <span class="scoring-desc">${s.desc}</span>
+          </div>
+          <span class="scoring-points">${plusSign}${s.pts}</span>
+        </div>
+      `;
+    }).join('');
+
+    if (this.strengthScoringBody) {
+      this.strengthScoringBody.innerHTML = itemsHtml;
+    }
+
+    // Update score display
+    this._updateStrengthScore();
+
+    // Show overlay
+    if (this.strengthScoringOverlay) {
+      this.strengthScoringOverlay.classList.add('visible');
+    }
+  }
+
+  // ---- Close the Strength Scoring overlay (save state) ----
+  async _closeStrengthScore() {
+    if (!this.strengthScoringOverlay) return;
+    this.strengthScoringOverlay.classList.remove('visible');
+    await this._saveStrengthScoreState();
+    this._strengthScoreEntryId = null;
+  }
+
+  // ---- Reset all checkboxes in the current scoring session ----
+  _resetStrengthScore() {
+    if (!this.strengthScoringBody) return;
+    const items = this.strengthScoringBody.querySelectorAll('.scoring-item.checked');
+    items.forEach(item => item.classList.remove('checked'));
+    this._updateStrengthScore();
+  }
+
+  // ---- Update the total score and result display ----
+  _updateStrengthScore() {
+    if (!this.strengthScoringBody) return;
+
+    let totalScore = 0;
+    const items = this.strengthScoringBody.querySelectorAll('.scoring-item.checked');
+    items.forEach(item => {
+      const signalId = item.dataset.signal;
+      const signal = STRENGTH_SIGNALS.find(s => s.id === signalId);
+      if (signal) totalScore += signal.pts;
+    });
+
+    // Update score badge
+    if (this.strengthScoreTotal) {
+      this.strengthScoreTotal.textContent = `${totalScore} pts`;
+      // Remove all result classes
+      this.strengthScoreTotal.classList.remove('strong', 'mixed', 'weak');
+    }
+
+    // Update result section
+    const result = _getStrengthResult(totalScore);
+    if (this.strengthScoringResult && this.scoringResultReading && this.scoringResultBias) {
+      if (result) {
+        this.strengthScoringResult.style.display = 'block';
+        this.strengthScoringResult.className = 'strength-scoring-result ' + result.cssClass;
+        this.scoringResultReading.textContent = `${totalScore} — ${result.reading}`;
+        this.scoringResultBias.textContent = result.bias;
+        // Also style the score badge
+        if (this.strengthScoreTotal) {
+          this.strengthScoreTotal.classList.add(result.cssClass);
+        }
+      } else {
+        this.strengthScoringResult.style.display = 'none';
+      }
+    }
+  }
+
+  // ---- Save the current score state to the entry and data store ----
+  async _saveStrengthScoreState() {
+    const entryId = this._strengthScoreEntryId;
+    if (!entryId) return;
+    const entry = this.entries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    // Collect checked signal IDs
+    const checkedIds = [];
+    if (this.strengthScoringBody) {
+      const items = this.strengthScoringBody.querySelectorAll('.scoring-item.checked');
+      items.forEach(item => {
+        const sigId = item.dataset.signal;
+        if (sigId) checkedIds.push(sigId);
+      });
+    }
+
+    // Calculate total score
+    let totalScore = 0;
+    checkedIds.forEach(id => {
+      const signal = STRENGTH_SIGNALS.find(s => s.id === id);
+      if (signal) totalScore += signal.pts;
+    });
+
+    // Update entry
+    entry.strengthSignals = checkedIds;
+    entry.strengthScore = totalScore;
+
+    // Persist to data store
+    try {
+      await dataStore.updateEntry(entryId, {
+        strengthSignals: checkedIds,
+        strengthScore: totalScore
+      });
+    } catch (e) {
+      console.warn('[StrengthScore] Failed to save:', e.message);
+    }
+
+    // Re-render to show updated pill
+    this.render();
   }
 }
 

@@ -257,6 +257,27 @@
         </div>
       </div>
     </div>
+
+    <!-- ====== STRENGTH SCORING OVERLAY ====== -->
+    <div class="strength-scoring-overlay" id="strength-scoring-overlay">
+      <div class="strength-scoring-modal">
+        <div class="strength-scoring-header">
+          <h2>⚡ Strength Score — <span id="strength-scoring-symbol"></span></h2>
+          <span class="strength-score-total" id="strength-score-total">0 pts</span>
+        </div>
+        <div class="strength-scoring-body" id="strength-scoring-body">
+          <!-- populated dynamically -->
+        </div>
+        <div class="strength-scoring-result" id="strength-scoring-result" style="display:none;">
+          <div class="scoring-result-reading" id="scoring-result-reading"></div>
+          <div class="scoring-result-bias" id="scoring-result-bias"></div>
+        </div>
+        <div class="strength-scoring-footer">
+          <button class="checklist-reset-btn" id="strength-scoring-reset">↺ Reset</button>
+          <button class="btn btn-secondary" id="strength-scoring-close">Close</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Firebase SDK (loaded only if USE_FIREBASE = true) -->
