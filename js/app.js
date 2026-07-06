@@ -3270,6 +3270,19 @@ class StockWatchApp {
       pills.push(`<span class="trade-calc-pill risk">Risk: $${Utils.formatCurrency(riskAmount)} (${settings.riskPercentage}%)</span>`);
       pills.push(`<span class="trade-calc-pill risk">Stop: $${Utils.formatCurrency(stopLoss)}</span>`);
       pills.push(`<span class="trade-calc-pill risk">Target: $${Utils.formatCurrency(takeProfit)} (1:${settings.riskRewardRatio})</span>`);
+
+      // Ideal calculations — stop based on % of entry, then derive shares and target
+      const idealStop = direction === 'long'
+        ? entryPrice * (1 - settings.riskPercentage / 100)
+        : entryPrice * (1 + settings.riskPercentage / 100);
+      const idealShares = Math.floor(riskAmount / Math.abs(entryPrice - idealStop));
+      const idealTarget = direction === 'long'
+        ? entryPrice + ((settings.riskRewardRatio * riskAmount) / idealShares)
+        : entryPrice - ((settings.riskRewardRatio * riskAmount) / idealShares);
+
+      pills.push(`<span class="trade-calc-pill risk">Ideal Stop: $${idealStop.toFixed(4)}</span>`);
+      pills.push(`<span class="trade-calc-pill risk">Ideal Shares: ${idealShares}</span>`);
+      pills.push(`<span class="trade-calc-pill risk">Ideal Target: $${idealTarget.toFixed(4)}</span>`);
     }
 
     this.stockReviewTradeCalc.innerHTML = pills.join('');
