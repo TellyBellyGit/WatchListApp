@@ -91,6 +91,25 @@ class StockWatchApp {
     // Strength Scoring state
     this._strengthScoreEntryId = null; // which entry's score is being edited
 
+    // Stock Review overlay refs
+    this.stockReviewOverlay = document.getElementById('stock-review-overlay');
+    this.stockReviewTextarea = document.getElementById('stock-review-textarea');
+    this.stockReviewSymbol = document.getElementById('stock-review-symbol');
+    this.stockReviewCompany = document.getElementById('stock-review-company');
+    this.stockReviewMetrics = document.getElementById('stock-review-metrics');
+    this.stockReviewSaveStatus = document.getElementById('stock-review-save-status');
+    this.stockReviewCharCount = document.getElementById('stock-review-char-count');
+    this.stockReviewClose = document.getElementById('stock-review-close');
+    this.stockReviewTags = document.getElementById('stock-review-tags');
+    this.stockReviewTagSuggestions = document.getElementById('stock-review-tag-suggestions');
+    this.stockReviewChartLinks = document.getElementById('stock-review-chart-links');
+    this.stockReviewToolbar = document.getElementById('stock-review-toolbar');
+
+    // Stock Review state
+    this._stockReviewEntryId = null;
+    this._stockReviewSaveTimer = null;
+    this._stockReviewDirty = false;
+
     // List toggle buttons (dynamic — one per KNOWN_LISTS entry)
     this.listToggleButtons = {};
     for (const list of KNOWN_LISTS) {
@@ -664,16 +683,19 @@ class StockWatchApp {
       this.notesEditorTextarea.addEventListener('input', () => this._updateNoteCharCount());
     }
 
-    // Formatting toolbar buttons
+    // Formatting toolbar buttons — Daily Notes
     const toolbar = document.getElementById('notes-editor-toolbar');
     if (toolbar) {
       toolbar.addEventListener('click', (e) => {
         const btn = e.target.closest('.fmt-btn');
         if (!btn) return;
         const fmt = btn.dataset.fmt;
-        this._applyFormatting(fmt);
+        this._applyFormatting(fmt, this.notesEditorTextarea);
       });
     }
+
+    // Stock Review overlay events
+    this._bindStockReviewEvents();
 
     // Sentiment buttons
     if (this.sentimentBullish) {
@@ -1636,7 +1658,7 @@ class StockWatchApp {
       btn.addEventListener('click', () => this.deleteEntry(btn.dataset.id));
     });
     this.tableBody.querySelectorAll('.btn-edit-notes').forEach(btn => {
-      btn.addEventListener('click', () => this._openEditModal(btn.dataset.id));
+      btn.addEventListener('click', () => this._openStockReview(btn.dataset.id));
     });
     this.tableBody.querySelectorAll('.btn-refresh-one').forEach(btn => {
       btn.addEventListener('click', () => this.refreshOnePrice(btn.dataset.id, btn.dataset.symbol));
@@ -2195,9 +2217,9 @@ class StockWatchApp {
     this.notesEditorOverlay.style.display = 'none';
   }
 
-  // ---- Apply text formatting from toolbar ----
-  _applyFormatting(fmt) {
-    const ta = this.notesEditorTextarea;
+  // ---- Apply text formatting from toolbar (accepts optional textarea; defaults to daily notes) ----
+  _applyFormatting(fmt, ta) {
+    ta = ta || this.notesEditorTextarea;
     if (!ta) return;
 
     const start = ta.selectionStart;
@@ -2208,7 +2230,6 @@ class StockWatchApp {
     const lineStart = ta.value.lastIndexOf('\n', start - 1) + 1;
     const lineEnd = ta.value.indexOf('\n', end);
     const lineEndPos = lineEnd === -1 ? ta.value.length : lineEnd;
-    const lineContent = ta.value.substring(lineStart, lineEndPos);
 
     switch (fmt) {
       case 'bold':
@@ -2222,20 +2243,17 @@ class StockWatchApp {
       case 'heading':
         replacement = selected ? `## ${selected}` : `## Heading`;
         ta.setRangeText(replacement + '\n', lineStart, lineEndPos);
-        this._onNoteEditorInput();
-        this._updateNoteCharCount();
+        this._handleFormattingInput(ta);
         return;
       case 'bullet':
         replacement = selected ? selected.split('\n').map(l => `- ${l}`).join('\n') : '- List item';
         ta.setRangeText(replacement, start, end);
-        this._onNoteEditorInput();
-        this._updateNoteCharCount();
+        this._handleFormattingInput(ta);
         return;
       case 'number':
         replacement = selected ? selected.split('\n').map((l, i) => `${i + 1}. ${l}`).join('\n') : '1. List item';
         ta.setRangeText(replacement, start, end);
-        this._onNoteEditorInput();
-        this._updateNoteCharCount();
+        this._handleFormattingInput(ta);
         return;
       case 'code':
         prefix = '`'; suffix = '`';
@@ -2258,8 +2276,18 @@ class StockWatchApp {
       ta.selectionEnd = newEnd;
     }
     ta.focus();
-    this._onNoteEditorInput();
-    this._updateNoteCharCount();
+    this._handleFormattingInput(ta);
+  }
+
+  // ---- Route formatting input to correct handler (daily notes or stock review) ----
+  _handleFormattingInput(ta) {
+    if (ta === this.stockReviewTextarea) {
+      this._onStockReviewInput();
+      this._updateStockReviewCharCount();
+    } else {
+      this._onNoteEditorInput();
+      this._updateNoteCharCount();
+    }
   }
 
   // ---- Input handler — trigger auto-save with 2s debounce ----
@@ -2796,6 +2824,236 @@ class StockWatchApp {
 
     // Re-render to show updated pill
     this.render();
+  }
+
+  // ==========================================================================
+  // Stock Review Overlay Methods (Full-Page Per-Stock Journal)
+  // ==========================================================================
+
+  // ---- Bind stock review overlay events ----
+  _bindStockReviewEvents() {
+    // Close button
+    if (this.stockReviewClose) {
+      this.stockReviewClose.addEventListener('click', () => this._closeStockReview());
+    }
+
+    // Close on overlay click
+    if (this.stockReviewOverlay) {
+      this.stockReviewOverlay.addEventListener('click', (e) => {
+        if (e.target === this.stockReviewOverlay) {
+          this._closeStockReview();
+        }
+      });
+    }
+
+    // Formatting toolbar
+    if (this.stockReviewToolbar) {
+      this.stockReviewToolbar.addEventListener('click', (e) => {
+        const btn = e.target.closest('.fmt-btn');
+        if (!btn) return;
+        const fmt = btn.dataset.fmt;
+        this._applyFormatting(fmt, this.stockReviewTextarea);
+      });
+    }
+
+    // Textarea input — auto-save with debounce
+    if (this.stockReviewTextarea) {
+      this.stockReviewTextarea.addEventListener('input', () => {
+        this._onStockReviewInput();
+        this._updateStockReviewCharCount();
+      });
+    }
+
+    // Tags input — auto-save on change
+    if (this.stockReviewTags) {
+      this.stockReviewTags.addEventListener('input', () => this._onStockReviewInput());
+    }
+
+    // Escape key to close
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.stockReviewOverlay && this.stockReviewOverlay.style.display === 'flex') {
+        this._closeStockReview();
+      }
+    });
+  }
+
+  // ---- Open the stock review overlay for a given entry ----
+  _openStockReview(id) {
+    const entry = this.entries.find(e => e.id === id);
+    if (!entry) return;
+    this._stockReviewEntryId = id;
+    this._stockReviewDirty = false;
+
+    // Clear any pending save timer
+    if (this._stockReviewSaveTimer) {
+      clearTimeout(this._stockReviewSaveTimer);
+      this._stockReviewSaveTimer = null;
+    }
+
+    // Populate header
+    if (this.stockReviewSymbol) {
+      this.stockReviewSymbol.textContent = entry.symbol;
+    }
+    if (this.stockReviewCompany) {
+      this.stockReviewCompany.textContent = entry.companyName || entry.symbol;
+    }
+
+    // Populate metrics chips
+    if (this.stockReviewMetrics) {
+      const chips = [];
+      if (entry.currentPrice) {
+        const pctClass = (entry.currentPercentChange || 0) >= 0 ? 'positive' : 'negative';
+        chips.push(`<span class="stock-review-metric-chip">Price: ${Utils.formatCurrency(entry.currentPrice)}</span>`);
+        chips.push(`<span class="stock-review-metric-chip ${pctClass}">Chg: ${Utils.formatPercent(entry.currentPercentChange)}</span>`);
+      }
+      if (entry.notedPrice) {
+        const gainLoss = Utils.calcGainLoss(entry.notedPrice, entry.currentPrice);
+        const pnlClass = gainLoss >= 0 ? 'positive' : 'negative';
+        chips.push(`<span class="stock-review-metric-chip">Noted: ${Utils.formatCurrency(entry.notedPrice)}</span>`);
+        chips.push(`<span class="stock-review-metric-chip ${pnlClass}">P&L: ${Utils.formatPercent(Math.abs(gainLoss))}</span>`);
+      }
+      if (entry.sector) {
+        chips.push(`<span class="stock-review-metric-chip">Sector: ${Utils.escapeAttr(entry.sector)}</span>`);
+      }
+      if (entry.exchange) {
+        chips.push(`<span class="stock-review-metric-chip">Exchange: ${this._formatExchange(entry.exchange)}</span>`);
+      }
+      if (entry.sharesFloat) {
+        chips.push(`<span class="stock-review-metric-chip">Float: ${Utils.formatVolume(entry.sharesFloat)}</span>`);
+      }
+      this.stockReviewMetrics.innerHTML = chips.join('');
+    }
+
+    // Populate chart links
+    if (this.stockReviewChartLinks) {
+      const interval = (entry.list === 'swing') ? 'D' : '1';
+      this.stockReviewChartLinks.innerHTML = `
+        <a href="https://www.tradingview.com/chart/?symbol=${entry.symbol}&interval=${interval}" target="_blank" rel="noopener" class="stock-review-chart-link">📈 TradingView (${interval === 'D' ? 'Daily' : '1-min'})</a>
+        <a href="https://finance.yahoo.com/quote/${entry.symbol}" target="_blank" rel="noopener" class="stock-review-chart-link">📊 Yahoo Finance</a>
+        <a href="https://finviz.com/quote.ashx?t=${entry.symbol}" target="_blank" rel="noopener" class="stock-review-chart-link">🔍 Finviz</a>
+      `;
+    }
+
+    // Populate tags
+    if (this.stockReviewTags) {
+      this.stockReviewTags.value = (entry.tags || []).join(', ');
+      // Update tag datalist suggestions
+      if (this.stockReviewTagSuggestions) {
+        const allTags = this._getAllTags();
+        this.stockReviewTagSuggestions.innerHTML = allTags.map(t => `<option value="${Utils.escapeAttr(t)}">`).join('');
+      }
+    }
+
+    // Populate textarea with existing notes
+    if (this.stockReviewTextarea) {
+      this.stockReviewTextarea.value = entry.notes || '';
+    }
+
+    // Update char count
+    this._updateStockReviewCharCount();
+
+    // Clear save status
+    if (this.stockReviewSaveStatus) {
+      this.stockReviewSaveStatus.textContent = '';
+      this.stockReviewSaveStatus.className = 'stock-review-save-status';
+    }
+
+    // Show overlay
+    if (this.stockReviewOverlay) {
+      this.stockReviewOverlay.style.display = 'flex';
+    }
+
+    // Focus textarea
+    setTimeout(() => {
+      if (this.stockReviewTextarea) this.stockReviewTextarea.focus();
+    }, 100);
+  }
+
+  // ---- Close the stock review overlay (save if dirty) ----
+  async _closeStockReview() {
+    // Clear any pending auto-save
+    if (this._stockReviewSaveTimer) {
+      clearTimeout(this._stockReviewSaveTimer);
+      this._stockReviewSaveTimer = null;
+    }
+
+    // Save if dirty
+    if (this._stockReviewDirty) {
+      await this._doSaveStockReview();
+    }
+
+    if (this.stockReviewOverlay) {
+      this.stockReviewOverlay.style.display = 'none';
+    }
+    this._stockReviewEntryId = null;
+
+    // Re-render table to reflect changes
+    this.render();
+  }
+
+  // ---- Input handler — trigger auto-save with 2s debounce ----
+  _onStockReviewInput() {
+    this._stockReviewDirty = true;
+
+    if (this._stockReviewSaveTimer) {
+      clearTimeout(this._stockReviewSaveTimer);
+    }
+
+    if (this.stockReviewSaveStatus) {
+      this.stockReviewSaveStatus.textContent = 'Unsaved changes...';
+      this.stockReviewSaveStatus.className = 'stock-review-save-status unsaved';
+    }
+
+    this._stockReviewSaveTimer = setTimeout(async () => {
+      await this._doSaveStockReview();
+    }, 2000);
+  }
+
+  // ---- Update word/character count in stock review ----
+  _updateStockReviewCharCount() {
+    if (!this.stockReviewCharCount || !this.stockReviewTextarea) return;
+    const text = this.stockReviewTextarea.value;
+    const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const charCount = text.length;
+    this.stockReviewCharCount.textContent = `${wordCount} words / ${charCount} chars`;
+  }
+
+  // ---- Actually save the stock review ----
+  async _doSaveStockReview() {
+    if (!this._stockReviewDirty || !this._stockReviewEntryId) return;
+
+    const entryId = this._stockReviewEntryId;
+    const entry = this.entries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    const notes = this.stockReviewTextarea ? this.stockReviewTextarea.value : '';
+    const tagsStr = this.stockReviewTags ? this.stockReviewTags.value.trim() : '';
+    const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+    // Update local entry
+    entry.notes = notes;
+    entry.tags = tags;
+
+    try {
+      await dataStore.updateEntry(entryId, {
+        notes: notes,
+        tags: tags,
+        notesUpdatedAt: new Date().toISOString()
+      });
+
+      this._stockReviewDirty = false;
+
+      if (this.stockReviewSaveStatus) {
+        this.stockReviewSaveStatus.textContent = 'Saved';
+        this.stockReviewSaveStatus.className = 'stock-review-save-status saved';
+      }
+    } catch (e) {
+      console.warn('[StockReview] Failed to save:', e.message);
+      if (this.stockReviewSaveStatus) {
+        this.stockReviewSaveStatus.textContent = 'Save failed';
+        this.stockReviewSaveStatus.className = 'stock-review-save-status unsaved';
+      }
+    }
   }
 }
 

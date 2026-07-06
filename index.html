@@ -351,6 +351,60 @@
         </div>
       </div>
     </div>
+
+    <!-- ====== STOCK REVIEW OVERLAY ====== -->
+    <div class="stock-review-overlay" id="stock-review-overlay" style="display:none;">
+      <div class="stock-review-modal">
+        <div class="stock-review-header">
+          <div class="stock-review-title-row">
+            <span class="stock-review-symbol" id="stock-review-symbol"></span>
+            <span class="stock-review-company" id="stock-review-company"></span>
+          </div>
+          <div class="stock-review-metrics" id="stock-review-metrics">
+            <!-- populated dynamically -->
+          </div>
+          <div class="stock-review-header-right">
+            <span class="stock-review-save-status" id="stock-review-save-status"></span>
+            <button class="btn btn-sm btn-secondary" id="stock-review-close">Close</button>
+          </div>
+        </div>
+        <div class="stock-review-tags-row" id="stock-review-tags-row">
+          <span class="stock-review-label">Tags:</span>
+          <input type="text" id="stock-review-tags" placeholder="Breakout, Momentum, Gap Up..." autocomplete="off" list="stock-review-tag-suggestions">
+          <datalist id="stock-review-tag-suggestions"></datalist>
+        </div>
+        <div class="stock-review-chart-links" id="stock-review-chart-links">
+          <!-- populated dynamically -->
+        </div>
+        <div class="stock-review-toolbar" id="stock-review-toolbar">
+          <button class="fmt-btn" data-fmt="bold" title="Bold">B</button>
+          <button class="fmt-btn" data-fmt="italic" title="Italic">I</button>
+          <button class="fmt-btn" data-fmt="heading" title="Heading">H</button>
+          <button class="fmt-btn" data-fmt="bullet" title="Bullet List">-</button>
+          <button class="fmt-btn" data-fmt="number" title="Numbered List">1.</button>
+          <button class="fmt-btn" data-fmt="code" title="Inline Code">`</button>
+          <button class="fmt-btn" data-fmt="link" title="Link">Link</button>
+        </div>
+        <textarea class="stock-review-textarea" id="stock-review-textarea" placeholder="Write your full stock review here...
+
+Structure suggestions:
+## Entry Rationale
+- Why this stock? What was the catalyst or setup?
+
+## Technical Setup
+- Key levels, pattern, timeframe
+
+## Risk Management
+- Stop loss, position size, R:R
+
+## Post-Trade Review
+- What worked? What didn't? Grade the trade."></textarea>
+        <div class="stock-review-footer">
+          <span class="stock-review-char-count" id="stock-review-char-count">0 words / 0 chars</span>
+          <span class="stock-review-hint">Paste images with Ctrl+V | Auto-saves as you type</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Firebase SDK (loaded only if USE_FIREBASE = true) -->
