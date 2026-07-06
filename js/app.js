@@ -67,6 +67,10 @@ class StockWatchApp {
     // Price Action education dropdown refs
     this.priceActionBtn = document.getElementById('price-action-btn');
     this.priceActionDropdown = document.getElementById('price-action-dropdown');
+    this.wisdomBtn = document.getElementById('wisdom-btn');
+    this.wisdomDropdown = document.getElementById('wisdom-dropdown');
+    this.playbookBtn = document.getElementById('playbook-btn');
+    this.playbookDropdown = document.getElementById('playbook-dropdown');
     this.checklistOverlay = document.getElementById('checklist-overlay');
     this.checklistBody = document.getElementById('checklist-body');
     this.checklistCounter = document.getElementById('checklist-counter');
@@ -2533,12 +2537,40 @@ class StockWatchApp {
       });
     }
 
+    // Wisdom dropdown toggle
+    if (this.wisdomBtn && this.wisdomDropdown) {
+      this.wisdomBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._toggleWisdomDropdown();
+      });
+    }
+
+    // Playbook dropdown toggle
+    if (this.playbookBtn && this.playbookDropdown) {
+      this.playbookBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._togglePlaybookDropdown();
+      });
+    }
+
     // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
       if (this.priceActionDropdown && this.priceActionDropdown.classList.contains('visible')) {
         if (!this.priceActionBtn.contains(e.target) && !this.priceActionDropdown.contains(e.target)) {
           this.priceActionDropdown.classList.remove('visible');
           this.priceActionBtn.classList.remove('active');
+        }
+      }
+      if (this.wisdomDropdown && this.wisdomDropdown.classList.contains('visible')) {
+        if (!this.wisdomBtn.contains(e.target) && !this.wisdomDropdown.contains(e.target)) {
+          this.wisdomDropdown.classList.remove('visible');
+          this.wisdomBtn.classList.remove('active');
+        }
+      }
+      if (this.playbookDropdown && this.playbookDropdown.classList.contains('visible')) {
+        if (!this.playbookBtn.contains(e.target) && !this.playbookDropdown.contains(e.target)) {
+          this.playbookDropdown.classList.remove('visible');
+          this.playbookBtn.classList.remove('active');
         }
       }
     });
@@ -2553,6 +2585,20 @@ class StockWatchApp {
     if (!this.priceActionDropdown || !this.priceActionBtn) return;
     const isVisible = this.priceActionDropdown.classList.toggle('visible');
     this.priceActionBtn.classList.toggle('active', isVisible);
+  }
+
+  // ---- Toggle the Wisdom dropdown ----
+  _toggleWisdomDropdown() {
+    if (!this.wisdomDropdown || !this.wisdomBtn) return;
+    const isVisible = this.wisdomDropdown.classList.toggle('visible');
+    this.wisdomBtn.classList.toggle('active', isVisible);
+  }
+
+  // ---- Toggle the Playbook dropdown ----
+  _togglePlaybookDropdown() {
+    if (!this.playbookDropdown || !this.playbookBtn) return;
+    const isVisible = this.playbookDropdown.classList.toggle('visible');
+    this.playbookBtn.classList.toggle('active', isVisible);
   }
 
   // ---- Open the Chart Checklist overlay ----
