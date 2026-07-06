@@ -110,6 +110,42 @@ class StockWatchApp {
     this._stockReviewSaveTimer = null;
     this._stockReviewDirty = false;
 
+    // Trade tracking refs
+    this.stockReviewTraded = document.getElementById('stock-review-traded');
+    this.stockReviewTradeRow = document.getElementById('stock-review-trade-row');
+    this.stockReviewDirection = document.getElementById('stock-review-direction');
+    this.stockReviewEntryPrice = document.getElementById('stock-review-entry-price');
+    this.stockReviewExitPrice = document.getElementById('stock-review-exit-price');
+    this.stockReviewShares = document.getElementById('stock-review-shares');
+    this.stockReviewStrategy = document.getElementById('stock-review-strategy');
+    this.stockReviewEntryTime = document.getElementById('stock-review-entry-time');
+    this.stockReviewExitTime = document.getElementById('stock-review-exit-time');
+    this.stockReviewTradeCalc = document.getElementById('stock-review-trade-calculated');
+
+    // Risk management refs
+    this.stockReviewRiskSettings = document.getElementById('stock-review-risk-settings');
+    this.stockReviewRiskPanel = document.getElementById('stock-review-risk-panel');
+    this.riskAccountSize = document.getElementById('risk-account-size');
+    this.riskPercentage = document.getElementById('risk-percentage');
+    this.riskRewardRatio = document.getElementById('risk-reward-ratio');
+    this.riskSaveBtn = document.getElementById('risk-save-btn');
+
+    // Reset template button ref
+    this.stockReviewResetTemplate = document.getElementById('stock-review-reset-template');
+
+    // Review template (persistent content, not placeholder)
+    this._reviewTemplate = `## Entry Rationale
+- Why this stock? What was the catalyst or setup?
+
+## Technical Setup
+- Key levels, pattern, timeframe
+
+## Risk Management
+- Stop loss, position size, R:R
+
+## Post-Trade Review
+- What worked? What didn't? Grade the trade.`;
+
     // List toggle buttons (dynamic — one per KNOWN_LISTS entry)
     this.listToggleButtons = {};
     for (const list of KNOWN_LISTS) {
@@ -2869,6 +2905,59 @@ class StockWatchApp {
       this.stockReviewTags.addEventListener('input', () => this._onStockReviewInput());
     }
 
+    // Traded checkbox — toggle trade input row and recalculate
+    if (this.stockReviewTraded) {
+      this.stockReviewTraded.addEventListener('change', () => {
+        this._toggleTradeRows();
+        this._updateTradeCalculated();
+        this._onStockReviewInput();
+      });
+    }
+
+    // Trade input fields — recalculate on change
+    const tradeInputs = [this.stockReviewDirection, this.stockReviewEntryPrice, this.stockReviewExitPrice, this.stockReviewShares, this.stockReviewStrategy, this.stockReviewEntryTime, this.stockReviewExitTime];
+    tradeInputs.forEach(input => {
+      if (input) {
+        input.addEventListener('input', () => {
+          this._updateTradeCalculated();
+          this._onStockReviewInput();
+        });
+        input.addEventListener('change', () => {
+          this._updateTradeCalculated();
+          this._onStockReviewInput();
+        });
+      }
+    });
+
+    // Risk settings — toggle panel and save
+    if (this.stockReviewRiskSettings) {
+      this.stockReviewRiskSettings.addEventListener('click', () => {
+        const panel = this.stockReviewRiskPanel;
+        if (panel) {
+          panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+          if (panel.style.display === 'flex') {
+            this._loadRiskSettings();
+          }
+        }
+      });
+    }
+
+    if (this.riskSaveBtn) {
+      this.riskSaveBtn.addEventListener('click', () => {
+        this._saveRiskSettings();
+        this._updateTradeCalculated();
+        this._onStockReviewInput();
+      });
+    }
+
+    // Reset template button
+    if (this.stockReviewResetTemplate) {
+      this.stockReviewResetTemplate.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._resetTemplate();
+      });
+    }
+
     // Escape key to close
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.stockReviewOverlay && this.stockReviewOverlay.style.display === 'flex') {
@@ -2944,10 +3033,49 @@ class StockWatchApp {
       }
     }
 
-    // Populate textarea with existing notes
-    if (this.stockReviewTextarea) {
-      this.stockReviewTextarea.value = entry.notes || '';
+    // Populate trade tracking fields
+    if (this.stockReviewTraded) {
+      this.stockReviewTraded.checked = !!entry.traded;
     }
+    if (this.stockReviewDirection) {
+      this.stockReviewDirection.value = entry.direction || 'long';
+    }
+    if (this.stockReviewEntryPrice) {
+      this.stockReviewEntryPrice.value = entry.entryPrice || '';
+    }
+    if (this.stockReviewExitPrice) {
+      this.stockReviewExitPrice.value = entry.exitPrice || '';
+    }
+    if (this.stockReviewShares) {
+      this.stockReviewShares.value = entry.shares || '';
+    }
+    if (this.stockReviewStrategy) {
+      this.stockReviewStrategy.value = entry.strategy || '';
+    }
+    if (this.stockReviewEntryTime) {
+      this.stockReviewEntryTime.value = entry.entryTime ? entry.entryTime.substring(0, 16) : '';
+    }
+    if (this.stockReviewExitTime) {
+      this.stockReviewExitTime.value = entry.exitTime ? entry.exitTime.substring(0, 16) : '';
+    }
+
+    // Show/hide trade rows based on traded checkbox
+    this._toggleTradeRows();
+
+    // Update calculated trade pills
+    this._updateTradeCalculated();
+
+    // Populate textarea with existing notes, or template if empty
+    if (this.stockReviewTextarea) {
+      if (entry.notes && entry.notes.trim().length > 0) {
+        this.stockReviewTextarea.value = entry.notes;
+      } else {
+        this.stockReviewTextarea.value = this._reviewTemplate;
+      }
+    }
+
+    // Load risk settings into panel
+    this._loadRiskSettings();
 
     // Update char count
     this._updateStockReviewCharCount();
@@ -2958,9 +3086,10 @@ class StockWatchApp {
       this.stockReviewSaveStatus.className = 'stock-review-save-status';
     }
 
-    // Show overlay
+    // Show overlay and lock body scroll
     if (this.stockReviewOverlay) {
       this.stockReviewOverlay.style.display = 'flex';
+      document.body.classList.add('overlay-open');
     }
 
     // Focus textarea
@@ -2984,6 +3113,7 @@ class StockWatchApp {
 
     if (this.stockReviewOverlay) {
       this.stockReviewOverlay.style.display = 'none';
+      document.body.classList.remove('overlay-open');
     }
     this._stockReviewEntryId = null;
 
@@ -3030,14 +3160,40 @@ class StockWatchApp {
     const tagsStr = this.stockReviewTags ? this.stockReviewTags.value.trim() : '';
     const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(Boolean) : [];
 
+    // Collect trade data
+    const traded = this.stockReviewTraded ? this.stockReviewTraded.checked : false;
+    const direction = this.stockReviewDirection ? this.stockReviewDirection.value : 'long';
+    const entryPrice = this.stockReviewEntryPrice ? parseFloat(this.stockReviewEntryPrice.value) || 0 : 0;
+    const exitPrice = this.stockReviewExitPrice ? parseFloat(this.stockReviewExitPrice.value) || 0 : 0;
+    const shares = this.stockReviewShares ? parseInt(this.stockReviewShares.value) || 0 : 0;
+    const strategy = this.stockReviewStrategy ? this.stockReviewStrategy.value.trim() : '';
+    const entryTime = this.stockReviewEntryTime ? (this.stockReviewEntryTime.value ? new Date(this.stockReviewEntryTime.value).toISOString() : null) : null;
+    const exitTime = this.stockReviewExitTime ? (this.stockReviewExitTime.value ? new Date(this.stockReviewExitTime.value).toISOString() : null) : null;
+
     // Update local entry
     entry.notes = notes;
     entry.tags = tags;
+    entry.traded = traded;
+    entry.direction = direction;
+    entry.entryPrice = entryPrice;
+    entry.exitPrice = exitPrice;
+    entry.shares = shares;
+    entry.strategy = strategy;
+    entry.entryTime = entryTime;
+    entry.exitTime = exitTime;
 
     try {
       await dataStore.updateEntry(entryId, {
         notes: notes,
         tags: tags,
+        traded: traded,
+        direction: direction,
+        entryPrice: entryPrice,
+        exitPrice: exitPrice,
+        shares: shares,
+        strategy: strategy,
+        entryTime: entryTime,
+        exitTime: exitTime,
         notesUpdatedAt: new Date().toISOString()
       });
 
@@ -3054,6 +3210,110 @@ class StockWatchApp {
         this.stockReviewSaveStatus.className = 'stock-review-save-status unsaved';
       }
     }
+  }
+
+  // ---- Show/hide trade rows based on traded checkbox ----
+  _toggleTradeRows() {
+    const traded = this.stockReviewTraded ? this.stockReviewTraded.checked : false;
+    if (this.stockReviewTradeRow) {
+      this.stockReviewTradeRow.style.display = traded ? 'flex' : 'none';
+    }
+    if (this.stockReviewTradeCalc) {
+      this.stockReviewTradeCalc.style.display = traded ? 'flex' : 'none';
+    }
+  }
+
+  // ---- Update calculated trade pills ----
+  _updateTradeCalculated() {
+    if (!this.stockReviewTradeCalc) return;
+
+    const traded = this.stockReviewTraded ? this.stockReviewTraded.checked : false;
+    if (!traded) {
+      this.stockReviewTradeCalc.innerHTML = '';
+      this.stockReviewTradeCalc.style.display = 'none';
+      return;
+    }
+
+    const direction = this.stockReviewDirection ? this.stockReviewDirection.value : 'long';
+    const entryPrice = this.stockReviewEntryPrice ? parseFloat(this.stockReviewEntryPrice.value) || 0 : 0;
+    const exitPrice = this.stockReviewExitPrice ? parseFloat(this.stockReviewExitPrice.value) || 0 : 0;
+    const shares = this.stockReviewShares ? parseInt(this.stockReviewShares.value) || 0 : 0;
+
+    const pills = [];
+
+    // Trade P&L
+    if (entryPrice > 0 && shares > 0 && exitPrice > 0) {
+      const pnl = direction === 'long'
+        ? (exitPrice - entryPrice) * shares
+        : (entryPrice - exitPrice) * shares;
+      const pnlPct = (pnl / (entryPrice * shares)) * 100;
+      const pnlClass = pnl >= 0 ? 'win' : 'loss';
+      const pnlSign = pnl >= 0 ? '+' : '';
+      pills.push(`<span class="trade-calc-pill ${pnlClass}">Trade P&L: ${pnlSign}$${Utils.formatCurrency(Math.abs(pnl))} (${pnlSign}${pnlPct.toFixed(2)}%)</span>`);
+    } else if (entryPrice > 0 && shares > 0) {
+      // Open trade — show entry only
+      pills.push(`<span class="trade-calc-pill">Entry: $${Utils.formatCurrency(entryPrice)} × ${shares} shares</span>`);
+    }
+
+    // Risk analysis (only if global risk settings are configured)
+    const settings = this._getRiskSettings();
+    if (settings.accountSize > 0 && entryPrice > 0 && shares > 0) {
+      const riskAmount = settings.accountSize * (settings.riskPercentage / 100);
+      const stopLossDist = shares > 0 ? riskAmount / shares : 0;
+      const stopLoss = direction === 'long'
+        ? entryPrice - stopLossDist
+        : entryPrice + stopLossDist;
+      const takeProfit = direction === 'long'
+        ? entryPrice + (stopLossDist * settings.riskRewardRatio)
+        : entryPrice - (stopLossDist * settings.riskRewardRatio);
+
+      pills.push(`<span class="trade-calc-pill risk">Risk: $${Utils.formatCurrency(riskAmount)} (${settings.riskPercentage}%)</span>`);
+      pills.push(`<span class="trade-calc-pill risk">Stop: $${Utils.formatCurrency(stopLoss)}</span>`);
+      pills.push(`<span class="trade-calc-pill risk">Target: $${Utils.formatCurrency(takeProfit)} (1:${settings.riskRewardRatio})</span>`);
+    }
+
+    this.stockReviewTradeCalc.innerHTML = pills.join('');
+    this.stockReviewTradeCalc.style.display = 'flex';
+  }
+
+  // ---- Load risk settings from localStorage ----
+  _loadRiskSettings() {
+    const settings = this._getRiskSettings();
+    if (this.riskAccountSize) this.riskAccountSize.value = settings.accountSize || '';
+    if (this.riskPercentage) this.riskPercentage.value = settings.riskPercentage || 1;
+    if (this.riskRewardRatio) this.riskRewardRatio.value = settings.riskRewardRatio || 2;
+  }
+
+  // ---- Save risk settings to localStorage ----
+  _saveRiskSettings() {
+    const settings = {
+      accountSize: this.riskAccountSize ? parseFloat(this.riskAccountSize.value) || 0 : 0,
+      riskPercentage: this.riskPercentage ? parseFloat(this.riskPercentage.value) || 1 : 1,
+      riskRewardRatio: this.riskRewardRatio ? parseFloat(this.riskRewardRatio.value) || 2 : 2
+    };
+    localStorage.setItem('stockwatchlist_risk_settings', JSON.stringify(settings));
+    Utils.showToast('Risk settings saved');
+  }
+
+  // ---- Get risk settings from localStorage ----
+  _getRiskSettings() {
+    try {
+      const raw = localStorage.getItem('stockwatchlist_risk_settings');
+      if (raw) return JSON.parse(raw);
+    } catch (e) { /* ignore */ }
+    return { accountSize: 0, riskPercentage: 1, riskRewardRatio: 2 };
+  }
+
+  // ---- Reset the textarea to the review template ----
+  _resetTemplate() {
+    if (!this.stockReviewTextarea) return;
+    if (this.stockReviewTextarea.value.trim() && this.stockReviewTextarea.value !== this._reviewTemplate) {
+      if (!confirm('This will replace your current notes with the template. Continue?')) return;
+    }
+    this.stockReviewTextarea.value = this._reviewTemplate;
+    this._updateStockReviewCharCount();
+    this._onStockReviewInput();
+    this.stockReviewTextarea.focus();
   }
 }
 

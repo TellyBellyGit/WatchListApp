@@ -364,6 +364,7 @@
             <!-- populated dynamically -->
           </div>
           <div class="stock-review-header-right">
+            <button class="btn btn-sm btn-icon-text" id="stock-review-risk-settings" title="Risk Management Settings">⚙ Risk</button>
             <span class="stock-review-save-status" id="stock-review-save-status"></span>
             <button class="btn btn-sm btn-secondary" id="stock-review-close">Close</button>
           </div>
@@ -372,6 +373,79 @@
           <span class="stock-review-label">Tags:</span>
           <input type="text" id="stock-review-tags" placeholder="Breakout, Momentum, Gap Up..." autocomplete="off" list="stock-review-tag-suggestions">
           <datalist id="stock-review-tag-suggestions"></datalist>
+        </div>
+        <!-- Trade Tracking Toggle Row -->
+        <div class="stock-review-trade-toggle-row">
+          <label class="trade-checkbox-label">
+            <input type="checkbox" id="stock-review-traded">
+            <span class="trade-checkbox-text">Traded?</span>
+          </label>
+        </div>
+        <!-- Trade Input Chips Row (shown when Traded? is checked) -->
+        <div class="stock-review-trade-row" id="stock-review-trade-row" style="display:none;">
+          <div class="trade-input-group">
+            <span class="trade-input-label">Direction:</span>
+            <select id="stock-review-direction">
+              <option value="long">Long</option>
+              <option value="short">Short</option>
+            </select>
+          </div>
+          <div class="trade-input-group">
+            <span class="trade-input-label">Entry $:</span>
+            <input type="number" id="stock-review-entry-price" placeholder="0.00" min="0" step="0.0001">
+          </div>
+          <div class="trade-input-group">
+            <span class="trade-input-label">Exit $:</span>
+            <input type="number" id="stock-review-exit-price" placeholder="0.00" min="0" step="0.0001">
+          </div>
+          <div class="trade-input-group">
+            <span class="trade-input-label">Shares:</span>
+            <input type="number" id="stock-review-shares" placeholder="0" min="0" step="1">
+          </div>
+          <div class="trade-input-group trade-strategy-group">
+            <span class="trade-input-label">Strategy:</span>
+            <input type="text" id="stock-review-strategy" placeholder="e.g. Consolidation Breakout" autocomplete="off" list="stock-review-strategy-suggestions">
+            <datalist id="stock-review-strategy-suggestions">
+              <option value="Consolidation Breakout">
+              <option value="Liquidity Sweep">
+              <option value="Developing Uptrend">
+              <option value="Opening Range Breakout">
+              <option value="Gap and Go">
+              <option value="Reversal at Level">
+              <option value="VWAP Bounce">
+              <option value="Momentum Continuation">
+            </datalist>
+          </div>
+          <div class="trade-input-group">
+            <span class="trade-input-label">Entry Time:</span>
+            <input type="datetime-local" id="stock-review-entry-time">
+          </div>
+          <div class="trade-input-group">
+            <span class="trade-input-label">Exit Time:</span>
+            <input type="datetime-local" id="stock-review-exit-time">
+          </div>
+        </div>
+        <!-- Auto-Calculated Trade Pills -->
+        <div class="stock-review-trade-calculated" id="stock-review-trade-calculated" style="display:none;">
+          <!-- populated dynamically -->
+        </div>
+        <!-- Risk Settings Mini-Panel (hidden by default) -->
+        <div class="stock-review-risk-panel" id="stock-review-risk-panel" style="display:none;">
+          <div class="risk-panel-row">
+            <span class="risk-panel-label">Account Size ($)</span>
+            <input type="number" id="risk-account-size" placeholder="e.g. 25000" min="0" step="1">
+          </div>
+          <div class="risk-panel-row">
+            <span class="risk-panel-label">Risk per Trade (%)</span>
+            <input type="number" id="risk-percentage" placeholder="1" min="0.1" max="100" step="0.1" value="1">
+          </div>
+          <div class="risk-panel-row">
+            <span class="risk-panel-label">Risk/Reward Ratio</span>
+            <input type="number" id="risk-reward-ratio" placeholder="2" min="0.5" max="20" step="0.1" value="2">
+          </div>
+          <div class="risk-panel-actions">
+            <button class="btn btn-sm btn-primary" id="risk-save-btn">Save Settings</button>
+          </div>
         </div>
         <div class="stock-review-chart-links" id="stock-review-chart-links">
           <!-- populated dynamically -->
@@ -384,21 +458,9 @@
           <button class="fmt-btn" data-fmt="number" title="Numbered List">1.</button>
           <button class="fmt-btn" data-fmt="code" title="Inline Code">`</button>
           <button class="fmt-btn" data-fmt="link" title="Link">Link</button>
+          <button class="fmt-btn btn-reset-template" id="stock-review-reset-template" title="Reset to review template">📋</button>
         </div>
-        <textarea class="stock-review-textarea" id="stock-review-textarea" placeholder="Write your full stock review here...
-
-Structure suggestions:
-## Entry Rationale
-- Why this stock? What was the catalyst or setup?
-
-## Technical Setup
-- Key levels, pattern, timeframe
-
-## Risk Management
-- Stop loss, position size, R:R
-
-## Post-Trade Review
-- What worked? What didn't? Grade the trade."></textarea>
+        <textarea class="stock-review-textarea" id="stock-review-textarea"></textarea>
         <div class="stock-review-footer">
           <span class="stock-review-char-count" id="stock-review-char-count">0 words / 0 chars</span>
           <span class="stock-review-hint">Paste images with Ctrl+V | Auto-saves as you type</span>
