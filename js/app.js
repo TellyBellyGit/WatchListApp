@@ -54,6 +54,7 @@ class StockWatchApp {
     this.dayArrowLeft = document.getElementById('day-arrow-left');
     this.dayArrowRight = document.getElementById('day-arrow-right');
     this.btnTodayAll = document.getElementById('btn-today-all');
+    this.btnCalendarToggle = document.getElementById('btn-calendar-toggle');
     this.toggleAddSectionBtn = document.getElementById('toggle-add-section');
     this.addStockSection = document.getElementById('add-stock-section');
     this.globalToggleAddSectionBtn = document.getElementById('toggle-add-section-global');
@@ -181,6 +182,9 @@ class StockWatchApp {
 
     // Dates that have watchlist entries across all three lists (for calendar highlighting)
     this._dataDates = new Set();
+
+    // Calendar month strip state
+    this._calendarMonthOffset = 0;  // 0 = current month (matching selected date), -1 = prev, +1 = next
   }
 
   // ---- Initialize ----
@@ -483,7 +487,7 @@ class StockWatchApp {
     }
   }
 
-  // ---- Render the 7-day date-dot strip around the selected date ----
+  // ---- Render the date-dot strip (7-day collapsed or full month expanded) ----
   _renderDateDotStrip() {
     const strip = document.getElementById('date-dot-strip');
     if (!strip) return;
@@ -496,48 +500,130 @@ class StockWatchApp {
       return;
     }
 
+    const isExpanded = strip.classList.contains('expanded');
     const cY = parseInt(parts[0]);
     const cM = parseInt(parts[1]) - 1;
     const cD = parseInt(parts[2]);
-    const centerDate = new Date(Date.UTC(cY, cM, cD));
 
-    const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+    if (isExpanded) {
+      // ---- Full month grid mode ----
+      // Determine which month to show based on stored offset
+      const baseDate = new Date(Date.UTC(cY, cM, cD));
+      const monthDate = new Date(Date.UTC(
+        baseDate.getUTCFullYear(),
+        baseDate.getUTCMonth() + this._calendarMonthOffset,
+        1
+      ));
+      const mYear = monthDate.getUTCFullYear();
+      const mMonth = monthDate.getUTCMonth();
 
-    let html = '';
-    for (let i = -3; i <= 3; i++) {
-      const d = new Date(centerDate);
-      d.setUTCDate(d.getUTCDate() + i);
-      const y = d.getUTCFullYear();
-      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(d.getUTCDate()).padStart(2, '0');
-      const dateStr = `${y}-${m}-${day}`;
-      const dayName = dayNames[d.getUTCDay()];
-      const hasData = this._dataDates.has(dateStr);
-      const isToday = dateStr === today;
-      const isSelected = dateStr === center;
-      const isWeekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+      const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-      let cls = 'date-dot';
-      if (hasData) cls += ' has-data';
-      if (isToday) cls += ' is-today';
-      if (isSelected) cls += ' is-selected';
-      if (isWeekend) cls += ' is-weekend';
+      const firstDay = new Date(Date.UTC(mYear, mMonth, 1));
+      const startDow = firstDay.getUTCDay(); // 0=Sun
+      const daysInMonth = new Date(Date.UTC(mYear, mMonth + 1, 0)).getUTCDate();
 
-      html += `<span class="${cls}" data-date="${dateStr}" title="${dateStr}${hasData ? ' — has entries' : ''}">
-        <span class="date-dot-day">${dayName}</span>
-        <span class="date-dot-num">${day}</span>
-      </span>`;
+      let html = '';
+      // Month nav header
+      html += `<div class="month-nav">
+        <button class="month-nav-arrow" data-cal-offset="-1">◀</button>
+        <span class="month-nav-label">${monthNames[mMonth]} ${mYear}</span>
+        <button class="month-nav-arrow" data-cal-offset="1">▶</button>
+      </div>`;
+      // Day-of-week headers
+      for (const dow of dayNames) {
+        html += `<span class="dow-header">${dow}</span>`;
+      }
+      // Empty cells before first day
+      for (let i = 0; i < startDow; i++) {
+        html += `<span></span>`;
+      }
+      // Day cells
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateObj = new Date(Date.UTC(mYear, mMonth, d));
+        const y = dateObj.getUTCFullYear();
+        const mn = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+        const dy = String(d).padStart(2, '0');
+        const dateStr = `${y}-${mn}-${dy}`;
+        const dow = dateObj.getUTCDay();
+        const hasData = this._dataDates.has(dateStr);
+        const isToday = dateStr === today;
+        const isSelected = dateStr === center;
+        const isWeekend = dow === 0 || dow === 6;
+
+        let cls = 'date-dot';
+        if (hasData) cls += ' has-data';
+        if (isToday) cls += ' is-today';
+        if (isSelected) cls += ' is-selected';
+        if (isWeekend) cls += ' is-weekend';
+
+        html += `<span class="${cls}" data-date="${dateStr}" title="${dateStr}${hasData ? ' — has entries' : ''}">
+          <span class="date-dot-day">${dayNames[dow]}</span>
+          <span class="date-dot-num">${dy}</span>
+        </span>`;
+      }
+
+      strip.innerHTML = html;
+
+      // Bind month nav arrows
+      strip.querySelectorAll('.month-nav-arrow').forEach(arrow => {
+        arrow.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const off = parseInt(arrow.dataset.calOffset);
+          this._calendarMonthOffset += off;
+          this._renderDateDotStrip();
+        });
+      });
+    } else {
+      // ---- 7-day collapsed strip mode (original) ----
+      const centerDate = new Date(Date.UTC(cY, cM, cD));
+      const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+      let html = '';
+      for (let i = -3; i <= 3; i++) {
+        const d = new Date(centerDate);
+        d.setUTCDate(d.getUTCDate() + i);
+        const y = d.getUTCFullYear();
+        const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(d.getUTCDate()).padStart(2, '0');
+        const dateStr = `${y}-${m}-${day}`;
+        const dayName = dayNames[d.getUTCDay()];
+        const hasData = this._dataDates.has(dateStr);
+        const isToday = dateStr === today;
+        const isSelected = dateStr === center;
+        const isWeekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
+
+        let cls = 'date-dot';
+        if (hasData) cls += ' has-data';
+        if (isToday) cls += ' is-today';
+        if (isSelected) cls += ' is-selected';
+        if (isWeekend) cls += ' is-weekend';
+
+        html += `<span class="${cls}" data-date="${dateStr}" title="${dateStr}${hasData ? ' — has entries' : ''}">
+          <span class="date-dot-day">${dayName}</span>
+          <span class="date-dot-num">${day}</span>
+        </span>`;
+      }
+
+      strip.innerHTML = html;
     }
 
-    strip.innerHTML = html;
-
-    // Bind click events on date dots
+    // Bind click events on date dots (both modes)
     strip.querySelectorAll('.date-dot').forEach(dot => {
       dot.addEventListener('click', () => {
         const dateStr = dot.dataset.date;
         this.filterDateFromEl.value = dateStr;
         this.filterDateFromVal = dateStr;
         this.dateFilterMode = 'today';
+        // Reset month offset to selected date's month
+        const dp = dateStr.split('-');
+        if (dp.length === 3) {
+          const selDate = new Date(Date.UTC(parseInt(dp[0]), parseInt(dp[1]) - 1, parseInt(dp[2])));
+          const baseDate = new Date(Date.UTC(cY, cM, cD));
+          this._calendarMonthOffset = (selDate.getUTCFullYear() - baseDate.getUTCFullYear()) * 12 + (selDate.getUTCMonth() - baseDate.getUTCMonth());
+        }
         this._updateDayNavUI();
         this._updateDayBadge();
         this._updateDataDateIndicator();
@@ -545,6 +631,41 @@ class StockWatchApp {
         this.applyFilters();
       });
     });
+  }
+
+  // ---- Toggle the calendar month strip expanded/collapsed ----
+  _toggleCalendarStrip() {
+    const strip = document.getElementById('date-dot-strip');
+    if (!strip) return;
+
+    const isExpanded = strip.classList.toggle('expanded');
+    if (isExpanded) {
+      // Expanded: reset month offset to selected date's month
+      this._calendarMonthOffset = 0;
+      if (this.btnCalendarToggle) {
+        this.btnCalendarToggle.classList.add('active');
+      }
+    } else {
+      // Collapsed: remove active state
+      if (this.btnCalendarToggle) {
+        this.btnCalendarToggle.classList.remove('active');
+      }
+    }
+    this._renderDateDotStrip();
+  }
+
+  // ---- Collapse calendar strip on outside click ----
+  _onDocumentClickForCalendar(e) {
+    const strip = document.getElementById('date-dot-strip');
+    const toggleBtn = this.btnCalendarToggle;
+    if (!strip || !strip.classList.contains('expanded')) return;
+    if (!toggleBtn) return;
+    // If click is not on the strip or the toggle button, collapse
+    if (!strip.contains(e.target) && !toggleBtn.contains(e.target)) {
+      strip.classList.remove('expanded');
+      if (toggleBtn) toggleBtn.classList.remove('active');
+      this._renderDateDotStrip();
+    }
   }
 
   // ---- Update Day Navigation UI (arrows, today/all button) ----
@@ -695,6 +816,17 @@ class StockWatchApp {
     if (this.btnTodayAll) {
       this.btnTodayAll.addEventListener('click', () => this._toggleTodayAll());
     }
+
+    // Calendar month strip toggle
+    if (this.btnCalendarToggle) {
+      this.btnCalendarToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._toggleCalendarStrip();
+      });
+    }
+
+    // Calendar strip outside-click handling
+    document.addEventListener('click', (e) => this._onDocumentClickForCalendar(e));
 
     // Toggle date columns
     const table = document.querySelector('table');

@@ -495,6 +495,7 @@ body {
   gap: 8px;
   padding: 12px 0;
   flex-wrap: wrap;
+  position: relative;
 }
 
 .filters-bar input[type="date"],
@@ -3270,4 +3271,118 @@ body.overlay-open {
 .filter-date-input.has-data {
   border-color: var(--positive);
   box-shadow: 0 0 0 2px var(--positive-bg);
+}
+
+/* ===== Calendar Toggle Button ===== */
+.btn-calendar-toggle {
+  padding: 3px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+  line-height: 1;
+  height: 28px;
+}
+
+.btn-calendar-toggle:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-calendar-toggle.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* ===== Date-Dot Strip — Expanded Month Grid ===== */
+.date-dot-strip.expanded {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  width: 250px;
+  padding: 8px 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  z-index: 100;
+}
+
+/* Month header inside expanded strip */
+.date-dot-strip .month-nav {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 6px 2px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.date-dot-strip .month-nav-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.date-dot-strip .month-nav-arrow {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 0.6rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.date-dot-strip .month-nav-arrow:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* Day-of-week headers in month grid */
+.date-dot-strip .dow-header {
+  text-align: center;
+  font-size: 0.52rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 0 3px 0;
+}
+
+/* Date dot in expanded mode — square, no flex column */
+.date-dot-strip.expanded .date-dot {
+  width: auto;
+  height: 26px;
+  flex-direction: row;
+  justify-content: center;
+  gap: 1px;
+  border-radius: 4px;
+}
+
+.date-dot-strip.expanded .date-dot .date-dot-day {
+  display: none;
+}
+
+.date-dot-strip.expanded .date-dot .date-dot-num {
+  font-size: 0.68rem;
 }
