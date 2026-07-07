@@ -138,7 +138,16 @@
             <button class="price-action-dropdown-item placeholder" disabled>📊 Volume Analysis</button>
           </div>
         </div>
-        <button class="btn-settings" id="settings-btn" title="API Settings">⚙️</button>
+
+        <!-- Settings Dropdown (gear icon) -->
+        <div class="price-action-wrapper">
+          <button class="btn-settings" id="settings-btn" title="Settings">⚙️</button>
+          <div class="price-action-dropdown settings-dropdown" id="settings-dropdown">
+            <button class="price-action-dropdown-item" data-action="api-settings">⚙️ API Settings</button>
+            <button class="price-action-dropdown-item" data-action="export-csv">📥 Export CSV</button>
+            <button class="price-action-dropdown-item" data-action="delete-all">🗑 Delete All</button>
+          </div>
+        </div>
         <button class="btn-settings" id="toggle-add-section-global" title="Toggle Add Stock Section">🔍</button>
         <div class="connection-status">
           <span class="connection-dot" id="connection-dot"></span>
@@ -175,6 +184,7 @@
       <button class="btn btn-sm btn-arrow" id="day-arrow-left" title="Previous day">◀</button>
       <input type="date" id="filter-date-from" title="Filter by entry date" class="filter-date-input">
       <button class="btn btn-sm btn-arrow" id="day-arrow-right" title="Next day">▶</button>
+      <div class="date-dot-strip" id="date-dot-strip"></div>
       <button class="btn btn-sm btn-today-all" id="btn-today-all" title="Toggle between Today and Show All">📅 All</button>
       <select class="tag-filter" id="filter-tag">
         <option value="">All Tags</option>
@@ -187,8 +197,6 @@
       <div style="flex:1;"></div>
       <button class="btn btn-sm btn-secondary" id="toggle-dates-btn" title="Toggle Entry Date & Updated columns">📅 Show Dates</button>
       <button class="btn btn-sm btn-secondary" id="refresh-btn">🔄 Refresh</button>
-      <button class="btn btn-sm btn-secondary" id="export-btn">📥 Export</button>
-      <button class="btn btn-sm btn-secondary" id="delete-all-btn" title="Delete ALL entries from the current list">🗑 Delete All</button>
     </div>
 
     <!-- ====== DAILY NOTES PANEL ====== -->

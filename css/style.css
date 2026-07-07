@@ -2057,6 +2057,12 @@ tbody tr:hover {
 }
 
 /* Playbook dropdown panel — wider for multi-column readability */
+.settings-dropdown {
+  min-width: 200px;
+  right: 0;
+  left: auto;
+}
+
 .playbook-dropdown {
   min-width: 580px;
   max-width: 680px;
@@ -3162,4 +3168,106 @@ body.overlay-open {
 .btn-reset-template {
   margin-left: auto;
   font-size: 0.85rem;
+}
+
+/* ===== Date-Dot Strip (7-day calendar row) ===== */
+.date-dot-strip {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.date-dot {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.date-dot:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.date-dot .date-dot-day {
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  margin-bottom: 1px;
+}
+
+.date-dot .date-dot-num {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+
+/* Current day � solid blue outline */
+.date-dot.is-today {
+  border-color: var(--accent);
+  border-width: 2px;
+}
+
+.date-dot.is-today .date-dot-day {
+  color: var(--accent);
+}
+
+.date-dot.is-today .date-dot-num {
+  color: var(--accent);
+}
+
+/* Currently selected day � filled blue */
+.date-dot.is-selected {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.date-dot.is-selected .date-dot-day,
+.date-dot.is-selected .date-dot-num {
+  color: #fff;
+}
+
+/* Day with watchlist data � accent dot indicator */
+.date-dot.has-data .date-dot-num {
+  position: relative;
+}
+
+.date-dot.has-data .date-dot-num::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--positive);
+}
+
+/* Has-data + selected � use white dot */
+.date-dot.is-selected.has-data .date-dot-num::after {
+  background: #fff;
+}
+
+/* Weekend � slightly muted */
+.date-dot.is-weekend .date-dot-day {
+  opacity: 0.6;
+}
+
+/* ===== Date input has-data indicator ===== */
+.filter-date-input.has-data {
+  border-color: var(--positive);
+  box-shadow: 0 0 0 2px var(--positive-bg);
 }

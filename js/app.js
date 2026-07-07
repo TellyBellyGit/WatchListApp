@@ -49,7 +49,7 @@ class StockWatchApp {
     this.searchBtn = document.getElementById('search-btn');
     this.searchResults = document.getElementById('search-results');
     this.refreshBtn = document.getElementById('refresh-btn');
-    this.exportBtn = document.getElementById('export-btn');
+    this.settingsDropdown = document.getElementById('settings-dropdown');
     this.filterDateFromEl = document.getElementById('filter-date-from');
     this.dayArrowLeft = document.getElementById('day-arrow-left');
     this.dayArrowRight = document.getElementById('day-arrow-right');
@@ -178,6 +178,9 @@ class StockWatchApp {
     this._dailyNoteSaveTimer = null;       // debounce timer for auto-save
     this._dailyNoteDirty = false;          // unsaved changes flag
     this._dailyNoteDisplayDate = null;     // date currently shown in panel
+
+    // Dates that have watchlist entries across all three lists (for calendar highlighting)
+    this._dataDates = new Set();
   }
 
   // ---- Initialize ----
@@ -209,6 +212,9 @@ class StockWatchApp {
     // Load entries from data store (now that Firestore is initialized)
     await this.loadEntries();
 
+    // Compute dates that have watchlist data across all lists
+    this._computeDataDates();
+
     // Restore add-stock section collapse state (default: visible)
     this._initAddSectionToggle();
 
@@ -222,6 +228,8 @@ class StockWatchApp {
     this.dateFilterMode = 'today';
     this._updateDayNavUI();
     this._updateDayBadge();
+    this._updateDataDateIndicator();
+    this._renderDateDotStrip();
 
     // Init daily notes system
     await this._initDailyNotes();
@@ -456,6 +464,89 @@ class StockWatchApp {
     this.entries = await dataStore.getAllEntries();
   }
 
+  // ---- Compute dates that have watchlist entries across all lists ----
+  _computeDataDates() {
+    this._dataDates = new Set();
+    for (const entry of this.entries) {
+      const dateStr = Utils.formatESTDateOnly(entry.entryDateEST || entry.createdAt);
+      if (dateStr) this._dataDates.add(dateStr);
+    }
+  }
+
+  // ---- Update visual indicator on date input when current date has data ----
+  _updateDataDateIndicator() {
+    if (!this.filterDateFromEl) return;
+    if (this.filterDateFromVal && this._dataDates.has(this.filterDateFromVal)) {
+      this.filterDateFromEl.classList.add('has-data');
+    } else {
+      this.filterDateFromEl.classList.remove('has-data');
+    }
+  }
+
+  // ---- Render the 7-day date-dot strip around the selected date ----
+  _renderDateDotStrip() {
+    const strip = document.getElementById('date-dot-strip');
+    if (!strip) return;
+
+    const today = Utils.formatESTDateOnly(new Date());
+    const center = this.filterDateFromVal || today;
+    const parts = center.split('-');
+    if (parts.length !== 3) {
+      strip.innerHTML = '';
+      return;
+    }
+
+    const cY = parseInt(parts[0]);
+    const cM = parseInt(parts[1]) - 1;
+    const cD = parseInt(parts[2]);
+    const centerDate = new Date(Date.UTC(cY, cM, cD));
+
+    const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+    let html = '';
+    for (let i = -3; i <= 3; i++) {
+      const d = new Date(centerDate);
+      d.setUTCDate(d.getUTCDate() + i);
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      const dateStr = `${y}-${m}-${day}`;
+      const dayName = dayNames[d.getUTCDay()];
+      const hasData = this._dataDates.has(dateStr);
+      const isToday = dateStr === today;
+      const isSelected = dateStr === center;
+      const isWeekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
+
+      let cls = 'date-dot';
+      if (hasData) cls += ' has-data';
+      if (isToday) cls += ' is-today';
+      if (isSelected) cls += ' is-selected';
+      if (isWeekend) cls += ' is-weekend';
+
+      html += `<span class="${cls}" data-date="${dateStr}" title="${dateStr}${hasData ? ' — has entries' : ''}">
+        <span class="date-dot-day">${dayName}</span>
+        <span class="date-dot-num">${day}</span>
+      </span>`;
+    }
+
+    strip.innerHTML = html;
+
+    // Bind click events on date dots
+    strip.querySelectorAll('.date-dot').forEach(dot => {
+      dot.addEventListener('click', () => {
+        const dateStr = dot.dataset.date;
+        this.filterDateFromEl.value = dateStr;
+        this.filterDateFromVal = dateStr;
+        this.dateFilterMode = 'today';
+        this._updateDayNavUI();
+        this._updateDayBadge();
+        this._updateDataDateIndicator();
+        this._renderDateDotStrip();
+        this.applyFilters();
+      });
+    });
+  }
+
   // ---- Update Day Navigation UI (arrows, today/all button) ----
   _updateDayNavUI() {
     const isToday = this.dateFilterMode === 'today';
@@ -497,10 +588,32 @@ class StockWatchApp {
     badge.textContent = '';
   }
 
-  // ---- Navigate date by offset days (uses UTC to avoid timezone shifting) ----
+  // ---- Navigate date with smart skipping to days that have data ----
   _navigateDay(offset) {
     if (!this.filterDateFromVal) return;
 
+    // If we have data dates, jump to adjacent dates that have data
+    if (this._dataDates.size > 0) {
+      const sortedDates = [...this._dataDates].sort();
+      const currentIdx = sortedDates.indexOf(this.filterDateFromVal);
+
+      if (currentIdx !== -1) {
+        const targetIdx = currentIdx + offset;
+        if (targetIdx >= 0 && targetIdx < sortedDates.length) {
+          this.filterDateFromEl.value = sortedDates[targetIdx];
+          this.filterDateFromVal = sortedDates[targetIdx];
+          this.dateFilterMode = 'today';
+          this._updateDayNavUI();
+          this._updateDayBadge();
+          this._updateDataDateIndicator();
+          this._renderDateDotStrip();
+          this.applyFilters();
+          return;
+        }
+      }
+    }
+
+    // Fallback: normal calendar day navigation
     const parts = this.filterDateFromVal.split('-');
     if (parts.length !== 3) return;
 
@@ -508,7 +621,6 @@ class StockWatchApp {
     const m = parseInt(parts[1]);
     const d = parseInt(parts[2]);
 
-    // Use pure date arithmetic on the YYYY-MM-DD string — no Date object
     const date = new Date(Date.UTC(y, m - 1, d));
     date.setUTCDate(date.getUTCDate() + offset);
 
@@ -522,6 +634,8 @@ class StockWatchApp {
     this.dateFilterMode = 'today';
     this._updateDayNavUI();
     this._updateDayBadge();
+    this._updateDataDateIndicator();
+    this._renderDateDotStrip();
     this.applyFilters();
   }
 
@@ -541,6 +655,8 @@ class StockWatchApp {
     }
     this._updateDayNavUI();
     this._updateDayBadge();
+    this._updateDataDateIndicator();
+    this._renderDateDotStrip();
     this.applyFilters();
   }
 
@@ -555,14 +671,6 @@ class StockWatchApp {
     // Refresh
     this.refreshBtn.addEventListener('click', () => this.refreshAllPrices());
 
-    // Export
-    this.exportBtn.addEventListener('click', () => this.exportCSV());
-
-    // Delete All
-    const deleteAllBtn = document.getElementById('delete-all-btn');
-    if (deleteAllBtn) {
-      deleteAllBtn.addEventListener('click', () => this.deleteAllEntries());
-    }
 
     // Date filter input — single date picker, filters for exact day
     this.filterDateFromEl.addEventListener('change', () => {
@@ -570,6 +678,8 @@ class StockWatchApp {
       this.dateFilterMode = 'today';
       this._updateDayNavUI();
       this._updateDayBadge();
+      this._updateDataDateIndicator();
+      this._renderDateDotStrip();
       this.applyFilters();
     });
 
@@ -600,10 +710,25 @@ class StockWatchApp {
       });
     }
 
-    // Settings gear
+    // Settings gear (dropdown)
     const settingsBtn = document.getElementById('settings-btn');
-    if (settingsBtn) {
-      settingsBtn.addEventListener('click', () => this._showSetup(false));
+    if (settingsBtn && this.settingsDropdown) {
+      settingsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const vis = this.settingsDropdown.classList.toggle('visible');
+        settingsBtn.classList.toggle('active', vis);
+      });
+      this.settingsDropdown.querySelectorAll('.price-action-dropdown-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.settingsDropdown.classList.remove('visible');
+          settingsBtn.classList.remove('active');
+          const action = item.dataset.action;
+          if (action === 'api-settings') this._showSetup(false);
+          else if (action === 'export-csv') this.exportCSV();
+          else if (action === 'delete-all') this.deleteAllEntries();
+        });
+      });
     }
 
     // Theme toggle
@@ -627,8 +752,13 @@ class StockWatchApp {
         this.filterDateFromEl.value = '';
         this.filterDateFromVal = null;
         this.dateFilterMode = 'all';
+        // Set sort to entry date descending for All mode
+        this.sortColumn = 'entryDateEST';
+        this.sortDirection = 'desc';
         this._updateDayNavUI();
         this._updateDayBadge();
+        this._updateDataDateIndicator();
+        this._renderDateDotStrip();
         this._updateListToggleActive();
         this.applyFilters();
       });
@@ -649,6 +779,8 @@ class StockWatchApp {
           this.dateFilterMode = 'today';
           this._updateDayNavUI();
           this._updateDayBadge();
+          this._updateDataDateIndicator();
+          this._renderDateDotStrip();
         }
         this._updateListToggleActive();
         this.applyFilters();
@@ -1453,6 +1585,10 @@ class StockWatchApp {
     Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — click WebS dot to enable live prices`);
 
     this.currentList = listName;
+
+    // Recompute data dates after adding an entry
+    this._computeDataDates();
+
     this.applyFilters();
     this.updateStats();
     this.searchInput.value = '';
@@ -1522,6 +1658,9 @@ class StockWatchApp {
 
       // No auto WebSocket subscription or polling — user must manually enable via WebS column button
       Utils.showToast(`✅ ${symbol.toUpperCase()} added to ${listLabel} list — click WebS dot to enable live prices`);
+
+      // Recompute data dates after adding an entry
+      this._computeDataDates();
 
       this.applyFilters();
       this.updateStats();
@@ -1657,7 +1796,14 @@ class StockWatchApp {
 
   get displayEntries() {
     if (this.allListsMode) {
-      return this.isFiltered ? this.filteredEntries : [...this.entries];
+      const entries = this.isFiltered ? this.filteredEntries : [...this.entries];
+      // Sort by entryDateEST descending (newest first) when showing all lists
+      entries.sort((a, b) => {
+        const dateA = a.entryDateEST || a.createdAt || '';
+        const dateB = b.entryDateEST || b.createdAt || '';
+        return dateB.localeCompare(dateA);
+      });
+      return entries;
     }
     // When in single-list mode, filterForList always applies; additional criteria add to isFiltered
     const listEntries = this.entries.filter(e => (e.list || 'main') === this.currentList);
@@ -1946,6 +2092,9 @@ class StockWatchApp {
       // Remove from local array
       this.entries = this.entries.filter(e => (e.list || 'main') !== this.currentList);
 
+      // Recompute data dates after deletion
+      this._computeDataDates();
+
       this._hideLoading();
       this.applyFilters();
       this.updateStats();
@@ -1973,6 +2122,9 @@ class StockWatchApp {
     if (entry._polling) {
       this._stopPolling(entry.symbol);
     }
+
+    // Recompute data dates after deletion
+    this._computeDataDates();
 
     this.applyFilters();
     this.updateStats();
@@ -2635,6 +2787,13 @@ class StockWatchApp {
         if (!this.playbookBtn.contains(e.target) && !this.playbookDropdown.contains(e.target)) {
           this.playbookDropdown.classList.remove('visible');
           this.playbookBtn.classList.remove('active');
+        }
+      }
+      if (this.settingsDropdown && this.settingsDropdown.classList.contains('visible')) {
+        const sb = document.getElementById('settings-btn');
+        if (sb && !sb.contains(e.target) && !this.settingsDropdown.contains(e.target)) {
+          this.settingsDropdown.classList.remove('visible');
+          sb.classList.remove('active');
         }
       }
     });
