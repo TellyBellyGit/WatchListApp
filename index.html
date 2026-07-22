@@ -76,6 +76,49 @@
           </div>
         </div>
 
+        <!-- Rules Education Dropdown -->
+        <div class="price-action-wrapper">
+          <button class="btn-price-action btn-rules" id="rules-btn">Rules!!</button>
+          <div class="price-action-dropdown rules-dropdown" id="rules-dropdown">
+            <div class="rules-content">
+              <div class="rules-eyebrow">TRADING ROOM &mdash; STANDING ORDERS</div>
+              <h3 class="rules-heading">HOPE IS <span>NOT</span> A TRADING PLAN</h3>
+              <div class="rules-divider"></div>
+              <div class="rules-list">
+                <div class="rule-item critical">
+                  <div class="rule-icon">&#10006;</div>
+                  <div class="rule-text">
+                    NO CLEAR SIGNAL &rarr; LEAVE IT ALONE
+                    <small>If you have to convince yourself, it isn't there.</small>
+                  </div>
+                </div>
+                <div class="rule-item">
+                  <div class="rule-icon">&#8592;</div>
+                  <div class="rule-text">
+                    LOOK TO THE LEFT!!!
+                    <small>Context before conviction.</small>
+                  </div>
+                </div>
+                <div class="rule-item critical">
+                  <div class="rule-icon">&#9201;</div>
+                  <div class="rule-text">
+                    SCALP NOT WORKING IN 1.5 CANDLES &rarr; GET OUT
+                    <small>No thesis survives past the timer. Exit on time, not on hope.</small>
+                  </div>
+                </div>
+                <div class="rule-item">
+                  <div class="rule-icon">&#9888;</div>
+                  <div class="rule-text">
+                    OPENING CANDLES: ONLY IF PREPARED TO LOSE MONEY
+                    <small>It's an adrenaline trade, not an edge.</small>
+                  </div>
+                </div>
+              </div>
+              <div class="rules-footer">Read it before every open</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Playbook Education Dropdown -->
         <div class="price-action-wrapper">
           <button class="btn-price-action btn-playbook" id="playbook-btn">Playbook</button>
@@ -384,8 +427,17 @@
         </div>
         <div class="stock-review-tags-row" id="stock-review-tags-row">
           <span class="stock-review-label">Tags:</span>
-          <input type="text" id="stock-review-tags" placeholder="Breakout, Momentum, Gap Up..." autocomplete="off" list="stock-review-tag-suggestions">
+          <div class="tag-chips-container" id="tag-chips-container">
+            <!-- populated dynamically with chip elements -->
+          </div>
+          <input type="text" class="tag-chip-input" id="stock-review-tags" placeholder="Type a tag and press Enter..." autocomplete="off" list="stock-review-tag-suggestions">
           <datalist id="stock-review-tag-suggestions"></datalist>
+        </div>
+        <div class="stock-review-quick-tags-row" id="stock-review-quick-tags-row">
+          <span class="stock-review-label">Quick Add:</span>
+          <div class="quick-tags-list" id="quick-tags-list">
+            <!-- populated dynamically with common tag buttons -->
+          </div>
         </div>
         <!-- Trade Input Chips Row (shown when Traded? is checked) -->
         <div class="stock-review-trade-row" id="stock-review-trade-row" style="display:none;">

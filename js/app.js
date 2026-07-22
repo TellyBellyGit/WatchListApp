@@ -70,6 +70,8 @@ class StockWatchApp {
     this.priceActionDropdown = document.getElementById('price-action-dropdown');
     this.wisdomBtn = document.getElementById('wisdom-btn');
     this.wisdomDropdown = document.getElementById('wisdom-dropdown');
+    this.rulesBtn = document.getElementById('rules-btn');
+    this.rulesDropdown = document.getElementById('rules-dropdown');
     this.playbookBtn = document.getElementById('playbook-btn');
     this.playbookDropdown = document.getElementById('playbook-dropdown');
     this.checklistOverlay = document.getElementById('checklist-overlay');
@@ -103,6 +105,8 @@ class StockWatchApp {
     this.stockReviewClose = document.getElementById('stock-review-close');
     this.stockReviewTags = document.getElementById('stock-review-tags');
     this.stockReviewTagSuggestions = document.getElementById('stock-review-tag-suggestions');
+    this.stockReviewTagChips = document.getElementById('tag-chips-container');
+    this.stockReviewQuickTags = document.getElementById('quick-tags-list');
     this.stockReviewChartLinks = document.getElementById('stock-review-chart-links');
     this.stockReviewToolbar = document.getElementById('stock-review-toolbar');
 
@@ -2893,6 +2897,14 @@ class StockWatchApp {
       });
     }
 
+    // Rules dropdown toggle
+    if (this.rulesBtn && this.rulesDropdown) {
+      this.rulesBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._toggleRulesDropdown();
+      });
+    }
+
     // Playbook dropdown toggle
     if (this.playbookBtn && this.playbookDropdown) {
       this.playbookBtn.addEventListener('click', (e) => {
@@ -2913,6 +2925,12 @@ class StockWatchApp {
         if (!this.wisdomBtn.contains(e.target) && !this.wisdomDropdown.contains(e.target)) {
           this.wisdomDropdown.classList.remove('visible');
           this.wisdomBtn.classList.remove('active');
+        }
+      }
+      if (this.rulesDropdown && this.rulesDropdown.classList.contains('visible')) {
+        if (!this.rulesBtn.contains(e.target) && !this.rulesDropdown.contains(e.target)) {
+          this.rulesDropdown.classList.remove('visible');
+          this.rulesBtn.classList.remove('active');
         }
       }
       if (this.playbookDropdown && this.playbookDropdown.classList.contains('visible')) {
@@ -2947,6 +2965,13 @@ class StockWatchApp {
     if (!this.wisdomDropdown || !this.wisdomBtn) return;
     const isVisible = this.wisdomDropdown.classList.toggle('visible');
     this.wisdomBtn.classList.toggle('active', isVisible);
+  }
+
+  // ---- Toggle the Rules dropdown ----
+  _toggleRulesDropdown() {
+    if (!this.rulesDropdown || !this.rulesBtn) return;
+    const isVisible = this.rulesDropdown.classList.toggle('visible');
+    this.rulesBtn.classList.toggle('active', isVisible);
   }
 
   // ---- Toggle the Playbook dropdown ----
@@ -3314,9 +3339,11 @@ class StockWatchApp {
       `;
     }
 
-    // Populate tags
+    // Populate tags as chips + quick tag buttons
+    this._renderTagChips(entry);
+    this._renderQuickTags(entry);
     if (this.stockReviewTags) {
-      this.stockReviewTags.value = (entry.tags || []).join(', ');
+      this.stockReviewTags.value = '';
       // Update tag datalist suggestions
       if (this.stockReviewTagSuggestions) {
         const allTags = this._getAllTags();
@@ -3357,6 +3384,8 @@ class StockWatchApp {
     this._updateTradeCalculated();
 
     // Populate textarea with existing notes, or template if empty
+    // Track the original notes value so we only persist changes the user actually made
+    this._stockReviewOriginalNotes = entry.notes || '';
     if (this.stockReviewTextarea) {
       if (entry.notes && entry.notes.trim().length > 0) {
         this.stockReviewTextarea.value = entry.notes;
@@ -3447,9 +3476,26 @@ class StockWatchApp {
     const entry = this.entries.find(e => e.id === entryId);
     if (!entry) return;
 
-    const notes = this.stockReviewTextarea ? this.stockReviewTextarea.value : '';
-    const tagsStr = this.stockReviewTags ? this.stockReviewTags.value.trim() : '';
-    const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+    // Collect raw notes value
+    const rawNotes = this.stockReviewTextarea ? this.stockReviewTextarea.value : '';
+    // Collect tags from chip elements instead of text input
+    const tags = this._getTagsFromChips();
+
+    // Only persist notes if the user actually changed them from the original
+    // This prevents the template placeholder from being saved as real notes
+    // when the user only edited tags or trade fields
+    let notes;
+    const originalNotes = this._stockReviewOriginalNotes || '';
+    if (rawNotes === this._reviewTemplate && !originalNotes) {
+      // User never wrote notes; the template is still showing. Don't save it.
+      notes = originalNotes;
+    } else if (rawNotes !== originalNotes || (rawNotes && rawNotes !== this._reviewTemplate)) {
+      // User modified the notes — save what they typed
+      notes = rawNotes;
+    } else {
+      // Unchanged, keep original
+      notes = originalNotes;
+    }
 
     // Collect trade data
     const traded = this.stockReviewTraded ? this.stockReviewTraded.checked : false;
@@ -3606,6 +3652,153 @@ class StockWatchApp {
       if (raw) return JSON.parse(raw);
     } catch (e) { /* ignore */ }
     return { accountSize: 0, riskPercentage: 1, riskRewardRatio: 2 };
+  }
+
+  // ==========================================================================
+  // Tag Chip Management Methods
+  // ==========================================================================
+
+  // ---- Read current tags from chip elements in the DOM ----
+  _getTagsFromChips() {
+    if (!this.stockReviewTagChips) return [];
+    const chips = this.stockReviewTagChips.querySelectorAll('.tag-chip');
+    return Array.from(chips).map(chip => chip.dataset.tag).filter(Boolean);
+  }
+
+  // ---- Render tag chips for an entry ----
+  _renderTagChips(entry) {
+    if (!this.stockReviewTagChips) return;
+    const tags = entry.tags || [];
+    this.stockReviewTagChips.innerHTML = tags.map(tag => `
+      <span class="tag-chip" data-tag="${Utils.escapeAttr(tag)}">
+        ${Utils.escapeAttr(tag)}
+        <button class="tag-chip-remove" data-tag="${Utils.escapeAttr(tag)}" title="Remove tag">&times;</button>
+      </span>
+    `).join('');
+
+    // Bind remove handlers
+    this.stockReviewTagChips.querySelectorAll('.tag-chip-remove').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._removeTagChip(btn.dataset.tag);
+      });
+    });
+
+    // Bind chip input events
+    if (this.stockReviewTags) {
+      // Remove any existing listener to avoid duplicates
+      const newInput = this.stockReviewTags.cloneNode(true);
+      this.stockReviewTags.parentNode.replaceChild(newInput, this.stockReviewTags);
+      this.stockReviewTags = newInput;
+
+      this.stockReviewTags.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+          e.preventDefault();
+          const tag = this.stockReviewTags.value.trim().replace(/,$/, '').trim();
+          if (tag) {
+            this._addTagChip(tag);
+            this.stockReviewTags.value = '';
+          }
+        }
+        // Backspace on empty input removes last chip
+        if (e.key === 'Backspace' && this.stockReviewTags.value === '' && this.stockReviewTagChips.children.length > 0) {
+          const lastChip = this.stockReviewTagChips.lastElementChild;
+          if (lastChip) {
+            this._removeTagChip(lastChip.dataset.tag);
+          }
+        }
+      });
+    }
+  }
+
+  // ---- Render quick-add tag buttons ----
+  _renderQuickTags(entry) {
+    if (!this.stockReviewQuickTags) return;
+
+    const currentTags = entry.tags || [];
+    const allTags = this._getAllTags();
+
+    // Show tags that exist in other entries but are NOT already used by this entry
+    const availableTags = allTags.filter(t => !currentTags.includes(t));
+    // Also include current tags as "used" (greyed out)
+    const usedTags = currentTags;
+
+    let html = '';
+
+    // Show used tags first (dimmed)
+    usedTags.forEach(tag => {
+      html += `<button class="quick-tag-btn used" title="Already assigned">${Utils.escapeAttr(tag)}</button>`;
+    });
+
+    // Show available tags
+    availableTags.forEach(tag => {
+      html += `<button class="quick-tag-btn" data-tag="${Utils.escapeAttr(tag)}" title="Click to add tag">${Utils.escapeAttr(tag)}</button>`;
+    });
+
+    this.stockReviewQuickTags.innerHTML = html;
+
+    // Bind click handlers for available tags
+    this.stockReviewQuickTags.querySelectorAll('.quick-tag-btn:not(.used)').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this._addTagChip(btn.dataset.tag);
+      });
+    });
+  }
+
+  // ---- Add a single tag chip ----
+  _addTagChip(tag) {
+    if (!this.stockReviewTagChips) return;
+    const normalizedTag = tag.trim();
+    if (!normalizedTag) return;
+
+    // Prevent duplicates
+    const existing = this.stockReviewTagChips.querySelector(`.tag-chip[data-tag="${Utils.escapeAttr(normalizedTag)}"]`);
+    if (existing) return;
+
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.dataset.tag = normalizedTag;
+    chip.innerHTML = `${Utils.escapeAttr(normalizedTag)}<button class="tag-chip-remove" data-tag="${Utils.escapeAttr(normalizedTag)}" title="Remove tag">&times;</button>`;
+
+    // Bind remove handler
+    chip.querySelector('.tag-chip-remove').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this._removeTagChip(normalizedTag);
+    });
+
+    this.stockReviewTagChips.appendChild(chip);
+
+    // Mark as dirty and trigger auto-save
+    this._onStockReviewInput();
+
+    // Refresh quick tags to update used/available state
+    const entry = this.entries.find(e => e.id === this._stockReviewEntryId);
+    if (entry) {
+      entry.tags = this._getTagsFromChips();
+      this._renderQuickTags(entry);
+    }
+  }
+
+  // ---- Remove a tag chip ----
+  _removeTagChip(tag) {
+    if (!this.stockReviewTagChips) return;
+    const chip = this.stockReviewTagChips.querySelector(`.tag-chip[data-tag="${Utils.escapeAttr(tag)}"]`);
+    if (chip) {
+      chip.style.opacity = '0';
+      chip.style.transform = 'scale(0.8)';
+      chip.style.transition = 'all 0.15s ease';
+      setTimeout(() => chip.remove(), 150);
+    }
+
+    // Mark as dirty and trigger auto-save
+    this._onStockReviewInput();
+
+    // Refresh quick tags to update used/available state
+    const entry = this.entries.find(e => e.id === this._stockReviewEntryId);
+    if (entry) {
+      entry.tags = this._getTagsFromChips();
+      this._renderQuickTags(entry);
+    }
   }
 
   // ---- Reset the textarea to the review template ----

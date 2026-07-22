@@ -2178,6 +2178,117 @@ tbody tr:hover {
   font-weight: 500;
 }
 
+/* Rules dropdown panel — trading room rules poster style */
+.btn-rules {
+  /* Inherits from .btn-price-action */
+}
+
+.rules-dropdown {
+  min-width: 520px;
+  max-width: 580px;
+}
+
+.rules-content {
+  padding: 18px 22px 22px;
+  background: #131315;
+  color: #f2f0e9;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.rules-eyebrow {
+  text-align: center;
+  letter-spacing: 0.35em;
+  font-size: 11px;
+  color: #8a8a8f;
+  margin-top: 10px;
+  font-weight: 700;
+  font-family: 'Archivo Black', 'Inter', sans-serif;
+}
+
+.rules-heading {
+  font-family: 'Archivo Black', 'Inter', sans-serif;
+  font-size: 36px;
+  line-height: 1.05;
+  text-align: center;
+  color: #f2f0e9;
+  margin: 12px 0 6px;
+  letter-spacing: 0.01em;
+}
+
+.rules-heading span {
+  color: #d81e2c;
+}
+
+.rules-divider {
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #f5c518, transparent);
+  margin: 20px 0 24px;
+}
+
+.rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rule-item {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  align-items: center;
+  gap: 14px;
+  background: #0e0e10;
+  border-left: 6px solid #f5c518;
+  padding: 14px 16px;
+}
+
+.rule-item.critical {
+  border-left-color: #d81e2c;
+  background: #1a0d0e;
+}
+
+.rule-icon {
+  font-family: 'Archivo Black', 'Inter', sans-serif;
+  font-size: 22px;
+  color: #f5c518;
+  text-align: center;
+  line-height: 1;
+}
+
+.rule-item.critical .rule-icon {
+  color: #d81e2c;
+}
+
+.rule-text {
+  font-family: 'Archivo Black', 'Inter', sans-serif;
+  font-size: 17px;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  color: #f2f0e9;
+}
+
+.rule-item.critical .rule-text {
+  color: #d81e2c;
+}
+
+.rule-text small {
+  display: block;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-weight: 400;
+  font-size: 11px;
+  color: #8a8a8f;
+  letter-spacing: 0.03em;
+  margin-top: 4px;
+}
+
+.rules-footer {
+  margin-top: 28px;
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: #8a8a8f;
+  text-transform: uppercase;
+}
+
 /* Chart Checklist Overlay */
 .chart-checklist-overlay {
   position: fixed;
@@ -2783,14 +2894,16 @@ body.overlay-open {
   color: var(--warning);
 }
 
-/* Tags row */
+/* Tags row — chip-based editor */
 .stock-review-tags-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 20px;
+  padding: 8px 20px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-tertiary);
+  flex-wrap: wrap;
+  min-height: 42px;
 }
 
 .stock-review-label {
@@ -2798,28 +2911,131 @@ body.overlay-open {
   font-weight: 600;
   color: var(--text-muted);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.stock-review-tags-row input {
+/* Tag chips container */
+.tag-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Individual tag chip */
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: var(--accent-light);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  white-space: nowrap;
+  transition: all var(--transition);
+  animation: chipIn 0.15s ease;
+}
+
+@keyframes chipIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.tag-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  transition: all var(--transition);
+  margin-left: 2px;
+}
+
+.tag-chip-remove:hover {
+  background: var(--negative);
+  color: #fff;
+}
+
+/* Inline tag input inside chips container */
+.tag-chip-input {
   flex: 1;
-  padding: 6px 12px;
+  min-width: 140px;
+  padding: 5px 10px;
   border: 2px solid var(--border-color);
   border-radius: var(--radius-sm);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   background: var(--bg-secondary);
   color: var(--text-primary);
   font-family: inherit;
   transition: border-color var(--transition);
 }
 
-.stock-review-tags-row input:focus {
+.tag-chip-input:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-light);
 }
 
-.stock-review-tags-row input::placeholder {
+.tag-chip-input::placeholder {
   color: var(--text-muted);
+}
+
+/* Quick Tags Row */
+.stock-review-quick-tags-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  flex-wrap: wrap;
+}
+
+.quick-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.quick-tag-btn {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.quick-tag-btn:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.quick-tag-btn.used {
+  opacity: 0.4;
+  pointer-events: none;
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  border-color: var(--bg-primary);
 }
 
 /* Chart links row */
