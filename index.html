@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <!-- Quill Rich Text Editor -->
+  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
 </head>
 <body>
   <div id="loading-overlay" style="display:none;"></div>
@@ -51,7 +53,7 @@
     <!-- ====== HEADER ====== -->
     <div class="header">
       <div class="header-left">
-        <h1>📈 Stock Watch List</h1>
+        <h1>📈 Stock Watch List v2.2</h1>
         <div class="subtitle">Momentum Trading Tracker — Times in EST (New York)</div>
       </div>
       <div class="header-right">
@@ -238,6 +240,7 @@
       <button class="btn btn-sm btn-list-toggle" id="list-toggle-swing" title="Show Swing List">Swing</button>
       <button class="btn btn-sm btn-list-toggle" id="list-toggle-temp" title="Show Temp List">Temp</button>
       <button class="btn btn-sm btn-notes-toggle" id="btn-daily-notes" title="Open Daily Notes">Notes</button>
+      <button class="btn btn-sm btn-list-toggle btn-reviews-toggle" id="btn-trade-reviews" title="Show Trade Reviews">Reviews</button>
       <div style="flex:1;"></div>
       <button class="btn btn-sm btn-secondary" id="toggle-dates-btn" title="Toggle Entry Date & Updated columns">📅 Show Dates</button>
       <button class="btn btn-sm btn-secondary" id="refresh-btn">🔄 Refresh</button>
@@ -404,6 +407,125 @@
       </div>
     </div>
 
+    <!-- ====== TRADE REVIEWS LIST CONTAINER ====== -->
+    <div class="trade-reviews-container" id="trade-reviews-container" style="display:none;">
+      <div class="trade-reviews-toolbar">
+        <button class="btn btn-primary" id="btn-new-review">✏️ New Review</button>
+        <input type="text" class="trade-reviews-search" id="trade-reviews-search" placeholder="Search reviews..." autocomplete="off">
+        <select class="trade-reviews-filter" id="trade-reviews-filter-sentiment">
+          <option value="">All Sentiments</option>
+          <option value="bullish">Bullish</option>
+          <option value="neutral">Neutral</option>
+          <option value="bearish">Bearish</option>
+        </select>
+        <button class="btn btn-sm btn-secondary" id="btn-export-reviews-csv" title="Export P&L data as CSV">📥 CSV</button>
+        <button class="btn btn-sm btn-secondary" id="btn-export-reviews-zip" title="Export reviews as Markdown + Images ZIP">📦 ZIP</button>
+      </div>
+      <div class="trade-reviews-grid" id="trade-reviews-grid">
+        <!-- populated dynamically -->
+        <div class="trade-reviews-empty">
+          <div class="empty-icon">📝</div>
+          <div>No trade reviews yet. Click "New Review" to create one.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== TRADE REVIEW EDITOR OVERLAY ====== -->
+    <div class="trade-review-editor-overlay" id="trade-review-editor-overlay" style="display:none;">
+      <div class="trade-review-editor-modal">
+        <div class="trade-review-editor-header">
+          <div class="trade-review-editor-title-row">
+            <input type="text" class="trade-review-editor-title-input" id="trade-review-title" placeholder="Review title..." autocomplete="off">
+            <span class="trade-review-editor-save-status" id="trade-review-save-status"></span>
+          </div>
+          <div class="trade-review-editor-header-right">
+            <button class="btn btn-sm btn-secondary" id="trade-review-close">Close</button>
+            <button class="btn btn-sm btn-primary" id="trade-review-save">Save</button>
+          </div>
+        </div>
+        <div class="trade-review-editor-meta">
+          <div class="trade-review-meta-row">
+            <div class="trade-review-meta-group">
+              <label>Date</label>
+              <input type="date" id="trade-review-date">
+            </div>
+            <div class="trade-review-meta-group">
+              <label>Symbol (optional)</label>
+              <input type="text" id="trade-review-symbol-link" placeholder="e.g. AAPL" autocomplete="off" list="trade-review-symbol-suggestions">
+              <datalist id="trade-review-symbol-suggestions"></datalist>
+            </div>
+            <div class="trade-review-meta-group">
+              <label>Sentiment</label>
+              <div class="trade-review-sentiment-row">
+                <button class="sentiment-btn" data-sentiment="bullish" id="tr-sentiment-bullish">Bullish</button>
+                <button class="sentiment-btn" data-sentiment="neutral" id="tr-sentiment-neutral">Neutral</button>
+                <button class="sentiment-btn" data-sentiment="bearish" id="tr-sentiment-bearish">Bearish</button>
+              </div>
+            </div>
+          </div>
+          <div class="trade-review-meta-row">
+            <div class="trade-review-meta-group">
+              <label>Tags</label>
+              <input type="text" id="trade-review-tags" placeholder="Type a tag and press Enter..." autocomplete="off" list="trade-review-tag-suggestions">
+              <datalist id="trade-review-tag-suggestions"></datalist>
+            </div>
+            <div class="trade-review-tag-chips" id="trade-review-tag-chips"></div>
+          </div>
+          <!-- Trade Data Mini-Form (link from watchlist) -->
+          <div class="trade-review-trade-data" id="trade-review-trade-data" style="display:none;">
+            <div class="trade-review-meta-row">
+              <div class="trade-review-meta-group">
+                <label>Direction</label>
+                <select id="tr-trade-direction">
+                  <option value="long">Long</option>
+                  <option value="short">Short</option>
+                </select>
+              </div>
+              <div class="trade-review-meta-group">
+                <label>Entry Price</label>
+                <input type="number" id="tr-trade-entry" placeholder="0.00" min="0" step="0.0001">
+              </div>
+              <div class="trade-review-meta-group">
+                <label>Exit Price</label>
+                <input type="number" id="tr-trade-exit" placeholder="0.00" min="0" step="0.0001">
+              </div>
+              <div class="trade-review-meta-group">
+                <label>Shares</label>
+                <input type="number" id="tr-trade-shares" placeholder="0" min="0" step="1">
+              </div>
+              <div class="trade-review-meta-group">
+                <label>Strategy</label>
+                <input type="text" id="tr-trade-strategy" placeholder="e.g. Consolidation Breakout" autocomplete="off" list="stock-review-strategy-suggestions">
+              </div>
+            </div>
+            <div class="trade-review-meta-row">
+              <div class="trade-review-meta-group">
+                <label>Entry Time</label>
+                <input type="datetime-local" id="tr-trade-entry-time">
+              </div>
+              <div class="trade-review-meta-group">
+                <label>Exit Time</label>
+                <input type="datetime-local" id="tr-trade-exit-time">
+              </div>
+              <div class="trade-review-meta-group trade-review-pnl-group">
+                <span class="trade-review-pnl-label">P&L</span>
+                <span class="trade-review-pnl-value" id="tr-trade-pnl">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="trade-review-editor-body">
+          <div class="trade-review-quill-container">
+            <div id="trade-review-quill-editor"></div>
+          </div>
+        </div>
+        <div class="trade-review-editor-footer">
+          <span class="trade-review-hint">Paste images with Ctrl+V | Full rich text formatting</span>
+          <button class="btn btn-sm btn-danger" id="trade-review-delete" title="Delete this review">🗑 Delete</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ====== STOCK REVIEW OVERLAY ====== -->
     <div class="stock-review-overlay" id="stock-review-overlay" style="display:none;">
       <div class="stock-review-modal">
@@ -526,9 +648,16 @@
     </div>
   </div>
 
-  <!-- Firebase SDK (loaded only if USE_FIREBASE = true) -->
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+  <!-- Quill Rich Text Editor -->
+  <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+
+  <!-- JSZip for Markdown+Images export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
   <!-- App Scripts (order matters) -->
   <!-- config.js is gitignored — for local dev fallback; config-manager.js is the primary store -->
@@ -536,10 +665,12 @@
   <script src="js/config-manager.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/firestore.js"></script>
+  <script src="js/storage.js?v=250722d"></script>
   <script src="js/alphavantage.js"></script>
   <script src="js/finnhub.js"></script>
   <script src="js/websocket.js"></script>
   <script src="js/utils.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/trade-reviews.js?v=250722d"></script>
+  <script src="js/app.js?v=250722d"></script>
 </body>
 </html>

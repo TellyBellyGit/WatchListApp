@@ -316,6 +316,148 @@ class DataStore {
     this._setLocalNotes(notes);
   }
 
+  // ==========================================================================
+  // Trade Reviews — keyed by auto-generated Firestore doc ID
+  // ==========================================================================
+
+  // ---- Get all trade reviews ----
+  async getAllTradeReviews() {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        // Use simpler query — single orderBy to avoid needing a composite index
+        const snapshot = await this.db.collection('trade_reviews')
+          .orderBy('createdAt', 'desc')
+          .get();
+        const reviews = [];
+        snapshot.forEach(doc => {
+          reviews.push({ id: doc.id, ...doc.data() });
+        });
+        // Client-side sort by date then createdAt for consistent ordering
+        reviews.sort((a, b) => {
+          const dateA = a.date || '';
+          const dateB = b.date || '';
+          if (dateA !== dateB) return dateB.localeCompare(dateA);
+          return (b.createdAt || '').localeCompare(a.createdAt || '');
+        });
+        return reviews;
+      } catch (e) {
+        console.warn('[DataStore] Failed to fetch trade reviews:', e.message);
+        return this._getLocalTradeReviews();
+      }
+    } else {
+      return this._getLocalTradeReviews();
+    }
+  }
+
+  // ---- Get a single trade review by ID ----
+  async getTradeReview(id) {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        const doc = await this.db.collection('trade_reviews').doc(id).get();
+        if (doc.exists) {
+          return { id: doc.id, ...doc.data() };
+        }
+        return null;
+      } catch (e) {
+        console.warn('[DataStore] Failed to get trade review:', e.message);
+        const local = this._getLocalTradeReviews();
+        return local.find(r => r.id === id) || null;
+      }
+    } else {
+      const local = this._getLocalTradeReviews();
+      return local.find(r => r.id === id) || null;
+    }
+  }
+
+  // ---- Save (create or update) a trade review ----
+  async saveTradeReview(id, data) {
+    await this._ensureInit();
+    const doc = {
+      ...data,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (!doc.createdAt) {
+      doc.createdAt = new Date().toISOString();
+    }
+
+    if (this.mode === 'firestore') {
+      try {
+        if (id) {
+          // Update existing
+          await this.db.collection('trade_reviews').doc(id).set(doc, { merge: true });
+          return id;
+        } else {
+          // Create new
+          const ref = await this.db.collection('trade_reviews').add(doc);
+          return ref.id;
+        }
+      } catch (e) {
+        console.warn('[DataStore] Failed to save trade review:', e.message);
+        return this._saveLocalTradeReview(id, doc);
+      }
+    } else {
+      return this._saveLocalTradeReview(id, doc);
+    }
+  }
+
+  // ---- Delete a trade review ----
+  async deleteTradeReview(id) {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        await this.db.collection('trade_reviews').doc(id).delete();
+      } catch (e) {
+        console.warn('[DataStore] Failed to delete trade review from Firestore:', e.message);
+        this._deleteLocalTradeReview(id);
+      }
+    } else {
+      this._deleteLocalTradeReview(id);
+    }
+  }
+
+  // ---- Get review count for a given watchlist entry ----
+  async getTradeReviewCountForEntry(watchlistEntryId) {
+    const reviews = await this.getAllTradeReviews();
+    return reviews.filter(r => r.watchlistEntryId === watchlistEntryId).length;
+  }
+
+  // ---- Local Storage Helpers for Trade Reviews ----
+  _getLocalTradeReviews() {
+    try {
+      const raw = localStorage.getItem('stockwatchlist_trade_reviews');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  _setLocalTradeReviews(reviews) {
+    localStorage.setItem('stockwatchlist_trade_reviews', JSON.stringify(reviews));
+  }
+
+  _saveLocalTradeReview(id, data) {
+    const reviews = this._getLocalTradeReviews();
+    if (id) {
+      const idx = reviews.findIndex(r => r.id === id);
+      if (idx !== -1) {
+        reviews[idx] = { ...reviews[idx], ...data, id };
+      }
+    } else {
+      id = 'local_review_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      reviews.push({ id, ...data });
+    }
+    this._setLocalTradeReviews(reviews);
+    return id;
+  }
+
+  _deleteLocalTradeReview(id) {
+    const reviews = this._getLocalTradeReviews();
+    this._setLocalTradeReviews(reviews.filter(r => r.id !== id));
+  }
+
   // ---- Local Storage Helpers (fallback/cache) ----
   _getLocal() {
     try {

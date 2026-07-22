@@ -1,0 +1,11 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Open access — anyone can read/write without authentication.
+    // This allows the StockWatchList app to work without requiring a Google account login.
+    // Same policy as firestore.rules.
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}

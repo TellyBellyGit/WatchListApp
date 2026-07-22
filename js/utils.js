@@ -195,6 +195,19 @@ const Utils = {
     };
   },
 
+  // ---- Download a Blob as a file ----
+  downloadBlob(data, filename, mimeType = 'application/octet-stream') {
+    const blob = data instanceof Blob ? data : new Blob([data], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
   // ---- Escape HTML Attribute (for tooltips) ----
   escapeAttr(str) {
     if (!str) return '';

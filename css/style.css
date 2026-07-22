@@ -3602,3 +3602,519 @@ body.overlay-open {
 .date-dot-strip.expanded .date-dot .date-dot-num {
   font-size: 0.68rem;
 }
+
+/* ==========================================================================
+   TRADE REVIEWS — List Container, Cards, Editor Overlay
+   ========================================================================== */
+
+/* ---- Reviews Toggle Button ---- */
+.btn-reviews-toggle {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.btn-reviews-toggle.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ---- Reviews Container ---- */
+.trade-reviews-container {
+  margin-top: 16px;
+  padding: 0 2px;
+}
+
+.trade-reviews-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.trade-reviews-search {
+  flex: 1;
+  min-width: 180px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+.trade-reviews-search::placeholder {
+  color: var(--text-muted);
+}
+
+.trade-reviews-filter {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+/* ---- Reviews Grid ---- */
+.trade-reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.trade-reviews-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+/* ---- Review Card ---- */
+.trade-review-card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.trade-review-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.tr-card-thumb {
+  width: 100%;
+  height: 160px;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+}
+.tr-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tr-card-body {
+  padding: 12px 14px 14px;
+}
+
+.tr-card-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.tr-card-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.tr-card-sentiment {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.tr-card-sentiment.bullish {
+  background: var(--positive-bg);
+  color: var(--positive);
+}
+.tr-card-sentiment.neutral {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.tr-card-sentiment.bearish {
+  background: var(--negative-bg);
+  color: var(--negative);
+}
+
+.tr-card-symbol {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-light);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.tr-card-pnl {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  margin-left: auto;
+}
+.tr-card-pnl.positive {
+  color: var(--positive);
+  background: var(--positive-bg);
+}
+.tr-card-pnl.negative {
+  color: var(--negative);
+  background: var(--negative-bg);
+}
+
+.tr-card-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  line-height: 1.35;
+}
+
+.tr-card-preview {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.tr-card-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tag-badge-sm {
+  font-size: 0.68rem;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   TRADE REVIEW EDITOR OVERLAY
+   ========================================================================== */
+
+.trade-review-editor-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.trade-review-editor-modal {
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 1000px;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+/* ---- Editor Header ---- */
+.trade-review-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.trade-review-editor-title-row {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trade-review-editor-title-input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: inherit;
+}
+.trade-review-editor-title-input::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.trade-review-editor-save-status {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.trade-review-editor-header-right {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ---- Editor Meta ---- */
+.trade-review-editor-meta {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.trade-review-meta-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.trade-review-meta-row:last-child {
+  margin-bottom: 0;
+}
+
+.trade-review-meta-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.trade-review-meta-group label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.trade-review-meta-group input,
+.trade-review-meta-group select {
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: inherit;
+}
+.trade-review-meta-group input[type="date"] {
+  width: 145px;
+}
+
+.trade-review-sentiment-row {
+  display: flex;
+  gap: 6px;
+}
+
+/* ---- Tag Chips ---- */
+.trade-review-tag-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-weight: 500;
+}
+.tag-chip-remove {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0.7;
+}
+.tag-chip-remove:hover {
+  opacity: 1;
+}
+
+/* ---- Trade Data Section ---- */
+.trade-review-trade-data {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+}
+
+.trade-review-pnl-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.trade-review-pnl-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.trade-review-pnl-value {
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+}
+.trade-review-pnl-value.positive {
+  color: var(--positive);
+  border-color: var(--positive);
+  background: var(--positive-bg);
+}
+.trade-review-pnl-value.negative {
+  color: var(--negative);
+  border-color: var(--negative);
+  background: var(--negative-bg);
+}
+
+/* ---- Quill Editor Body ---- */
+.trade-review-editor-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.trade-review-quill-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Quill editor styling overrides */
+.trade-review-quill-container .ql-toolbar {
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 6px 10px;
+}
+.trade-review-quill-container .ql-toolbar button {
+  color: var(--text-secondary);
+}
+.trade-review-quill-container .ql-toolbar button:hover {
+  color: var(--accent);
+}
+.trade-review-quill-container .ql-toolbar .ql-stroke {
+  stroke: var(--text-secondary);
+}
+.trade-review-quill-container .ql-toolbar .ql-fill {
+  fill: var(--text-secondary);
+}
+.trade-review-quill-container .ql-toolbar button:hover .ql-stroke {
+  stroke: var(--accent);
+}
+.trade-review-quill-container .ql-toolbar button:hover .ql-fill {
+  fill: var(--accent);
+}
+.trade-review-quill-container .ql-active .ql-stroke {
+  stroke: var(--accent) !important;
+}
+.trade-review-quill-container .ql-active .ql-fill {
+  fill: var(--accent) !important;
+}
+
+.trade-review-quill-container .ql-container {
+  flex: 1;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.9rem;
+  border: none;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+.trade-review-quill-container .ql-editor {
+  min-height: 300px;
+  padding: 16px;
+  line-height: 1.65;
+}
+.trade-review-quill-container .ql-editor.ql-blank::before {
+  color: var(--text-muted);
+  font-style: normal;
+}
+.trade-review-quill-container .ql-editor a {
+  color: var(--accent);
+}
+.trade-review-quill-container .ql-editor blockquote {
+  border-left: 3px solid var(--accent);
+  margin: 8px 0;
+  padding: 4px 12px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+}
+.trade-review-quill-container .ql-editor pre {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 0.82rem;
+}
+.trade-review-quill-container .ql-editor img {
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+}
+
+/* Quill Snow theme dark mode overrides */
+[data-theme="dark"] .trade-review-quill-container .ql-editor {
+  color: var(--text-primary);
+}
+[data-theme="dark"] .trade-review-quill-container .ql-toolbar {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+[data-theme="dark"] .trade-review-quill-container .ql-container {
+  background: var(--bg-primary);
+}
+[data-theme="dark"] .trade-review-quill-container .ql-toolbar button .ql-stroke {
+  stroke: var(--text-secondary);
+}
+[data-theme="dark"] .trade-review-quill-container .ql-toolbar button:hover .ql-stroke {
+  stroke: var(--accent);
+}
+
+/* ---- Editor Footer ---- */
+.trade-review-editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+.trade-review-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}

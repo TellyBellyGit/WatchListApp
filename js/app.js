@@ -956,6 +956,12 @@ class StockWatchApp {
       this.btnDailyNotes.addEventListener('click', () => this._openDailyNotesEditor());
     }
 
+    // Trade Reviews button — toggle reviews view
+    const btnTradeReviews = document.getElementById('btn-trade-reviews');
+    if (btnTradeReviews) {
+      btnTradeReviews.addEventListener('click', () => this._toggleTradeReviewsView());
+    }
+
     // Daily Notes Edit button in panel
     if (this.dailyNotesEditBtn) {
       this.dailyNotesEditBtn.addEventListener('click', () => this._openDailyNotesEditor());
@@ -3801,6 +3807,25 @@ class StockWatchApp {
     }
   }
 
+  // ---- Toggle Trade Reviews view ----
+  _toggleTradeReviewsView() {
+    const btn = document.getElementById('btn-trade-reviews');
+    const isActive = btn.classList.contains('active');
+
+    if (isActive) {
+      // Switch back to watchlist
+      btn.classList.remove('active');
+      tradeReviewManager.hide();
+    } else {
+      // Switch to reviews view
+      btn.classList.add('active');
+      // Deactivate list toggle buttons
+      document.querySelectorAll('.btn-list-toggle').forEach(b => b.classList.remove('active'));
+      // Show reviews
+      tradeReviewManager.show();
+    }
+  }
+
   // ---- Reset the textarea to the review template ----
   _resetTemplate() {
     if (!this.stockReviewTextarea) return;
@@ -3817,5 +3842,6 @@ class StockWatchApp {
 // ---- Boot ----
 document.addEventListener('DOMContentLoaded', () => {
   window.app = new StockWatchApp();
+  window._app = window.app;
   window.app.init();
 });
