@@ -7,16 +7,15 @@ class TradeReviewManager {
     this._reviews = [];
     this._currentReviewId = null;
     this._quill = null;
-    this._currentSentiment = null;
     this._currentTags = [];
     this._saveTimer = null;
     this._isDirty = false;
+    this._symbolLookupTimer = null;
 
     // DOM refs
     this.container = document.getElementById('trade-reviews-container');
     this.grid = document.getElementById('trade-reviews-grid');
     this.searchInput = document.getElementById('trade-reviews-search');
-    this.filterSentiment = document.getElementById('trade-reviews-filter-sentiment');
     this.btnNewReview = document.getElementById('btn-new-review');
     this.btnExportCsv = document.getElementById('btn-export-reviews-csv');
     this.btnExportZip = document.getElementById('btn-export-reviews-zip');
@@ -26,17 +25,12 @@ class TradeReviewManager {
     this.editorTitle = document.getElementById('trade-review-title');
     this.editorDate = document.getElementById('trade-review-date');
     this.editorSymbol = document.getElementById('trade-review-symbol-link');
-    this.editorSymbolSuggestions = document.getElementById('trade-review-symbol-suggestions');
+    this.editorSymbolInfo = document.getElementById('trade-review-symbol-info');
     this.editorSaveStatus = document.getElementById('trade-review-save-status');
     this.editorClose = document.getElementById('trade-review-close');
     this.editorSave = document.getElementById('trade-review-save');
     this.editorDelete = document.getElementById('trade-review-delete');
     this.quillContainer = document.getElementById('trade-review-quill-editor');
-
-    // Sentiment buttons
-    this.sentimentBullish = document.getElementById('tr-sentiment-bullish');
-    this.sentimentNeutral = document.getElementById('tr-sentiment-neutral');
-    this.sentimentBearish = document.getElementById('tr-sentiment-bearish');
 
     // Tags
     this.tagsInput = document.getElementById('trade-review-tags');
@@ -44,14 +38,20 @@ class TradeReviewManager {
 
     // Trade data
     this.tradeDataSection = document.getElementById('trade-review-trade-data');
+    this.toggleTradeDataBtn = document.getElementById('trade-review-toggle-trade-data');
     this.trDirection = document.getElementById('tr-trade-direction');
     this.trEntry = document.getElementById('tr-trade-entry');
     this.trExit = document.getElementById('tr-trade-exit');
     this.trShares = document.getElementById('tr-trade-shares');
     this.trStrategy = document.getElementById('tr-trade-strategy');
+    this.trEntryDate = document.getElementById('tr-trade-entry-date');
     this.trEntryTime = document.getElementById('tr-trade-entry-time');
+    this.trExitDate = document.getElementById('tr-trade-exit-date');
     this.trExitTime = document.getElementById('tr-trade-exit-time');
-    this.trPnl = document.getElementById('tr-trade-pnl');
+    this.trPnlPerShare = document.getElementById('tr-trade-pnl-per-share');
+    this.trPnlPercent = document.getElementById('tr-trade-pnl-percent');
+    this.trPnlTotal = document.getElementById('tr-trade-pnl-total');
+    this.trDuration = document.getElementById('tr-trade-duration');
 
     this._init();
   }
@@ -171,7 +171,6 @@ class TradeReviewManager {
 
     // Search
     this.searchInput.addEventListener('input', () => this._renderReviewCards());
-    this.filterSentiment.addEventListener('change', () => this._renderReviewCards());
 
     // Export
     this.btnExportCsv.addEventListener('click', () => this._exportCSV());
@@ -186,11 +185,6 @@ class TradeReviewManager {
     this.editorOverlay.addEventListener('click', (e) => {
       if (e.target === this.editorOverlay) this.closeEditor();
     });
-
-    // Sentiment buttons
-    this.sentimentBullish.addEventListener('click', () => this._setSentiment('bullish'));
-    this.sentimentNeutral.addEventListener('click', () => this._setSentiment('neutral'));
-    this.sentimentBearish.addEventListener('click', () => this._setSentiment('bearish'));
 
     // Tags input
     this.tagsInput.addEventListener('keydown', (e) => {
@@ -211,13 +205,35 @@ class TradeReviewManager {
       el.addEventListener('input', () => this._updatePnl());
     });
 
-    // Symbol input — populate suggestions from watchlist
-    this.editorSymbol.addEventListener('focus', () => this._populateSymbolSuggestions());
+    // Direction change also recalculates
+    this.trDirection.addEventListener('change', () => this._updatePnl());
+
+    // Date/time fields — recalculate P&L and duration
+    [this.trEntryDate, this.trEntryTime, this.trExitDate, this.trExitTime].forEach(el => {
+      el.addEventListener('input', () => this._updatePnl());
+    });
+
+    // Symbol input — debounced API lookup for symbol info
+    this.editorSymbol.addEventListener('input', () => {
+      this._markDirty();
+      this._debounceSymbolLookup();
+    });
+
+    // Toggle trade data section visibility
+    this.toggleTradeDataBtn.addEventListener('click', () => {
+      const section = this.tradeDataSection;
+      if (section.style.display === 'none') {
+        section.style.display = 'block';
+        this.toggleTradeDataBtn.textContent = 'Trade Data ▲';
+      } else {
+        section.style.display = 'none';
+        this.toggleTradeDataBtn.textContent = 'Trade Data';
+      }
+    });
 
     // Auto-save on title change
     this.editorTitle.addEventListener('input', () => this._markDirty());
     this.editorDate.addEventListener('input', () => this._markDirty());
-    this.editorSymbol.addEventListener('input', () => this._markDirty());
   }
 
   // ---- Setup auto-save polling (call after data loaded) ----
@@ -241,13 +257,73 @@ class TradeReviewManager {
     this.editorSaveStatus.textContent = msg || '';
   }
 
-  // ---- Set sentiment ----
-  _setSentiment(sentiment) {
-    this._currentSentiment = sentiment;
-    this.sentimentBullish.classList.toggle('active', sentiment === 'bullish');
-    this.sentimentNeutral.classList.toggle('active', sentiment === 'neutral');
-    this.sentimentBearish.classList.toggle('active', sentiment === 'bearish');
-    this._markDirty();
+  // ---- Debounced symbol lookup via Finnhub API ----
+  _debounceSymbolLookup() {
+    if (this._symbolLookupTimer) clearTimeout(this._symbolLookupTimer);
+    this._symbolLookupTimer = setTimeout(() => this._lookupSymbol(), 600);
+  }
+
+  async _lookupSymbol() {
+    const symbol = this.editorSymbol.value.trim().toUpperCase();
+    if (!symbol || symbol.length < 1) {
+      this.editorSymbolInfo.textContent = '—';
+      return;
+    }
+
+    this.editorSymbolInfo.textContent = 'Looking up...';
+
+    try {
+      // Get Finnhub API instance from app
+      let finnhub = null;
+      if (window._app && window._app._finnhub) {
+        finnhub = window._app._finnhub;
+      } else if (typeof FinnhubAPI !== 'undefined') {
+        const apiKey = ConfigManager ? ConfigManager.getFinnhubKey() : null;
+        if (apiKey) finnhub = new FinnhubAPI(apiKey);
+      }
+
+      if (!finnhub) {
+        this.editorSymbolInfo.textContent = '—';
+        return;
+      }
+
+      const [profile, quote] = await Promise.all([
+        finnhub.getCompanyProfile(symbol).catch(() => null),
+        finnhub.getQuote(symbol).catch(() => null)
+      ]);
+
+      const parts = [];
+      if (profile && profile.name) {
+        parts.push(profile.name);
+      }
+      if (profile && profile.finnhubIndustry) {
+        parts.push(profile.finnhubIndustry);
+      }
+      if (quote && quote.c) {
+        parts.push('$' + quote.c.toFixed(2));
+      }
+
+      // Try Alpha Vantage for float
+      try {
+        if (typeof AlphaVantageAPI !== 'undefined') {
+          const avKey = ConfigManager ? ConfigManager.getAlphaVantageKey() : null;
+          if (avKey) {
+            const av = new AlphaVantageAPI(avKey);
+            const overview = await av.getCompanyOverview(symbol);
+            if (overview && overview.SharesFloat) {
+              const flt = parseInt(overview.SharesFloat);
+              if (flt > 0) {
+                parts.push('Float: ' + Utils.formatLargeNumber(flt));
+              }
+            }
+          }
+        }
+      } catch (e) { /* ignore float failures */ }
+
+      this.editorSymbolInfo.textContent = parts.length > 0 ? parts.join(' · ') : symbol;
+    } catch (e) {
+      this.editorSymbolInfo.textContent = symbol;
+    }
   }
 
   // ---- Tag Chips ----
@@ -268,19 +344,53 @@ class TradeReviewManager {
     });
   }
 
-  // ---- Symbol Suggestions ----
-  _populateSymbolSuggestions() {
-    // Get symbols from the main app's entries if available
-    let symbols = [];
-    if (window._app && window._app.entries) {
-      symbols = [...new Set(window._app.entries.map(e => e.symbol).filter(Boolean))];
+
+  // ---- Helper: parse ISO datetime into separate date/time fields ----
+  _setDateTimeFields(isoString, which) {
+    const dateEl = which === 'entry' ? this.trEntryDate : this.trExitDate;
+    const timeEl = which === 'entry' ? this.trEntryTime : this.trExitTime;
+    dateEl.value = '';
+    timeEl.value = '';
+
+    if (!isoString) return;
+
+    // Handle full ISO datetime string e.g. "2026-07-22T09:30:00"
+    const parts = isoString.split('T');
+    if (parts.length === 2) {
+      dateEl.value = parts[0];
+      timeEl.value = parts[1].substring(0, 8); // HH:MM:SS
+      return;
     }
-    this.editorSymbolSuggestions.innerHTML = symbols.map(s =>
-      `<option value="${Utils.escapeAttr(s)}">`
-    ).join('');
+
+    // Handle datetime-local format
+    if (isoString.includes(' ') || isoString.length > 10) {
+      const dt = new Date(isoString);
+      if (!isNaN(dt.getTime())) {
+        dateEl.value = dt.toISOString().split('T')[0];
+        timeEl.value = dt.toTimeString().substring(0, 8);
+      }
+    }
   }
 
-  // ---- P&L Calculation ----
+  // ---- Helper: combine date + time fields into ISO datetime string ----
+  _combineDateTime(dateVal, timeVal) {
+    if (!dateVal) return null;
+    if (!timeVal) return dateVal; // date only
+    return dateVal + 'T' + timeVal;
+  }
+
+  // ---- P&L Calculation (includes trade duration) ----
+  _clearPnl() {
+    this.trPnlPerShare.textContent = '—';
+    this.trPnlPerShare.className = 'trade-review-pnl-value';
+    this.trPnlPercent.textContent = '—';
+    this.trPnlPercent.className = 'trade-review-pnl-value';
+    this.trPnlTotal.textContent = '—';
+    this.trPnlTotal.className = 'trade-review-pnl-value';
+    this.trDuration.textContent = '—';
+    this.trDuration.className = 'trade-review-pnl-value';
+  }
+
   _updatePnl() {
     const entry = parseFloat(this.trEntry.value);
     const exit = parseFloat(this.trExit.value);
@@ -288,45 +398,83 @@ class TradeReviewManager {
     const direction = this.trDirection.value;
 
     if (isNaN(entry) || isNaN(exit) || isNaN(shares) || entry === 0) {
-      this.trPnl.textContent = '—';
-      this.trPnl.className = 'trade-review-pnl-value';
+      this._clearPnl();
       return;
     }
 
-    let pnl;
+    // Per-share P&L (dollar amount)
+    let perSharePnl;
     if (direction === 'long') {
-      pnl = (exit - entry) * shares;
+      perSharePnl = exit - entry;
     } else {
-      pnl = (entry - exit) * shares;
+      perSharePnl = entry - exit;
     }
 
-    const pnlPercent = ((pnl / (entry * shares)) * 100);
+    // Percentage (same whether per-share or total)
+    const pnlPercent = (perSharePnl / entry) * 100;
 
-    const formattedPnl = Utils.formatCurrency(pnl);
-    const formattedPct = Utils.formatPercent(pnlPercent);
+    // Total P&L
+    const totalPnl = perSharePnl * shares;
 
-    this.trPnl.textContent = `${formattedPnl} (${formattedPct})`;
-    this.trPnl.className = 'trade-review-pnl-value ' + (pnl >= 0 ? 'positive' : 'negative');
+    // Per-share P&L display
+    const perShareClass = perSharePnl >= 0 ? 'positive' : 'negative';
+    this.trPnlPerShare.textContent = Utils.formatCurrency(perSharePnl) + '/share';
+    this.trPnlPerShare.className = 'trade-review-pnl-value ' + perShareClass;
+
+    // Percentage display
+    this.trPnlPercent.textContent = Utils.formatPercent(pnlPercent);
+    this.trPnlPercent.className = 'trade-review-pnl-value ' + perShareClass;
+
+    // Total P&L display
+    this.trPnlTotal.textContent = Utils.formatCurrency(totalPnl);
+    this.trPnlTotal.className = 'trade-review-pnl-value ' + perShareClass;
+
+    // Calculate trade duration from split date/time fields
+    let durationStr = '';
+    const entryDateVal = this.trEntryDate.value;
+    const entryTimeVal = this.trEntryTime.value;
+    const exitDateVal = this.trExitDate.value;
+    const exitTimeVal = this.trExitTime.value;
+
+    if (entryDateVal && entryTimeVal && exitDateVal && exitTimeVal) {
+      const entryDt = new Date(entryDateVal + 'T' + entryTimeVal);
+      const exitDt = new Date(exitDateVal + 'T' + exitTimeVal);
+      if (!isNaN(entryDt.getTime()) && !isNaN(exitDt.getTime())) {
+        const diffMs = exitDt - entryDt;
+        const absMs = Math.abs(diffMs);
+        if (absMs > 0) {
+          const totalMin = Math.floor(absMs / 60000);
+          const days = Math.floor(totalMin / 1440);
+          const hours = Math.floor((totalMin % 1440) / 60);
+          const mins = totalMin % 60;
+          if (days > 0) {
+            durationStr = `${days}d ${hours}h ${mins}m`;
+          } else if (hours > 0) {
+            durationStr = `${hours}h ${mins}m`;
+          } else {
+            durationStr = `${mins}m`;
+          }
+        }
+      }
+    }
+
+    this.trDuration.textContent = durationStr || '—';
+    this.trDuration.className = 'trade-review-pnl-value';
   }
 
   // ---- Open Editor ----
   async openEditor(reviewId, prefillData = null) {
     this._currentReviewId = reviewId;
-    this._currentSentiment = null;
     this._currentTags = [];
 
     // Show overlay
     this.editorOverlay.style.display = 'flex';
 
-    // Clear all sentiment buttons
-    this.sentimentBullish.classList.remove('active');
-    this.sentimentNeutral.classList.remove('active');
-    this.sentimentBearish.classList.remove('active');
-
     // Reset form
     this.editorTitle.value = '';
     this.editorDate.value = new Date().toISOString().split('T')[0];
     this.editorSymbol.value = '';
+    this.editorSymbolInfo.textContent = '—';
     this.tagsInput.value = '';
     this._renderTagChips();
 
@@ -337,10 +485,11 @@ class TradeReviewManager {
     this.trExit.value = '';
     this.trShares.value = '';
     this.trStrategy.value = '';
+    this.trEntryDate.value = '';
     this.trEntryTime.value = '';
+    this.trExitDate.value = '';
     this.trExitTime.value = '';
-    this.trPnl.textContent = '—';
-    this.trPnl.className = 'trade-review-pnl-value';
+    this._clearPnl();
 
     // Clear Quill
     if (this._quill) {
@@ -355,10 +504,6 @@ class TradeReviewManager {
         this.editorTitle.value = review.title || '';
         this.editorDate.value = review.date || '';
         this.editorSymbol.value = review.symbol || '';
-
-        if (review.sentiment) {
-          this._setSentiment(review.sentiment);
-        }
 
         if (review.tags && review.tags.length) {
           this._currentTags = [...review.tags];
@@ -386,8 +531,9 @@ class TradeReviewManager {
           this.trExit.value = review.tradeData.exitPrice || '';
           this.trShares.value = review.tradeData.shares || '';
           this.trStrategy.value = review.tradeData.strategy || '';
-          this.trEntryTime.value = review.tradeData.entryTime || '';
-          this.trExitTime.value = review.tradeData.exitTime || '';
+          // Parse ISO datetime strings into separate date/time fields
+          this._setDateTimeFields(review.tradeData.entryTime, 'entry');
+          this._setDateTimeFields(review.tradeData.exitTime, 'exit');
           this._updatePnl();
         }
       }
@@ -471,14 +617,18 @@ class TradeReviewManager {
         pnlPercent = (pnl / (entryPrice * shares)) * 100;
       }
 
+      // Combine date + time into ISO datetime strings for storage
+      const entryDateTime = this._combineDateTime(this.trEntryDate.value, this.trEntryTime.value);
+      const exitDateTime = this._combineDateTime(this.trExitDate.value, this.trExitTime.value);
+
       tradeData = {
         direction,
         entryPrice: isNaN(entryPrice) ? null : entryPrice,
         exitPrice: isNaN(exitPrice) ? null : exitPrice,
         shares: isNaN(shares) ? null : shares,
         strategy: this.trStrategy.value.trim() || null,
-        entryTime: this.trEntryTime.value || null,
-        exitTime: this.trExitTime.value || null,
+        entryTime: entryDateTime || null,
+        exitTime: exitDateTime || null,
         pnl,
         pnlPercent
       };
@@ -489,7 +639,7 @@ class TradeReviewManager {
       title,
       date: this.editorDate.value || null,
       symbol: this.editorSymbol.value.trim().toUpperCase() || null,
-      sentiment: this._currentSentiment,
+      sentiment: null,
       tags: this._currentTags.length ? [...this._currentTags] : [],
       tradeData,
       content,
@@ -610,7 +760,6 @@ class TradeReviewManager {
     // Apply filters
     let filtered = [...this._reviews];
     const search = (this.searchInput.value || '').toLowerCase();
-    const sentimentFilter = this.filterSentiment.value;
 
     if (search) {
       filtered = filtered.filter(r =>
@@ -619,10 +768,6 @@ class TradeReviewManager {
         (r.contentPlain && r.contentPlain.toLowerCase().includes(search)) ||
         (r.tags && r.tags.some(t => t.toLowerCase().includes(search)))
       );
-    }
-
-    if (sentimentFilter) {
-      filtered = filtered.filter(r => r.sentiment === sentimentFilter);
     }
 
     if (filtered.length === 0) {
@@ -648,10 +793,6 @@ class TradeReviewManager {
   }
 
   _renderCard(review) {
-    const sentimentBadge = review.sentiment
-      ? `<span class="tr-card-sentiment ${review.sentiment}">${{ bullish: 'Bullish', neutral: 'Neutral', bearish: 'Bearish' }[review.sentiment]}</span>`
-      : '';
-
     const symbolBadge = review.symbol
       ? `<span class="tr-card-symbol">${Utils.escapeAttr(review.symbol)}</span>`
       : '';
@@ -693,7 +834,6 @@ class TradeReviewManager {
         <div class="tr-card-body">
           <div class="tr-card-header">
             <span class="tr-card-date">${dateDisplay}</span>
-            ${sentimentBadge}
             ${symbolBadge}
             ${pnlHtml}
           </div>
@@ -714,7 +854,7 @@ class TradeReviewManager {
       return;
     }
 
-    const headers = ['Date', 'Symbol', 'Title', 'Direction', 'Entry Price', 'Exit Price', 'Shares', 'P&L', 'P&L %', 'Strategy', 'Sentiment', 'Tags'];
+    const headers = ['Date', 'Symbol', 'Title', 'Direction', 'Entry Price', 'Exit Price', 'Shares', 'P&L', 'P&L %', 'Strategy', 'Tags'];
     const rows = reviewsWithTrades.map(r => [
       r.date || '',
       r.symbol || '',
@@ -726,7 +866,6 @@ class TradeReviewManager {
       r.tradeData.pnl != null ? r.tradeData.pnl.toFixed(2) : '',
       r.tradeData.pnlPercent != null ? r.tradeData.pnlPercent.toFixed(2) + '%' : '',
       (r.tradeData.strategy || '').replace(/"/g, '""'),
-      r.sentiment || '',
       (r.tags || []).join(';')
     ]);
 
@@ -760,7 +899,7 @@ class TradeReviewManager {
         markdown += `# ${review.title || 'Untitled Review'}\n\n`;
         markdown += `**Date:** ${review.date || 'N/A'}\n`;
         if (review.symbol) markdown += `**Symbol:** ${review.symbol}\n`;
-        if (review.sentiment) markdown += `**Sentiment:** ${review.sentiment}\n`;
+
         if (review.tags && review.tags.length) markdown += `**Tags:** ${review.tags.join(', ')}\n`;
 
         // Trade data

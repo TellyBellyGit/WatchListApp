@@ -53,7 +53,7 @@
     <!-- ====== HEADER ====== -->
     <div class="header">
       <div class="header-left">
-        <h1>📈 Stock Watch List v2.2</h1>
+        <h1>📈 Stock Watch List v2.7</h1>
         <div class="subtitle">Momentum Trading Tracker — Times in EST (New York)</div>
       </div>
       <div class="header-right">
@@ -240,7 +240,7 @@
       <button class="btn btn-sm btn-list-toggle" id="list-toggle-swing" title="Show Swing List">Swing</button>
       <button class="btn btn-sm btn-list-toggle" id="list-toggle-temp" title="Show Temp List">Temp</button>
       <button class="btn btn-sm btn-notes-toggle" id="btn-daily-notes" title="Open Daily Notes">Notes</button>
-      <button class="btn btn-sm btn-list-toggle btn-reviews-toggle" id="btn-trade-reviews" title="Show Trade Reviews">Reviews</button>
+      <button class="btn btn-sm btn-list-toggle btn-reviews-toggle" id="btn-trade-reviews" title="Trade Reviews">Reviews</button>
       <div style="flex:1;"></div>
       <button class="btn btn-sm btn-secondary" id="toggle-dates-btn" title="Toggle Entry Date & Updated columns">📅 Show Dates</button>
       <button class="btn btn-sm btn-secondary" id="refresh-btn">🔄 Refresh</button>
@@ -412,12 +412,6 @@
       <div class="trade-reviews-toolbar">
         <button class="btn btn-primary" id="btn-new-review">✏️ New Review</button>
         <input type="text" class="trade-reviews-search" id="trade-reviews-search" placeholder="Search reviews..." autocomplete="off">
-        <select class="trade-reviews-filter" id="trade-reviews-filter-sentiment">
-          <option value="">All Sentiments</option>
-          <option value="bullish">Bullish</option>
-          <option value="neutral">Neutral</option>
-          <option value="bearish">Bearish</option>
-        </select>
         <button class="btn btn-sm btn-secondary" id="btn-export-reviews-csv" title="Export P&L data as CSV">📥 CSV</button>
         <button class="btn btn-sm btn-secondary" id="btn-export-reviews-zip" title="Export reviews as Markdown + Images ZIP">📦 ZIP</button>
       </div>
@@ -451,17 +445,13 @@
             </div>
             <div class="trade-review-meta-group">
               <label>Symbol (optional)</label>
-              <input type="text" id="trade-review-symbol-link" placeholder="e.g. AAPL" autocomplete="off" list="trade-review-symbol-suggestions">
-              <datalist id="trade-review-symbol-suggestions"></datalist>
+              <input type="text" id="trade-review-symbol-link" placeholder="e.g. AAPL" autocomplete="off">
             </div>
             <div class="trade-review-meta-group">
-              <label>Sentiment</label>
-              <div class="trade-review-sentiment-row">
-                <button class="sentiment-btn" data-sentiment="bullish" id="tr-sentiment-bullish">Bullish</button>
-                <button class="sentiment-btn" data-sentiment="neutral" id="tr-sentiment-neutral">Neutral</button>
-                <button class="sentiment-btn" data-sentiment="bearish" id="tr-sentiment-bearish">Bearish</button>
-              </div>
+              <label>Symbol Info</label>
+              <div class="trade-review-symbol-info" id="trade-review-symbol-info" style="font-size:0.75rem; color:var(--text-muted); min-width:180px;">—</div>
             </div>
+            <button class="btn-trade-data-toggle" id="trade-review-toggle-trade-data" title="Show/Hide trade entry fields">Trade Data</button>
           </div>
           <div class="trade-review-meta-row">
             <div class="trade-review-meta-group">
@@ -500,16 +490,38 @@
             </div>
             <div class="trade-review-meta-row">
               <div class="trade-review-meta-group">
+                <label>Entry Date</label>
+                <input type="date" id="tr-trade-entry-date">
+              </div>
+              <div class="trade-review-meta-group">
                 <label>Entry Time</label>
-                <input type="datetime-local" id="tr-trade-entry-time">
+                <input type="time" id="tr-trade-entry-time" step="1">
+              </div>
+              <div class="trade-review-meta-group">
+                <label>Exit Date</label>
+                <input type="date" id="tr-trade-exit-date">
               </div>
               <div class="trade-review-meta-group">
                 <label>Exit Time</label>
-                <input type="datetime-local" id="tr-trade-exit-time">
+                <input type="time" id="tr-trade-exit-time" step="1">
+              </div>
+            </div>
+            <div class="trade-review-meta-row">
+              <div class="trade-review-meta-group trade-review-pnl-group">
+                <span class="trade-review-pnl-label">P/L per Share</span>
+                <span class="trade-review-pnl-value" id="tr-trade-pnl-per-share">—</span>
               </div>
               <div class="trade-review-meta-group trade-review-pnl-group">
-                <span class="trade-review-pnl-label">P&L</span>
-                <span class="trade-review-pnl-value" id="tr-trade-pnl">—</span>
+                <span class="trade-review-pnl-label">P/L %</span>
+                <span class="trade-review-pnl-value" id="tr-trade-pnl-percent">—</span>
+              </div>
+              <div class="trade-review-meta-group trade-review-pnl-group">
+                <span class="trade-review-pnl-label">Total P/L</span>
+                <span class="trade-review-pnl-value" id="tr-trade-pnl-total">—</span>
+              </div>
+              <div class="trade-review-meta-group trade-review-pnl-group">
+                <span class="trade-review-pnl-label">Duration</span>
+                <span class="trade-review-pnl-value" id="tr-trade-duration">—</span>
               </div>
             </div>
           </div>
@@ -665,12 +677,12 @@
   <script src="js/config-manager.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/firestore.js"></script>
-  <script src="js/storage.js?v=250722d"></script>
+  <script src="js/storage.js?v=250722g"></script>
   <script src="js/alphavantage.js"></script>
   <script src="js/finnhub.js"></script>
   <script src="js/websocket.js"></script>
   <script src="js/utils.js"></script>
-  <script src="js/trade-reviews.js?v=250722d"></script>
-  <script src="js/app.js?v=250722d"></script>
+  <script src="js/trade-reviews.js?v=250722g"></script>
+  <script src="js/app.js?v=250722g"></script>
 </body>
 </html>

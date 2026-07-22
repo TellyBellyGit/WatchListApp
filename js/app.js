@@ -883,6 +883,7 @@ class StockWatchApp {
     const allToggleBtn = document.getElementById('list-toggle-all');
     if (allToggleBtn) {
       allToggleBtn.addEventListener('click', () => {
+        this._exitReviewsView();
         this.allListsMode = true;
         // Clear date filter so all dates are shown
         this.filterDateFromEl.value = '';
@@ -905,6 +906,7 @@ class StockWatchApp {
       const btn = document.getElementById('list-toggle-' + list.id);
       if (!btn) continue;
       btn.addEventListener('click', () => {
+        this._exitReviewsView();
         this.currentList = list.id;
         this.allListsMode = false;
         // Restore today filter if coming from All mode
@@ -951,9 +953,12 @@ class StockWatchApp {
       });
     }
 
-    // Daily Notes button — toggle editor
+    // Daily Notes button — exit reviews view first, then open editor
     if (this.btnDailyNotes) {
-      this.btnDailyNotes.addEventListener('click', () => this._openDailyNotesEditor());
+      this.btnDailyNotes.addEventListener('click', () => {
+        this._exitReviewsView();
+        this._openDailyNotesEditor();
+      });
     }
 
     // Trade Reviews button — toggle reviews view
@@ -3807,6 +3812,16 @@ class StockWatchApp {
     }
   }
 
+  // ---- Exit reviews view, return to watchlist ----
+  _exitReviewsView() {
+    const btn = document.getElementById('btn-trade-reviews');
+    if (btn && btn.classList.contains('active')) {
+      btn.classList.remove('active');
+      btn.textContent = 'Reviews';
+      tradeReviewManager.hide();
+    }
+  }
+
   // ---- Toggle Trade Reviews view ----
   _toggleTradeReviewsView() {
     const btn = document.getElementById('btn-trade-reviews');
@@ -3815,12 +3830,14 @@ class StockWatchApp {
     if (isActive) {
       // Switch back to watchlist
       btn.classList.remove('active');
+      btn.textContent = 'Reviews';
       tradeReviewManager.hide();
     } else {
       // Switch to reviews view
       btn.classList.add('active');
-      // Deactivate list toggle buttons
-      document.querySelectorAll('.btn-list-toggle').forEach(b => b.classList.remove('active'));
+      btn.textContent = 'Watchlists';
+      // Deactivate other list toggle buttons (but keep reviews button active)
+      document.querySelectorAll('.btn-list-toggle:not(.btn-reviews-toggle)').forEach(b => b.classList.remove('active'));
       // Show reviews
       tradeReviewManager.show();
     }

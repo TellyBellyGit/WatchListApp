@@ -4118,3 +4118,25 @@ body.overlay-open {
   font-size: 0.72rem;
   color: var(--text-muted);
 }
+
+/* ---- Subtle Trade Data Toggle Button ---- */
+.btn-trade-data-toggle {
+  align-self: flex-end;
+  margin-left: auto;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity var(--transition), color var(--transition);
+  white-space: nowrap;
+  margin-bottom: 2px;
+}
+.btn-trade-data-toggle:hover {
+  opacity: 0.85;
+  color: var(--text-secondary);
+}
