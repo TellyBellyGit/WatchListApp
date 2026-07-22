@@ -12,6 +12,9 @@ class TradeReviewManager {
     this._isDirty = false;
     this._symbolLookupTimer = null;
 
+    // View mode
+    this._viewMode = 'list'; // default to list view
+
     // DOM refs
     this.container = document.getElementById('trade-reviews-container');
     this.grid = document.getElementById('trade-reviews-grid');
@@ -19,6 +22,7 @@ class TradeReviewManager {
     this.btnNewReview = document.getElementById('btn-new-review');
     this.btnExportCsv = document.getElementById('btn-export-reviews-csv');
     this.btnExportZip = document.getElementById('btn-export-reviews-zip');
+    this.btnViewToggle = document.getElementById('btn-view-toggle');
 
     // Editor overlay refs
     this.editorOverlay = document.getElementById('trade-review-editor-overlay');
@@ -234,6 +238,11 @@ class TradeReviewManager {
     // Auto-save on title change
     this.editorTitle.addEventListener('input', () => this._markDirty());
     this.editorDate.addEventListener('input', () => this._markDirty());
+
+    // View toggle button
+    if (this.btnViewToggle) {
+      this.btnViewToggle.addEventListener('click', () => this._toggleView());
+    }
   }
 
   // ---- Setup auto-save polling (call after data loaded) ----
@@ -804,16 +813,33 @@ class TradeReviewManager {
       pnlHtml = `<span class="tr-card-pnl ${pnlClass}">${Utils.formatCurrency(review.tradeData.pnl)}</span>`;
     }
 
-    // Image thumbnail — extract first image from Quill delta
-    let thumbnailHtml = '';
+    // P&L percentage indicator (shown after dot in list view)
+    let pnlPercentHtml = '';
+    if (review.tradeData && review.tradeData.pnlPercent != null) {
+      const pctClass = review.tradeData.pnlPercent >= 0 ? 'positive' : 'negative';
+      const sign = review.tradeData.pnlPercent >= 0 ? '+' : '';
+      pnlPercentHtml = `<span class="tr-card-pnl-pct ${pctClass}">${sign}${review.tradeData.pnlPercent.toFixed(1)}%</span>`;
+    } else {
+      pnlPercentHtml = '<span class="tr-card-pnl-pct none">—</span>';
+    }
+
+    // Image indicator dot — check if review has any images; always render .tr-card-thumb for alignment
+    let hasImage = false;
+    let firstImageUrl = '';
     if (review.content && review.content.ops) {
       for (const op of review.content.ops) {
         if (op.insert && op.insert.image) {
-          thumbnailHtml = `<div class="tr-card-thumb"><img src="${op.insert.image}" alt="Review image" loading="lazy"></div>`;
+          hasImage = true;
+          firstImageUrl = op.insert.image;
           break;
         }
       }
     }
+    const thumbClass = hasImage ? 'tr-card-thumb has-image' : 'tr-card-thumb';
+    const thumbnailHtml = `<div class="${thumbClass}">
+      <span class="tr-card-img-dot"></span>
+      ${hasImage ? `<img src="${firstImageUrl}" alt="Review image" loading="lazy">` : ''}
+    </div>`;
 
     // Preview text
     const preview = (review.contentPlain || review.title || '').substring(0, 150);
@@ -831,6 +857,7 @@ class TradeReviewManager {
     return `
       <div class="trade-review-card" data-id="${review.id}">
         ${thumbnailHtml}
+        ${pnlPercentHtml}
         <div class="tr-card-body">
           <div class="tr-card-header">
             <span class="tr-card-date">${dateDisplay}</span>
@@ -1041,6 +1068,7 @@ class TradeReviewManager {
     if (notesPanel) notesPanel.style.display = 'none';
 
     this.loadAndRender();
+    this._applyViewMode();
   }
 
   hide() {
@@ -1051,6 +1079,32 @@ class TradeReviewManager {
     // Show add stock section
     const addSection = document.getElementById('add-stock-section');
     if (addSection) addSection.style.display = '';
+  }
+
+  // ---- View mode toggle ----
+  _toggleView() {
+    if (this._viewMode === 'list') {
+      this._viewMode = 'grid';
+      this.grid.classList.remove('list-view');
+      this.grid.classList.add('grid-view');
+      if (this.btnViewToggle) this.btnViewToggle.textContent = '🟫 Tiles';
+    } else {
+      this._viewMode = 'list';
+      this.grid.classList.remove('grid-view');
+      this.grid.classList.add('list-view');
+      if (this.btnViewToggle) this.btnViewToggle.textContent = '📋 List';
+    }
+  }
+
+  // ---- Apply initial view mode ----
+  _applyViewMode() {
+    if (this._viewMode === 'list') {
+      this.grid.classList.remove('grid-view');
+      if (this.btnViewToggle) this.btnViewToggle.textContent = '🟫 Tiles';
+    } else {
+      this.grid.classList.add('grid-view');
+      if (this.btnViewToggle) this.btnViewToggle.textContent = '📋 List';
+    }
   }
 
   // ---- Get review count for a watchlist entry ----

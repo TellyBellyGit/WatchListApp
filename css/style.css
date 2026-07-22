@@ -3663,60 +3663,184 @@ body.overlay-open {
 
 /* ---- Reviews Grid ---- */
 .trade-reviews-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+/* Grid view (tiles) — override */
+.trade-reviews-grid.grid-view {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 14px;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  background: transparent;
 }
 
 .trade-reviews-empty {
-  grid-column: 1 / -1;
   text-align: center;
   padding: 60px 20px;
   color: var(--text-muted);
   font-size: 0.95rem;
 }
 
-/* ---- Review Card ---- */
+/* ---- Review Card (list-row default) ---- */
 .trade-review-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background var(--transition);
+  border-bottom: 1px solid var(--border-color);
+}
+.trade-review-card:last-child {
+  border-bottom: none;
+}
+.trade-review-card:hover {
+  background: var(--bg-tertiary);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Grid view card override */
+.trade-reviews-grid.grid-view .trade-review-card {
+  display: block;
   background: var(--bg-secondary);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   overflow: hidden;
-  cursor: pointer;
-  transition: transform var(--transition), box-shadow var(--transition);
+  padding: 0;
+  border-bottom: 1px solid var(--border-color);
 }
-.trade-review-card:hover {
+.trade-reviews-grid.grid-view .trade-review-card:last-child {
+  border-bottom: 1px solid var(--border-color);
+}
+.trade-reviews-grid.grid-view .trade-review-card:hover {
+  background: var(--bg-secondary);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
+/* ---- Thumbnail / Image Indicator Dot ---- */
 .tr-card-thumb {
-  width: 100%;
-  height: 160px;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
   overflow: hidden;
-  background: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: transparent;
 }
 .tr-card-thumb img {
+  display: none;
+}
+
+/* Indicator dot */
+.tr-card-img-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  background: transparent;
+  flex-shrink: 0;
+}
+
+/* Filled dot when review has images */
+.tr-card-thumb.has-image .tr-card-img-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Grid view — restore full-size thumbnail, hide dot */
+.trade-reviews-grid.grid-view .tr-card-thumb {
+  width: 100%;
+  height: 160px;
+  border-radius: 0;
+  background: var(--bg-tertiary);
+}
+.trade-reviews-grid.grid-view .tr-card-thumb .tr-card-img-dot {
+  display: none;
+}
+.trade-reviews-grid.grid-view .tr-card-thumb img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.tr-card-body {
-  padding: 12px 14px 14px;
+/* ---- P&L Percentage Indicator (list view, after dot) ---- */
+.tr-card-pnl-pct {
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 44px;
+  text-align: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.tr-card-pnl-pct.positive {
+  color: var(--positive);
+  background: var(--positive-bg);
+}
+.tr-card-pnl-pct.negative {
+  color: var(--negative);
+  background: var(--negative-bg);
+}
+.tr-card-pnl-pct.none {
+  color: var(--text-muted);
+  background: transparent;
 }
 
+/* Hide P&L pct in grid view */
+.trade-reviews-grid.grid-view .tr-card-pnl-pct {
+  display: none;
+}
+
+/* ---- Card Body ---- */
+.tr-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.trade-reviews-grid.grid-view .tr-card-body {
+  display: block;
+  padding: 12px 14px 14px;
+  overflow: visible;
+}
+
+/* ---- Card Header ---- */
 .tr-card-header {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.trade-reviews-grid.grid-view .tr-card-header {
   flex-wrap: wrap;
   margin-bottom: 8px;
 }
 
 .tr-card-date {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .tr-card-sentiment {
@@ -3741,12 +3865,13 @@ body.overlay-open {
 }
 
 .tr-card-symbol {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--accent);
   background: var(--accent-light);
   padding: 2px 7px;
   border-radius: 4px;
+  white-space: nowrap;
 }
 
 .tr-card-pnl {
@@ -3754,7 +3879,8 @@ body.overlay-open {
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 4px;
-  margin-left: auto;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .tr-card-pnl.positive {
   color: var(--positive);
@@ -3765,29 +3891,66 @@ body.overlay-open {
   background: var(--negative-bg);
 }
 
-.tr-card-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 6px;
-  line-height: 1.35;
+.trade-reviews-grid.grid-view .tr-card-pnl {
+  margin-left: auto;
 }
 
+/* ---- Card Title ---- */
+.tr-card-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+  flex-shrink: 0;
+}
+
+.trade-reviews-grid.grid-view .tr-card-title {
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+  line-height: 1.35;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  max-width: none;
+}
+
+/* ---- Card Preview ---- */
 .tr-card-preview {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-secondary);
-  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.trade-reviews-grid.grid-view .tr-card-preview {
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+  white-space: normal;
   overflow: hidden;
   margin-bottom: 8px;
 }
 
+/* ---- Card Tags ---- */
 .tr-card-tags {
   display: flex;
   gap: 4px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  max-width: 200px;
+  overflow: hidden;
+}
+
+.trade-reviews-grid.grid-view .tr-card-tags {
   flex-wrap: wrap;
+  max-width: none;
+  overflow: visible;
 }
 
 .tag-badge-sm {
@@ -3797,6 +3960,26 @@ body.overlay-open {
   background: var(--bg-tertiary);
   color: var(--text-secondary);
   font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ---- List View Toggle Button ---- */
+.btn-view-toggle {
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  transition: all var(--transition);
+}
+.btn-view-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-light);
 }
 
 /* ==========================================================================
