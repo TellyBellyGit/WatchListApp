@@ -272,7 +272,6 @@
             <th>Float</th>
             <th class="sortable" data-sort="sector">Sector <span class="sort-arrow"></span></th>
             <th>Exchange</th>
-            <th>Notes</th>
             <th>News</th>
             <th class="sortable col-date" data-sort="entryDateEST">Entry Date (EST) <span class="sort-arrow"></span></th>
             <th class="col-date">Updated</th>
@@ -639,20 +638,13 @@
         <div class="stock-review-chart-links" id="stock-review-chart-links">
           <!-- populated dynamically -->
         </div>
-        <div class="stock-review-toolbar" id="stock-review-toolbar">
-          <button class="fmt-btn" data-fmt="bold" title="Bold">B</button>
-          <button class="fmt-btn" data-fmt="italic" title="Italic">I</button>
-          <button class="fmt-btn" data-fmt="heading" title="Heading">H</button>
-          <button class="fmt-btn" data-fmt="bullet" title="Bullet List">-</button>
-          <button class="fmt-btn" data-fmt="number" title="Numbered List">1.</button>
-          <button class="fmt-btn" data-fmt="code" title="Inline Code">`</button>
-          <button class="fmt-btn" data-fmt="link" title="Link">Link</button>
-          <button class="fmt-btn btn-reset-template" id="stock-review-reset-template" title="Reset to review template">📋</button>
+        <div class="stock-review-quill-container">
+          <div id="stock-review-quill-editor"></div>
         </div>
-        <textarea class="stock-review-textarea" id="stock-review-textarea"></textarea>
         <div class="stock-review-footer">
+          <button class="fmt-btn btn-reset-template" id="stock-review-reset-template" title="Reset to review template">📋</button>
           <span class="stock-review-char-count" id="stock-review-char-count">0 words / 0 chars</span>
-          <span class="stock-review-hint">Paste images with Ctrl+V | Auto-saves as you type</span>
+          <span class="stock-review-hint">Paste images with Ctrl+V | Rich text editing | Auto-saves as you type</span>
         </div>
       </div>
     </div>

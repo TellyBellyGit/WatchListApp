@@ -95,7 +95,7 @@ class StockWatchApp {
 
     // Stock Review overlay refs
     this.stockReviewOverlay = document.getElementById('stock-review-overlay');
-    this.stockReviewTextarea = document.getElementById('stock-review-textarea');
+    this.stockReviewQuillContainer = document.getElementById('stock-review-quill-editor');
     this.stockReviewSymbol = document.getElementById('stock-review-symbol');
     this.stockReviewCompany = document.getElementById('stock-review-company');
     this.stockReviewMetrics = document.getElementById('stock-review-metrics');
@@ -107,10 +107,10 @@ class StockWatchApp {
     this.stockReviewTagChips = document.getElementById('tag-chips-container');
     this.stockReviewQuickTags = document.getElementById('quick-tags-list');
     this.stockReviewChartLinks = document.getElementById('stock-review-chart-links');
-    this.stockReviewToolbar = document.getElementById('stock-review-toolbar');
 
     // Stock Review state
     this._stockReviewEntryId = null;
+    this._stockReviewQuill = null;
     this._stockReviewSaveTimer = null;
     this._stockReviewDirty = false;
 
@@ -996,6 +996,11 @@ class StockWatchApp {
       this.notesEditorTextarea.addEventListener('input', () => this._onNoteEditorInput());
       // Word/char counter
       this.notesEditorTextarea.addEventListener('input', () => this._updateNoteCharCount());
+      // Image paste handler — upload to Firebase Storage, insert as markdown
+      this.notesEditorTextarea.addEventListener('paste', (e) => {
+        const dateStr = this.filterDateFromVal || Utils.formatESTDateOnly(new Date());
+        this._handleTextareaImagePaste(e, this.notesEditorTextarea, () => 'daily-note-' + dateStr);
+      });
     }
 
     // Formatting toolbar buttons — Daily Notes
@@ -1971,7 +1976,7 @@ class StockWatchApp {
     if (entries.length === 0) {
       this.tableBody.innerHTML = `
         <tr>
-          <td colspan="15" class="empty-state">
+          <td colspan="14" class="empty-state">
             <div class="empty-icon">📊</div>
             <div>No stocks in your watch list</div>
             <div style="font-size:0.8rem;margin-top:6px;">Search for a symbol above to add one</div>
@@ -2011,16 +2016,10 @@ class StockWatchApp {
     const notesPreview = entry.notes
       ? entry.notes.length > 60 ? entry.notes.substring(0, 60) + '...' : entry.notes
       : 'Click to add notes';
-    const hasNotes = entry.notes && entry.notes.trim().length > 0;
-    const isTemp = (entry.list || 'main') === 'temp';
+const isTemp = (entry.list || 'main') === 'temp';
 
     const promoteBtn = isTemp
       ? `<button class="btn btn-sm btn-promote" data-id="${entry.id}" title="Move to Main List">⬆</button>`
-      : '';
-
-    // Render tags as badges
-    const tagsHtml = (entry.tags && entry.tags.length > 0)
-      ? `<div class="tag-badges-row">${entry.tags.map(t => `<span class="tag-badge">${Utils.escapeAttr(t)}</span>`).join(' ')}</div>`
       : '';
 
     // Strength score circle — always neutral grey, score number inside, tooltip from result table
@@ -2052,7 +2051,6 @@ class StockWatchApp {
         <td>${entry.sharesFloat ? Utils.formatVolume(entry.sharesFloat) : '—'}</td>
         <td title="${Utils.escapeAttr((entry.sector || '').length > 20 ? entry.sector : '')}">${entry.sector ? (entry.sector.length > 20 ? entry.sector.substring(0, 20) + '…' : entry.sector) : '—'}</td>
         <td class="exchange-cell">${this._formatExchange(entry.exchange)}</td>
-        <td class="note-dot-cell" title="${Utils.escapeAttr(entry.notes || '')}"><span class="note-dot ${hasNotes ? 'note-dot-active' : ''}"></span>${tagsHtml}</td>
         <td class="news-cell">${entry.newsHeadlines ? `<span title="${Utils.escapeAttr(entry.newsHeadlines)}" style="cursor:pointer;font-size:1.1rem;">📰</span>` : '—'}</td>
         <td class="col-date" style="font-size:0.75rem;color:var(--text-muted);">${Utils.formatEST(entry.entryDateEST || entry.createdAt, { showSeconds: false })}</td>
         <td class="col-date" style="font-size:0.7rem;color:var(--text-muted);">${entry.quoteTimestamp ? Utils.formatEST(entry.quoteTimestamp, { showSeconds: true }) : '—'}</td>
@@ -2614,14 +2612,69 @@ class StockWatchApp {
     this._handleFormattingInput(ta);
   }
 
-  // ---- Route formatting input to correct handler (daily notes or stock review) ----
+  // ---- Route formatting input to correct handler (daily notes only) ----
   _handleFormattingInput(ta) {
-    if (ta === this.stockReviewTextarea) {
-      this._onStockReviewInput();
-      this._updateStockReviewCharCount();
-    } else {
-      this._onNoteEditorInput();
-      this._updateNoteCharCount();
+    // Stock review now uses Quill (no textarea), so this only handles daily notes
+    this._onNoteEditorInput();
+    this._updateNoteCharCount();
+  }
+
+  // ---- Shared helper: Handle image paste in plain textareas ----
+  // Uploads pasted images to Firebase Storage and inserts markdown ![Screenshot](url) at cursor.
+  // Uses a placeholder approach so the cursor position survives async upload latency.
+  async _handleTextareaImagePaste(e, textarea, reviewIdFn) {
+    const clipboardData = e.clipboardData || window.clipboardData;
+    if (!clipboardData || !clipboardData.items) return;
+
+    for (const item of clipboardData.items) {
+      if (!item.type.startsWith('image/')) continue;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const blob = item.getAsFile();
+      if (!blob) continue;
+
+      const reviewId = reviewIdFn();
+      if (!reviewId) continue;
+
+      // Insert a placeholder immediately so the cursor position stays valid
+      const start = textarea.selectionStart;
+      const placeholder = '[Uploading image\u2026]';
+      const before = textarea.value.substring(0, start);
+      const after = textarea.value.substring(start);
+      textarea.value = before + placeholder + after;
+      textarea.selectionStart = textarea.selectionEnd = start + placeholder.length;
+
+      try {
+        const downloadUrl = await imageStorage.uploadImage(blob, reviewId);
+        if (!downloadUrl || downloadUrl.startsWith('data:')) {
+          throw new Error('Upload returned a data URI instead of Storage URL');
+        }
+
+        // Replace the placeholder with the markdown image syntax
+        const idx = textarea.value.indexOf(placeholder);
+        if (idx !== -1) {
+          textarea.value =
+            textarea.value.substring(0, idx) +
+            '![Screenshot](' + downloadUrl + ')\n' +
+            textarea.value.substring(idx + placeholder.length);
+          // Place cursor after the inserted image markdown
+          const newPos = idx + downloadUrl.length + 18; // len of ![]( )\n
+          textarea.selectionStart = textarea.selectionEnd = newPos;
+        }
+      } catch (err) {
+        console.error('[ImagePaste] Upload failed:', err.message || err);
+        // Remove the placeholder on failure
+        const idx = textarea.value.indexOf(placeholder);
+        if (idx !== -1) {
+          textarea.value =
+            textarea.value.substring(0, idx) +
+            textarea.value.substring(idx + placeholder.length);
+        }
+        Utils.showToast('Image upload failed \u2014 check Firebase Storage', 'error');
+      }
+      break; // Only handle the first image
     }
   }
 
@@ -2795,7 +2848,14 @@ class StockWatchApp {
     // Headings (## ...)
     html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
 
-    // Links [text](url)
+    // Images ![alt](url) — before links so ! prefix is consumed first
+    html = html.replace(/!\[([^\]]*)\]\(((?:[^()\s]|\((?:[^()]*\)))*)\)/g, (match, alt, url) => {
+      const safeAlt = alt.replace(/"/g, '"').replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>');
+      const safeUrl = url.replace(/"/g, '"');
+      return `<img src="${safeUrl}" alt="${safeAlt}" style="max-width:100%;border-radius:4px;margin:8px 0;" loading="lazy">`;
+    });
+
+    // Links [text](url) — images already handled above, so !-prefixed are gone
     html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
 
     // Bullet lists — group consecutive "- " lines into <ul>
@@ -3209,23 +3269,7 @@ class StockWatchApp {
       });
     }
 
-    // Formatting toolbar
-    if (this.stockReviewToolbar) {
-      this.stockReviewToolbar.addEventListener('click', (e) => {
-        const btn = e.target.closest('.fmt-btn');
-        if (!btn) return;
-        const fmt = btn.dataset.fmt;
-        this._applyFormatting(fmt, this.stockReviewTextarea);
-      });
-    }
-
-    // Textarea input — auto-save with debounce
-    if (this.stockReviewTextarea) {
-      this.stockReviewTextarea.addEventListener('input', () => {
-        this._onStockReviewInput();
-        this._updateStockReviewCharCount();
-      });
-    }
+    // Quill is initialized lazily in _openStockReview() when the overlay is visible
 
     // Tags input — auto-save on change
     if (this.stockReviewTags) {
@@ -3293,12 +3337,105 @@ class StockWatchApp {
     });
   }
 
+  // ---- Init Quill editor for stock review (lazy, on first use) ----
+  _initStockReviewQuill() {
+    if (this._stockReviewQuill) return;
+    if (typeof Quill === 'undefined') {
+      console.warn('[StockReview] Quill not loaded — rich text editor unavailable');
+      return;
+    }
+    if (!this.stockReviewQuillContainer) return;
+
+    this._stockReviewQuill = new Quill(this.stockReviewQuillContainer, {
+      theme: 'snow',
+      placeholder: 'Write your trade review notes... Paste images with Ctrl+V',
+      modules: {
+        toolbar: [
+          [{ header: [1, 2, 3, false] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+          ['blockquote', 'code-block'],
+          ['link', 'image'],
+          [{ color: [] }, { background: [] }],
+          ['clean']
+        ],
+        clipboard: {
+          matchVisual: false
+        }
+      }
+    });
+
+    // Handle image paste via custom handler — upload to Firebase Storage
+    this._stockReviewQuill.root.addEventListener('paste', (e) => {
+      this._handleStockReviewImagePaste(e);
+    });
+
+    // Track changes for auto-save
+    this._stockReviewQuill.on('text-change', () => {
+      this._onStockReviewInput();
+      this._updateStockReviewCharCount();
+    });
+  }
+
+  // ---- Handle image paste for stock review Quill editor ----
+  async _handleStockReviewImagePaste(e) {
+    const clipboardData = e.clipboardData || window.clipboardData;
+    if (!clipboardData || !clipboardData.items) return;
+
+    const items = clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!item.type.startsWith('image/')) continue;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const blob = item.getAsFile();
+      if (!blob) continue;
+
+      if (!this._stockReviewEntryId) {
+        this._stockReviewEntryId = 'temp_' + Date.now();
+      }
+
+      try {
+        const range = this._stockReviewQuill.getSelection(true);
+        this._stockReviewQuill.insertText(range.index, '[Uploading image to cloud...]', { color: '#888' });
+        const uploadIndex = range.index;
+        const uploadLength = 28;
+
+        const downloadUrl = await imageStorage.uploadImage(blob, this._stockReviewEntryId);
+        if (!downloadUrl || downloadUrl.startsWith('data:')) {
+          throw new Error('Upload returned a data URI instead of Storage URL');
+        }
+
+        this._stockReviewQuill.deleteText(uploadIndex, uploadLength);
+        this._stockReviewQuill.insertEmbed(uploadIndex, 'image', downloadUrl);
+        this._stockReviewQuill.setSelection(uploadIndex + 1);
+
+        this._onStockReviewInput();
+      } catch (err) {
+        console.error('[StockReview] Image upload failed:', err.message || err);
+        try {
+          const range = this._stockReviewQuill.getSelection(true);
+          if (range && range.length >= 27) {
+            this._stockReviewQuill.deleteText(range.index - 27, 28);
+          }
+        } catch (e2) { /* ignore */ }
+        Utils.showToast('Image upload failed — check Firebase Storage is enabled and CORS is configured');
+      }
+      break;
+    }
+  }
+
   // ---- Open the stock review overlay for a given entry ----
   _openStockReview(id) {
     const entry = this.entries.find(e => e.id === id);
     if (!entry) return;
     this._stockReviewEntryId = id;
     this._stockReviewDirty = false;
+
+    // Lazy-init Quill now that the overlay is about to be visible
+    this._initStockReviewQuill();
 
     // Clear any pending save timer
     if (this._stockReviewSaveTimer) {
@@ -3394,15 +3531,27 @@ class StockWatchApp {
     // Update calculated trade pills
     this._updateTradeCalculated();
 
-    // Populate textarea with existing notes, or template if empty
-    // Track the original notes value so we only persist changes the user actually made
+    // Populate Quill with existing notes, or template if empty
     this._stockReviewOriginalNotes = entry.notes || '';
-    if (this.stockReviewTextarea) {
+    if (this._stockReviewQuill) {
+      this._stockReviewQuill.off('text-change');
       if (entry.notes && entry.notes.trim().length > 0) {
-        this.stockReviewTextarea.value = entry.notes;
+        this._stockReviewQuill.root.innerHTML = entry.notes;
       } else {
-        this.stockReviewTextarea.value = this._reviewTemplate;
+        this._stockReviewQuill.root.innerHTML = this._reviewTemplate
+          .split('\n')
+          .map(line => {
+            if (line.startsWith('## ')) return '<h2>' + line.substring(3) + '</h2>';
+            if (line.startsWith('- ')) return '<li>' + line.substring(2) + '</li>';
+            if (line.trim() === '') return '<br>';
+            return '<p>' + line + '</p>';
+          })
+          .join('');
       }
+      this._stockReviewQuill.on('text-change', () => {
+        this._onStockReviewInput();
+        this._updateStockReviewCharCount();
+      });
     }
 
     // Load risk settings into panel
@@ -3423,9 +3572,9 @@ class StockWatchApp {
       document.body.classList.add('overlay-open');
     }
 
-    // Focus textarea
+    // Focus Quill editor
     setTimeout(() => {
-      if (this.stockReviewTextarea) this.stockReviewTextarea.focus();
+      if (this._stockReviewQuill) this._stockReviewQuill.focus();
     }, 100);
   }
 
@@ -3470,13 +3619,14 @@ class StockWatchApp {
     }, 2000);
   }
 
-  // ---- Update word/character count in stock review ----
+  // ---- Update word/character count in stock review (Quill) ----
   _updateStockReviewCharCount() {
-    if (!this.stockReviewCharCount || !this.stockReviewTextarea) return;
-    const text = this.stockReviewTextarea.value;
+    if (!this.stockReviewCharCount) return;
+    if (!this._stockReviewQuill) return;
+    const text = this._stockReviewQuill.getText();
     const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
-    const charCount = text.length;
-    this.stockReviewCharCount.textContent = `${wordCount} words / ${charCount} chars`;
+    const charCount = text.length - 1; // Quill getText() includes trailing newline
+    this.stockReviewCharCount.textContent = `${wordCount} words / ${Math.max(0, charCount)} chars`;
   }
 
   // ---- Actually save the stock review ----
@@ -3487,24 +3637,29 @@ class StockWatchApp {
     const entry = this.entries.find(e => e.id === entryId);
     if (!entry) return;
 
-    // Collect raw notes value
-    const rawNotes = this.stockReviewTextarea ? this.stockReviewTextarea.value : '';
+    // Collect Quill HTML content
+    const rawNotes = this._stockReviewQuill ? this._stockReviewQuill.root.innerHTML : '';
     // Collect tags from chip elements instead of text input
     const tags = this._getTagsFromChips();
 
     // Only persist notes if the user actually changed them from the original
-    // This prevents the template placeholder from being saved as real notes
-    // when the user only edited tags or trade fields
     let notes;
     const originalNotes = this._stockReviewOriginalNotes || '';
-    if (rawNotes === this._reviewTemplate && !originalNotes) {
-      // User never wrote notes; the template is still showing. Don't save it.
+    // Build HTML version of template to compare
+    const templateHtml = this._reviewTemplate
+      .split('\n')
+      .map(line => {
+        if (line.startsWith('## ')) return '<h2>' + line.substring(3) + '</h2>';
+        if (line.startsWith('- ')) return '<li>' + line.substring(2) + '</li>';
+        if (line.trim() === '') return '<br>';
+        return '<p>' + line + '</p>';
+      })
+      .join('');
+    if ((rawNotes === templateHtml || rawNotes === '<p><br></p>') && !originalNotes) {
       notes = originalNotes;
-    } else if (rawNotes !== originalNotes || (rawNotes && rawNotes !== this._reviewTemplate)) {
-      // User modified the notes — save what they typed
+    } else if (rawNotes !== originalNotes) {
       notes = rawNotes;
     } else {
-      // Unchanged, keep original
       notes = originalNotes;
     }
 
@@ -3843,16 +3998,30 @@ class StockWatchApp {
     }
   }
 
-  // ---- Reset the textarea to the review template ----
+  // ---- Reset the Quill editor to the review template ----
   _resetTemplate() {
-    if (!this.stockReviewTextarea) return;
-    if (this.stockReviewTextarea.value.trim() && this.stockReviewTextarea.value !== this._reviewTemplate) {
+    if (!this._stockReviewQuill) return;
+    const current = this._stockReviewQuill.getText().trim();
+    if (current && current !== this._reviewTemplate.replace(/[#\*\-]/g, '').trim()) {
       if (!confirm('This will replace your current notes with the template. Continue?')) return;
     }
-    this.stockReviewTextarea.value = this._reviewTemplate;
+    this._stockReviewQuill.off('text-change');
+    this._stockReviewQuill.root.innerHTML = this._reviewTemplate
+      .split('\n')
+      .map(line => {
+        if (line.startsWith('## ')) return '<h2>' + line.substring(3) + '</h2>';
+        if (line.startsWith('- ')) return '<li>' + line.substring(2) + '</li>';
+        if (line.trim() === '') return '<br>';
+        return '<p>' + line + '</p>';
+      })
+      .join('');
+    this._stockReviewQuill.on('text-change', () => {
+      this._onStockReviewInput();
+      this._updateStockReviewCharCount();
+    });
     this._updateStockReviewCharCount();
     this._onStockReviewInput();
-    this.stockReviewTextarea.focus();
+    this._stockReviewQuill.focus();
   }
 }
 
