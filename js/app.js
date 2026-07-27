@@ -61,8 +61,7 @@ class StockWatchApp {
     this.statsBar = document.getElementById('stats-bar');
     this.connectionDot = document.getElementById('connection-dot');
     this.connectionText = document.getElementById('connection-text');
-    this.themeLightBtn = document.getElementById('theme-light');
-    this.themeDarkBtn = document.getElementById('theme-dark');
+    this.themeToggleBtn = document.getElementById('theme-toggle-btn');
     this.loadingOverlay = document.getElementById('loading-overlay');
 
     // Price Action education dropdown refs
@@ -449,11 +448,8 @@ class StockWatchApp {
   }
 
   _updateThemeToggle(active) {
-    if (this.themeLightBtn) {
-      this.themeLightBtn.classList.toggle('active', active === 'light');
-    }
-    if (this.themeDarkBtn) {
-      this.themeDarkBtn.classList.toggle('active', active === 'dark');
+    if (this.themeToggleBtn) {
+      this.themeToggleBtn.textContent = active === 'dark' ? '☀️' : '🌙';
     }
   }
 
@@ -867,9 +863,13 @@ class StockWatchApp {
       });
     }
 
-    // Theme toggle
-    document.getElementById('theme-light').addEventListener('click', () => this._toggleTheme('light'));
-    document.getElementById('theme-dark').addEventListener('click', () => this._toggleTheme('dark'));
+    // Theme toggle — single button toggles between light & dark
+    if (this.themeToggleBtn) {
+      this.themeToggleBtn.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme');
+        this._toggleTheme(current === 'dark' ? 'light' : 'dark');
+      });
+    }
 
     // Sortable headers (delegation)
     document.querySelector('thead').addEventListener('click', (e) => {
