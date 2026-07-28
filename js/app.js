@@ -472,7 +472,7 @@ class StockWatchApp {
   _computeDataDates() {
     this._dataDates = new Set();
     for (const entry of this.entries) {
-      const dateStr = Utils.formatESTDateOnly(entry.entryDateEST || entry.createdAt);
+      const dateStr = entry.entryLocalDate || Utils.formatESTDateOnly(entry.entryDateEST || entry.createdAt);
       if (dateStr) this._dataDates.add(dateStr);
     }
   }
@@ -1721,6 +1721,7 @@ class StockWatchApp {
       heldPercentInsiders: floatData.heldPercentInsiders,
       heldPercentInstitutions: floatData.heldPercentInstitutions,
       entryDateEST: Utils.getCurrentESTISO(),
+      entryLocalDate: Utils.todayLocal(),
       notes: note,
       tags: tags,
       list: listName,
@@ -1793,6 +1794,7 @@ class StockWatchApp {
         heldPercentInsiders: avData ? avData.heldPercentInsiders : null,
         heldPercentInstitutions: avData ? avData.heldPercentInstitutions : null,
         entryDateEST: Utils.getCurrentESTISO(),
+        entryLocalDate: Utils.todayLocal(),
         notes: note,
         tags: tags,
         list: this.currentList,
@@ -1856,7 +1858,7 @@ class StockWatchApp {
     // Single date filter — exact day match
     if (this.filterDateFromVal) {
       filtered = filtered.filter(e => {
-        const entryDate = Utils.formatESTDateOnly(e.entryDateEST || e.createdAt);
+        const entryDate = e.entryLocalDate || Utils.formatESTDateOnly(e.entryDateEST || e.createdAt);
         return entryDate === this.filterDateFromVal;
       });
     }

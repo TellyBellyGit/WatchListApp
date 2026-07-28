@@ -65,6 +65,15 @@ const Utils = {
     }
   },
 
+  // ---- User's local date (for watchlist day grouping) ----
+  todayLocal() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  },
+
   // ---- Current EST Time (for auto-stamping) ----
   getCurrentEST() {
     return new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
