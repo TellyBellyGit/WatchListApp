@@ -367,6 +367,37 @@ body {
   color: var(--text-muted);
 }
 
+/* ===== Add Stock Date Row ===== */
+.add-date-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.add-date-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.add-date-input {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.add-date-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 #search-results {
   margin-top: 12px;
 }

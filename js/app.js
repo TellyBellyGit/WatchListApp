@@ -165,6 +165,7 @@ class StockWatchApp {
     this.dailyNotesWordCount = document.getElementById('daily-notes-word-count');
     this.btnDailyNotes = document.getElementById('btn-daily-notes');
     this.dailyNotesEditBtn = document.getElementById('daily-notes-edit-btn');
+    this.addStockDateEl = document.getElementById('add-stock-date');
     this.dailyNotesClose = document.getElementById('daily-notes-close');
     this.notesEditorOverlay = document.getElementById('notes-editor-overlay');
     this.notesEditorTextarea = document.getElementById('notes-editor-textarea');
@@ -232,6 +233,7 @@ class StockWatchApp {
     const today = Utils.formatESTDateOnly(new Date());
     this.filterDateFromEl.value = today;
     this.filterDateFromVal = today;
+    this.addStockDateEl.value = today;
     this.dateFilterMode = 'today';
     this._updateDayNavUI();
     this._updateDayBadge();
@@ -1537,18 +1539,18 @@ class StockWatchApp {
   _checkCrossListDuplicate(symbol, listName) {
     const sym = symbol.toUpperCase();
     const targetList = listName || 'main';
-    const todayEST = Utils.formatESTDateOnly(new Date());
+    const checkDate = this.addStockDateEl ? this.addStockDateEl.value : Utils.todayLocal();
 
     const existsInTarget = this.entries.some(e => {
       if (e.symbol.toUpperCase() !== sym) return false;
       if ((e.list || 'main') !== targetList) return false;
-      const entryDate = Utils.formatESTDateOnly(e.entryDateEST || e.createdAt);
-      return entryDate === todayEST;
+      const entryDate = e.entryLocalDate || Utils.formatESTDateOnly(e.entryDateEST || e.createdAt);
+      return entryDate === checkDate;
     });
 
     if (existsInTarget) {
       const listLabel = this._getListInfo(targetList).label;
-      Utils.showToast(`${sym} is already in the ${listLabel} list for ${todayEST}. It can be added again on a different date.`, 'error', 5000);
+      Utils.showToast(`${sym} is already in the ${listLabel} list for ${checkDate}. It can be added again on a different date.`, 'error', 5000);
       return false;
     }
 
@@ -1712,6 +1714,8 @@ class StockWatchApp {
   // ---- Add entry using pre-fetched data with manual float values ----
   async _addEntryFromData(symbol, stockData, listName, tags, note, floatData) {
     const listLabel = this._getListInfo(listName).label;
+    const selectedDate = this.addStockDateEl ? this.addStockDateEl.value : Utils.todayLocal();
+    const entryLocalDate = selectedDate || Utils.todayLocal();
 
     const entry = {
       ...stockData,
@@ -1721,7 +1725,7 @@ class StockWatchApp {
       heldPercentInsiders: floatData.heldPercentInsiders,
       heldPercentInstitutions: floatData.heldPercentInstitutions,
       entryDateEST: Utils.getCurrentESTISO(),
-      entryLocalDate: Utils.todayLocal(),
+      entryLocalDate: entryLocalDate,
       notes: note,
       tags: tags,
       list: listName,
@@ -1786,6 +1790,8 @@ class StockWatchApp {
       }
 
       // Build entry with EST timestamp, list assignment, tags, and optional note
+      const selectedDate = this.addStockDateEl ? this.addStockDateEl.value : Utils.todayLocal();
+      const entryLocalDate = selectedDate || Utils.todayLocal();
       const entry = {
         ...stockData,
         sharesOutstanding: avData ? avData.sharesOutstanding : null,
@@ -1794,7 +1800,7 @@ class StockWatchApp {
         heldPercentInsiders: avData ? avData.heldPercentInsiders : null,
         heldPercentInstitutions: avData ? avData.heldPercentInstitutions : null,
         entryDateEST: Utils.getCurrentESTISO(),
-        entryLocalDate: Utils.todayLocal(),
+        entryLocalDate: entryLocalDate,
         notes: note,
         tags: tags,
         list: this.currentList,
