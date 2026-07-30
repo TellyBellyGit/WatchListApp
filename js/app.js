@@ -2628,37 +2628,35 @@ const isTemp = (entry.list || 'main') === 'temp';
     this.notesListOverlay.style.display = 'flex';
     this.notesListBody.innerHTML = '<div style="padding:40px;text-align:center;"><span class="spinner" style="display:inline-block;"></span></div>';
 
-    // Refresh note dates in case new ones were added
     try {
-      const dates = await dataStore.getAllNoteDates();
-      this._dailyNoteDates = new Set(dates);
-    } catch (e) {
-      console.warn('[NotesList] Failed to load note dates:', e.message);
-    }
+      // Single query: fetch ALL notes at once instead of N+1 pattern
+      const allNotes = await dataStore.getAllNotes();
 
-    const sortedDates = [...this._dailyNoteDates].sort().reverse();
+      // Update note dates set for indicator dots
+      this._dailyNoteDates = new Set(allNotes.map(n => n.date));
 
-    if (sortedDates.length === 0) {
-      this._renderNotesList([]);
-    } else {
-      // Fetch ALL notes for each date (supports multiple notes per day)
-      const notesData = [];
-      for (const dateStr of sortedDates) {
-        try {
-          const notes = await dataStore.getNotesByDate(dateStr);
-          for (const note of notes) {
-            notesData.push({
-              id: note.id,
-              date: dateStr,
-              content: note.content || '',
-              title: note.title || ''
-            });
-          }
-        } catch (e) {
-          // Skip notes that fail to load
-        }
+      if (allNotes.length === 0) {
+        this._renderNotesList([]);
+      } else {
+        // Sort by date descending, then by updatedAt descending
+        allNotes.sort((a, b) => {
+          const dateCmp = b.date.localeCompare(a.date);
+          if (dateCmp !== 0) return dateCmp;
+          return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+        });
+
+        const notesData = allNotes.map(n => ({
+          id: n.id,
+          date: n.date,
+          content: n.content || '',
+          title: n.title || ''
+        }));
+
+        this._renderNotesList(notesData);
       }
-      this._renderNotesList(notesData);
+    } catch (e) {
+      console.warn('[NotesList] Failed to load notes:', e.message);
+      this._renderNotesList([]);
     }
   }
 

@@ -370,6 +370,40 @@ class DataStore {
     }
   }
 
+  // ---- Get ALL notes across all dates in a single query (for Notes List overlay) ----
+  async getAllNotes() {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        const snapshot = await this.db.collection('daily_notes').get();
+        const notes = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          // Determine the date: use 'date' field if present, otherwise doc ID (legacy)
+          const date = data.date || doc.id;
+          notes.push({
+            id: doc.id,
+            date: date,
+            content: data.content || '',
+            title: data.title || '',
+            sentiment: data.sentiment || null,
+            updatedAt: data.updatedAt || ''
+          });
+        });
+        // Sort by updatedAt descending
+        notes.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+        return notes;
+      } catch (e) {
+        console.warn('[DataStore] Failed to get all notes:', e.message);
+        return this._getLocalNotes();
+      }
+    } else {
+      const notes = this._getLocalNotes();
+      notes.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+      return notes;
+    }
+  }
+
   // ---- Local Storage Helpers for Daily Notes ----
   _getLocalNotes() {
     try {
@@ -467,66 +501,53 @@ class DataStore {
         return null;
       } catch (e) {
         console.warn('[DataStore] Failed to get trade review:', e.message);
-        const local = this._getLocalTradeReviews();
-        return local.find(r => r.id === id) || null;
+        return this._getLocalTradeReviewById(id);
       }
     } else {
-      const local = this._getLocalTradeReviews();
-      return local.find(r => r.id === id) || null;
+      return this._getLocalTradeReviewById(id);
     }
   }
 
-  // ---- Save (create or update) a trade review ----
-  async saveTradeReview(id, data) {
+  // ---- Save a trade review (creates new or updates existing) ----
+  async saveTradeReview(data, reviewId = null) {
     await this._ensureInit();
     const doc = {
       ...data,
       updatedAt: new Date().toISOString()
     };
 
-    if (!doc.createdAt) {
-      doc.createdAt = new Date().toISOString();
-    }
-
     if (this.mode === 'firestore') {
       try {
-        if (id) {
-          // Update existing
-          await this.db.collection('trade_reviews').doc(id).set(doc, { merge: true });
-          return id;
+        if (reviewId) {
+          await this.db.collection('trade_reviews').doc(reviewId).set(doc, { merge: true });
+          return reviewId;
         } else {
-          // Create new
+          if (!doc.createdAt) doc.createdAt = doc.updatedAt;
           const ref = await this.db.collection('trade_reviews').add(doc);
           return ref.id;
         }
       } catch (e) {
-        console.warn('[DataStore] Failed to save trade review:', e.message);
-        return this._saveLocalTradeReview(id, doc);
+        console.warn('[DataStore] Failed to save trade review to Firestore, falling back to local:', e.message);
+        return this._setLocalTradeReview(doc, reviewId);
       }
     } else {
-      return this._saveLocalTradeReview(id, doc);
+      return this._setLocalTradeReview(doc, reviewId);
     }
   }
 
-  // ---- Delete a trade review ----
-  async deleteTradeReview(id) {
+  // ---- Delete a trade review by ID ----
+  async deleteTradeReview(reviewId) {
     await this._ensureInit();
     if (this.mode === 'firestore') {
       try {
-        await this.db.collection('trade_reviews').doc(id).delete();
+        await this.db.collection('trade_reviews').doc(reviewId).delete();
       } catch (e) {
-        console.warn('[DataStore] Failed to delete trade review from Firestore:', e.message);
-        this._deleteLocalTradeReview(id);
+        console.warn('[DataStore] Failed to delete trade review:', e.message);
+        this._deleteLocalTradeReview(reviewId);
       }
     } else {
-      this._deleteLocalTradeReview(id);
+      this._deleteLocalTradeReview(reviewId);
     }
-  }
-
-  // ---- Get review count for a given watchlist entry ----
-  async getTradeReviewCountForEntry(watchlistEntryId) {
-    const reviews = await this.getAllTradeReviews();
-    return reviews.filter(r => r.watchlistEntryId === watchlistEntryId).length;
   }
 
   // ---- Local Storage Helpers for Trade Reviews ----
@@ -543,27 +564,37 @@ class DataStore {
     localStorage.setItem('stockwatchlist_trade_reviews', JSON.stringify(reviews));
   }
 
-  _saveLocalTradeReview(id, data) {
+  _getLocalTradeReviewById(id) {
     const reviews = this._getLocalTradeReviews();
-    if (id) {
-      const idx = reviews.findIndex(r => r.id === id);
+    return reviews.find(r => r.id === id) || null;
+  }
+
+  _setLocalTradeReview(data, reviewId = null) {
+    const reviews = this._getLocalTradeReviews();
+    if (reviewId) {
+      const idx = reviews.findIndex(r => r.id === reviewId);
       if (idx !== -1) {
-        reviews[idx] = { ...reviews[idx], ...data, id };
+        reviews[idx] = { ...reviews[idx], ...data, id: reviewId };
       }
+      this._setLocalTradeReviews(reviews);
+      return reviewId;
     } else {
-      id = 'local_review_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      const id = 'local_review_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
       reviews.push({ id, ...data });
+      this._setLocalTradeReviews(reviews);
+      return id;
     }
+  }
+
+  _deleteLocalTradeReview(reviewId) {
+    const reviews = this._getLocalTradeReviews().filter(r => r.id !== reviewId);
     this._setLocalTradeReviews(reviews);
-    return id;
   }
 
-  _deleteLocalTradeReview(id) {
-    const reviews = this._getLocalTradeReviews();
-    this._setLocalTradeReviews(reviews.filter(r => r.id !== id));
-  }
+  // ==========================================================================
+  // Local Storage Helpers (for watchlist entries)
+  // ==========================================================================
 
-  // ---- Local Storage Helpers (fallback/cache) ----
   _getLocal() {
     try {
       const raw = localStorage.getItem('stockwatchlist_data');
@@ -578,5 +609,5 @@ class DataStore {
   }
 }
 
-// Global singleton
+// Singleton
 const dataStore = new DataStore();
