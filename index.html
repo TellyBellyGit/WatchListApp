@@ -303,11 +303,9 @@
             <button class="btn btn-sm btn-secondary" id="notes-editor-close">Close</button>
           </div>
         </div>
-        <div class="notes-editor-sentiment-row">
-          <span class="notes-editor-label">Sentiment:</span>
-          <button class="sentiment-btn" data-sentiment="bullish" id="sentiment-bullish">Bullish</button>
-          <button class="sentiment-btn" data-sentiment="neutral" id="sentiment-neutral">Neutral</button>
-          <button class="sentiment-btn" data-sentiment="bearish" id="sentiment-bearish">Bearish</button>
+        <div class="notes-editor-title-row">
+          <span class="notes-editor-label">Title:</span>
+          <input type="text" class="notes-editor-title-input" id="notes-editor-title" placeholder="Note title (e.g. Market Recap, Trade Plan)..." autocomplete="off">
         </div>
         <div class="notes-editor-toolbar" id="notes-editor-toolbar">
           <button class="fmt-btn" data-fmt="bold" title="Bold">B</button>
@@ -322,6 +320,22 @@
         <div class="notes-editor-footer">
           <span class="notes-editor-char-count" id="notes-editor-char-count">0 words / 0 chars</span>
           <span class="notes-editor-hint">Paste images with Ctrl+V</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== NOTES LIST OVERLAY ====== -->
+    <div class="notes-list-overlay" id="notes-list-overlay" style="display:none;">
+      <div class="notes-list-modal">
+        <div class="notes-list-header">
+          <h2>📝 Saved Notes</h2>
+          <div class="notes-list-header-right">
+            <button class="btn btn-primary" id="notes-list-new">+ New Note</button>
+            <button class="btn btn-sm btn-secondary" id="notes-list-close">Close</button>
+          </div>
+        </div>
+        <div class="notes-list-body" id="notes-list-body">
+          <!-- populated dynamically -->
         </div>
       </div>
     </div>

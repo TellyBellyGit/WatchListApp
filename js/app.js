@@ -1,4 +1,4 @@
-// ============================================================================
+whi// ============================================================================
 // STOCK WATCH LIST — Main Application Logic
 // ============================================================================
 
@@ -173,16 +173,21 @@ class StockWatchApp {
     this.notesEditorSaveStatus = document.getElementById('notes-editor-save-status');
     this.notesEditorCharCount = document.getElementById('notes-editor-char-count');
     this.notesEditorClose = document.getElementById('notes-editor-close');
-    this.sentimentBullish = document.getElementById('sentiment-bullish');
-    this.sentimentNeutral = document.getElementById('sentiment-neutral');
-    this.sentimentBearish = document.getElementById('sentiment-bearish');
+    this.notesEditorTitle = document.getElementById('notes-editor-title');
+
+    // Notes List overlay refs
+    this.notesListOverlay = document.getElementById('notes-list-overlay');
+    this.notesListBody = document.getElementById('notes-list-body');
+    this.notesListNewBtn = document.getElementById('notes-list-new');
+    this.notesListCloseBtn = document.getElementById('notes-list-close');
 
     // Daily Notes state
     this._dailyNoteDates = new Set();     // dates that have notes (for indicator dots)
-    this._dailyNoteSentiment = null;       // current sentiment for open editor
     this._dailyNoteSaveTimer = null;       // debounce timer for auto-save
     this._dailyNoteDirty = false;          // unsaved changes flag
     this._dailyNoteDisplayDate = null;     // date currently shown in panel
+    this._dailyNoteEditorFromList = false; // true when editor was opened from Notes list
+    this._currentNoteId = null;            // ID of the note currently being edited
 
     // Dates that have watchlist entries across all three lists (for calendar highlighting)
     this._dataDates = new Set();
@@ -955,11 +960,11 @@ class StockWatchApp {
       });
     }
 
-    // Daily Notes button — exit reviews view first, then open editor
+    // Daily Notes button — exit reviews view first, then open notes list
     if (this.btnDailyNotes) {
       this.btnDailyNotes.addEventListener('click', () => {
         this._exitReviewsView();
-        this._openDailyNotesEditor();
+        this._openNotesList();
       });
     }
 
@@ -972,6 +977,25 @@ class StockWatchApp {
     // Daily Notes Edit button in panel
     if (this.dailyNotesEditBtn) {
       this.dailyNotesEditBtn.addEventListener('click', () => this._openDailyNotesEditor());
+    }
+
+    // Notes List overlay events
+    if (this.notesListCloseBtn) {
+      this.notesListCloseBtn.addEventListener('click', () => this._closeNotesList());
+    }
+    if (this.notesListNewBtn) {
+      this.notesListNewBtn.addEventListener('click', () => {
+        this._dailyNoteEditorFromList = true;
+        this._closeNotesList();
+        this._openDailyNotesEditor(true);
+      });
+    }
+    if (this.notesListOverlay) {
+      this.notesListOverlay.addEventListener('click', (e) => {
+        if (e.target === this.notesListOverlay) {
+          this._closeNotesList();
+        }
+      });
     }
 
     // Daily Notes Hide button
@@ -990,6 +1014,14 @@ class StockWatchApp {
         if (e.target === this.notesEditorOverlay) {
           this._closeDailyNotesEditor();
         }
+      });
+    }
+
+    // Notes Editor — title input triggers auto-save
+    if (this.notesEditorTitle) {
+      this.notesEditorTitle.addEventListener('input', () => {
+        this._dailyNoteDirty = true;
+        this._onNoteEditorInput();
       });
     }
 
@@ -1018,17 +1050,6 @@ class StockWatchApp {
 
     // Stock Review overlay events
     this._bindStockReviewEvents();
-
-    // Sentiment buttons
-    if (this.sentimentBullish) {
-      this.sentimentBullish.addEventListener('click', () => this._setSentiment('bullish'));
-    }
-    if (this.sentimentNeutral) {
-      this.sentimentNeutral.addEventListener('click', () => this._setSentiment('neutral'));
-    }
-    if (this.sentimentBearish) {
-      this.sentimentBearish.addEventListener('click', () => this._setSentiment('bearish'));
-    }
 
     // (Price Action / Chart Checklist events are bound in _bindPriceActionEvents)
 
@@ -2504,8 +2525,11 @@ const isTemp = (entry.list || 'main') === 'temp';
   }
 
   // ---- Open the daily notes editor modal ----
-  async _openDailyNotesEditor() {
-    const dateStr = this.filterDateFromVal || Utils.formatESTDateOnly(new Date());
+  async _openDailyNotesEditor(isNew = false, noteId = null) {
+    // When creating a new note, ALWAYS use today's date (ignore current filter)
+    const dateStr = isNew
+      ? Utils.formatESTDateOnly(new Date())
+      : (this.filterDateFromVal || Utils.formatESTDateOnly(new Date()));
 
     // Format date for display
     const parts = dateStr.split('-');
@@ -2513,24 +2537,57 @@ const isTemp = (entry.list || 'main') === 'temp';
       .toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     this.notesEditorDate.textContent = displayDate;
-    this._dailyNoteSentiment = null;
     this._dailyNoteDirty = false;
-    this._updateSentimentButtons();
 
-    // Load existing note for this date
-    try {
-      const note = await dataStore.getDailyNote(dateStr);
-      if (note) {
-        this.notesEditorTextarea.value = note.content || '';
-        this._dailyNoteSentiment = note.sentiment || null;
-      } else {
+    // Track the note being edited
+    this._currentNoteId = noteId || null;
+
+    // Load existing note if we have a noteId
+    if (noteId) {
+      try {
+        const note = await dataStore.getDailyNoteById(noteId);
+        if (note) {
+          this.notesEditorTextarea.value = note.content || '';
+          if (this.notesEditorTitle) {
+            this.notesEditorTitle.value = note.title || '';
+          }
+        } else {
+          this.notesEditorTextarea.value = '';
+          if (this.notesEditorTitle) {
+            this.notesEditorTitle.value = '';
+          }
+        }
+      } catch (e) {
+        console.warn('[DailyNotes] Failed to load note:', e.message);
         this.notesEditorTextarea.value = '';
-        this._dailyNoteSentiment = null;
       }
-      this._updateSentimentButtons();
-    } catch (e) {
-      console.warn('[DailyNotes] Failed to load note:', e.message);
+    } else if (!isNew) {
+      // Legacy: load first note for the date
+      try {
+        const note = await dataStore.getDailyNote(dateStr);
+        if (note) {
+          this._currentNoteId = note.id;
+          this.notesEditorTextarea.value = note.content || '';
+          if (this.notesEditorTitle) {
+            this.notesEditorTitle.value = note.title || '';
+          }
+        } else {
+          this.notesEditorTextarea.value = '';
+          if (this.notesEditorTitle) {
+            this.notesEditorTitle.value = '';
+          }
+        }
+      } catch (e) {
+        console.warn('[DailyNotes] Failed to load note:', e.message);
+        this.notesEditorTextarea.value = '';
+      }
+    } else {
+      // New note — start with blank fields
+      this._currentNoteId = null;
       this.notesEditorTextarea.value = '';
+      if (this.notesEditorTitle) {
+        this.notesEditorTitle.value = '';
+      }
     }
 
     this._updateNoteCharCount();
@@ -2556,6 +2613,107 @@ const isTemp = (entry.list || 'main') === 'temp';
     }
 
     this.notesEditorOverlay.style.display = 'none';
+    this._currentNoteId = null;
+
+    // If editor was opened from the Notes list, re-open the list
+    if (this._dailyNoteEditorFromList) {
+      this._dailyNoteEditorFromList = false;
+      this._openNotesList();
+    }
+  }
+
+  // ---- Open the Notes List overlay showing all saved notes ----
+  async _openNotesList() {
+    // Refresh note dates in case new ones were added
+    try {
+      const dates = await dataStore.getAllNoteDates();
+      this._dailyNoteDates = new Set(dates);
+    } catch (e) {
+      console.warn('[NotesList] Failed to load note dates:', e.message);
+    }
+
+    const sortedDates = [...this._dailyNoteDates].sort().reverse();
+
+    if (sortedDates.length === 0) {
+      this._renderNotesList([]);
+    } else {
+      // Fetch ALL notes for each date (supports multiple notes per day)
+      const notesData = [];
+      for (const dateStr of sortedDates) {
+        try {
+          const notes = await dataStore.getNotesByDate(dateStr);
+          for (const note of notes) {
+            notesData.push({
+              id: note.id,
+              date: dateStr,
+              content: note.content || '',
+              title: note.title || ''
+            });
+          }
+        } catch (e) {
+          // Skip notes that fail to load
+        }
+      }
+      this._renderNotesList(notesData);
+    }
+
+    this.notesListOverlay.style.display = 'flex';
+  }
+
+  // ---- Close the Notes List overlay ----
+  _closeNotesList() {
+    if (this.notesListOverlay) {
+      this.notesListOverlay.style.display = 'none';
+    }
+  }
+
+  // ---- Render the Notes List body ----
+  _renderNotesList(notesData) {
+    if (!this.notesListBody) return;
+
+    if (notesData.length === 0) {
+      this.notesListBody.innerHTML = `<div class="notes-list-empty">
+        <div style="font-size:2rem;margin-bottom:8px;">📝</div>
+        <div>No saved notes yet. Click "+ New Note" to create one.</div>
+      </div>`;
+      return;
+    }
+
+    this.notesListBody.innerHTML = notesData.map(n => {
+      // Format date for display
+      const parts = n.date.split('-');
+      const displayDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
+        .toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+      // Truncate preview
+      const plainText = n.content.replace(/[#*`\[\]!\-]/g, '').replace(/\s+/g, ' ').trim();
+      const preview = plainText.length > 120 ? plainText.substring(0, 120) + '...' : plainText;
+
+      // Title from note data
+      const title = n.title || 'Untitled';
+
+      return `<div class="notes-list-item" data-note-id="${n.id}" data-date="${n.date}">
+        <span class="notes-list-item-date">${displayDate}</span>
+        <span class="notes-list-item-title">${Utils.escapeAttr(title)}</span>
+        <span class="notes-list-item-preview">${Utils.escapeAttr(preview) || 'No content'}</span>
+        <span class="notes-list-item-arrow">→</span>
+      </div>`;
+    }).join('');
+
+
+    // Bind click events — clicking a note opens the editor for that specific note
+    this.notesListBody.querySelectorAll('.notes-list-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const noteId = item.dataset.noteId;
+        const dateStr = item.dataset.date;
+        this._closeNotesList();
+        // Set the filter date to the note's date
+        this.filterDateFromEl.value = dateStr;
+        this.filterDateFromVal = dateStr;
+        this._dailyNoteEditorFromList = true;
+        this._openDailyNotesEditor(false, noteId);
+      });
+    });
   }
 
   // ---- Apply text formatting from toolbar (accepts optional textarea; defaults to daily notes) ----
@@ -2711,50 +2869,22 @@ const isTemp = (entry.list || 'main') === 'temp';
     this.notesEditorCharCount.textContent = `${wordCount} words / ${charCount} chars`;
   }
 
-  // ---- Set sentiment in the editor ----
-  _setSentiment(sentiment) {
-    if (this._dailyNoteSentiment === sentiment) {
-      this._dailyNoteSentiment = null;
-    } else {
-      this._dailyNoteSentiment = sentiment;
-    }
-    this._updateSentimentButtons();
-    this._dailyNoteDirty = true;
-
-    // Trigger auto-save
-    if (this._dailyNoteSaveTimer) clearTimeout(this._dailyNoteSaveTimer);
-    this.notesEditorSaveStatus.textContent = 'Unsaved changes...';
-    this.notesEditorSaveStatus.className = 'notes-editor-save-status unsaved';
-    this._dailyNoteSaveTimer = setTimeout(async () => {
-      await this._doSaveDailyNote();
-    }, 2000);
-  }
-
-  // ---- Update sentiment button active states ----
-  _updateSentimentButtons() {
-    if (this.sentimentBullish) {
-      this.sentimentBullish.classList.toggle('active', this._dailyNoteSentiment === 'bullish');
-    }
-    if (this.sentimentNeutral) {
-      this.sentimentNeutral.classList.toggle('active', this._dailyNoteSentiment === 'neutral');
-    }
-    if (this.sentimentBearish) {
-      this.sentimentBearish.classList.toggle('active', this._dailyNoteSentiment === 'bearish');
-    }
-  }
-
   // ---- Actually save the daily note ----
   async _doSaveDailyNote() {
     if (!this._dailyNoteDirty) return;
 
     const dateStr = this.filterDateFromVal || Utils.formatESTDateOnly(new Date());
     const content = this.notesEditorTextarea.value;
+    const title = this.notesEditorTitle ? this.notesEditorTitle.value.trim() : '';
 
     try {
-      await dataStore.saveDailyNote(dateStr, {
+      const savedId = await dataStore.saveDailyNote(dateStr, {
         content: content,
-        sentiment: this._dailyNoteSentiment
-      });
+        title: title
+      }, this._currentNoteId);
+
+      // Store the ID for future saves (important for new notes)
+      this._currentNoteId = savedId;
 
       this._dailyNoteDirty = false;
       this._dailyNoteDates.add(dateStr);
@@ -2765,7 +2895,7 @@ const isTemp = (entry.list || 'main') === 'temp';
 
       // Refresh the display panel if it's showing this date
       if (this._dailyNoteDisplayDate === dateStr && this.dailyNotesPanel.style.display !== 'none') {
-        this._renderDailyNotePanel(dateStr, content, this._dailyNoteSentiment);
+        this._renderDailyNotePanel(dateStr, content, title);
       }
     } catch (e) {
       console.warn('[DailyNotes] Failed to save:', e.message);
@@ -2793,7 +2923,7 @@ const isTemp = (entry.list || 'main') === 'temp';
     try {
       const note = await dataStore.getDailyNote(dateStr);
       if (note && note.content) {
-        this._renderDailyNotePanel(dateStr, note.content, note.sentiment);
+        this._renderDailyNotePanel(dateStr, note.content, note.title);
         this.dailyNotesPanel.style.display = 'block';
       } else {
         this._renderDailyNotePanel(dateStr, '', null);
@@ -2806,16 +2936,18 @@ const isTemp = (entry.list || 'main') === 'temp';
   }
 
   // ---- Render the daily note content in the panel ----
-  _renderDailyNotePanel(dateStr, content, sentiment) {
-    // Sentiment badge
+  _renderDailyNotePanel(dateStr, content, title) {
+    // Title display (replaces old sentiment badge)
     if (this.dailyNotesSentiment) {
-      if (sentiment) {
-        const labels = { bullish: 'Bullish', neutral: 'Neutral', bearish: 'Bearish' };
-        this.dailyNotesSentiment.textContent = labels[sentiment] || '';
-        this.dailyNotesSentiment.className = 'daily-notes-sentiment ' + sentiment;
+      if (title) {
+        this.dailyNotesSentiment.textContent = title;
+        this.dailyNotesSentiment.className = 'daily-notes-sentiment';
+        this.dailyNotesSentiment.style.fontWeight = '600';
+        this.dailyNotesSentiment.style.color = 'var(--text-primary)';
       } else {
         this.dailyNotesSentiment.textContent = '';
         this.dailyNotesSentiment.className = 'daily-notes-sentiment';
+        this.dailyNotesSentiment.style.color = '';
       }
     }
 

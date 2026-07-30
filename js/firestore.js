@@ -230,43 +230,115 @@ class DataStore {
   // Daily Notes — keyed by date string "YYYY-MM-DD"
   // ==========================================================================
 
-  // ---- Get a daily note by date ----
+  // ---- Get a daily note by date (legacy: returns first note for the date) ----
   async getDailyNote(dateStr) {
+    const notes = await this.getNotesByDate(dateStr);
+    return notes.length > 0 ? notes[0] : null;
+  }
+
+  // ---- Get all notes for a given date (supports multiple notes per day) ----
+  async getNotesByDate(dateStr) {
     await this._ensureInit();
     if (this.mode === 'firestore') {
       try {
-        const doc = await this.db.collection('daily_notes').doc(dateStr).get();
-        if (doc.exists) {
-          return { date: dateStr, ...doc.data() };
+        // Query by date field (new notes have 'date' field)
+        const snapshot = await this.db.collection('daily_notes')
+          .where('date', '==', dateStr)
+          .get();
+        const notes = [];
+        snapshot.forEach(doc => notes.push({ id: doc.id, ...doc.data() }));
+
+        // Fallback: also try legacy notes where doc ID is the date string
+        // (old notes saved before the refactor have no 'date' field)
+        try {
+          const legacyDoc = await this.db.collection('daily_notes').doc(dateStr).get();
+          if (legacyDoc.exists) {
+            const data = legacyDoc.data();
+            // Only add if it doesn't have a 'date' field (truly legacy)
+            // and isn't already in the results
+            if (!data.date && !notes.some(n => n.id === legacyDoc.id)) {
+              notes.push({ id: legacyDoc.id, date: dateStr, ...data });
+            }
+          }
+        } catch (e2) {
+          // Legacy doc lookup failed — ignore
         }
-        return null;
+
+        // Client-side sort by updatedAt descending
+        notes.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+        return notes;
       } catch (e) {
-        console.warn('[DataStore] Failed to get daily note:', e.message);
-        return this._getLocalNote(dateStr);
+        console.warn('[DataStore] Failed to get notes by date:', e.message);
+        return this._getLocalNotesByDate(dateStr);
       }
     } else {
-      return this._getLocalNote(dateStr);
+      return this._getLocalNotesByDate(dateStr);
     }
   }
 
-  // ---- Save a daily note ----
-  async saveDailyNote(dateStr, data) {
+  // ---- Get a single daily note by its unique ID ----
+  async getDailyNoteById(noteId) {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        const doc = await this.db.collection('daily_notes').doc(noteId).get();
+        if (doc.exists) {
+          return { id: doc.id, ...doc.data() };
+        }
+        return null;
+      } catch (e) {
+        console.warn('[DataStore] Failed to get note by ID:', e.message);
+        return this._getLocalNoteById(noteId);
+      }
+    } else {
+      return this._getLocalNoteById(noteId);
+    }
+  }
+
+  // ---- Save a daily note (creates new or updates existing by noteId) ----
+  async saveDailyNote(dateStr, data, noteId = null) {
     await this._ensureInit();
     const doc = {
+      date: dateStr,
       content: data.content || '',
-      sentiment: data.sentiment || null,  // 'bullish' | 'neutral' | 'bearish'
+      title: data.title || '',
+      sentiment: data.sentiment || null,
       updatedAt: new Date().toISOString()
     };
 
     if (this.mode === 'firestore') {
       try {
-        await this.db.collection('daily_notes').doc(dateStr).set(doc, { merge: true });
+        if (noteId) {
+          // Update existing note
+          await this.db.collection('daily_notes').doc(noteId).set(doc, { merge: true });
+          return noteId;
+        } else {
+          // Create new note with auto-generated ID
+          if (!doc.createdAt) doc.createdAt = doc.updatedAt;
+          const ref = await this.db.collection('daily_notes').add(doc);
+          return ref.id;
+        }
       } catch (e) {
         console.warn('[DataStore] Failed to save daily note to Firestore, falling back to local:', e.message);
-        this._setLocalNote(dateStr, doc);
+        return this._setLocalNote(dateStr, doc, noteId);
       }
     } else {
-      this._setLocalNote(dateStr, doc);
+      return this._setLocalNote(dateStr, doc, noteId);
+    }
+  }
+
+  // ---- Delete a daily note by ID ----
+  async deleteDailyNote(noteId) {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        await this.db.collection('daily_notes').doc(noteId).delete();
+      } catch (e) {
+        console.warn('[DataStore] Failed to delete daily note:', e.message);
+        this._deleteLocalNote(noteId);
+      }
+    } else {
+      this._deleteLocalNote(noteId);
     }
   }
 
@@ -276,15 +348,25 @@ class DataStore {
     if (this.mode === 'firestore') {
       try {
         const snapshot = await this.db.collection('daily_notes').get();
-        const dates = [];
-        snapshot.forEach(doc => dates.push(doc.id));
-        return dates;
+        const dates = new Set();
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.date) {
+            dates.add(data.date);
+          } else {
+            // Legacy note without 'date' field — use doc ID as date
+            dates.add(doc.id);
+          }
+        });
+        return [...dates];
       } catch (e) {
         console.warn('[DataStore] Failed to get all note dates:', e.message);
-        return Object.keys(this._getLocalNotes());
+        const localNotes = this._getLocalNotes();
+        return [...new Set(localNotes.map(n => n.date))];
       }
     } else {
-      return Object.keys(this._getLocalNotes());
+      const localNotes = this._getLocalNotes();
+      return [...new Set(localNotes.map(n => n.date))];
     }
   }
 
@@ -292,9 +374,9 @@ class DataStore {
   _getLocalNotes() {
     try {
       const raw = localStorage.getItem('stockwatchlist_daily_notes');
-      return raw ? JSON.parse(raw) : {};
+      return raw ? JSON.parse(raw) : [];
     } catch {
-      return {};
+      return [];
     }
   }
 
@@ -302,17 +384,40 @@ class DataStore {
     localStorage.setItem('stockwatchlist_daily_notes', JSON.stringify(notes));
   }
 
-  _getLocalNote(dateStr) {
+  _getLocalNotesByDate(dateStr) {
     const notes = this._getLocalNotes();
-    if (notes[dateStr]) {
-      return { date: dateStr, ...notes[dateStr] };
-    }
-    return null;
+    return notes.filter(n => n.date === dateStr);
   }
 
-  _setLocalNote(dateStr, data) {
+  _getLocalNote(dateStr) {
+    const notes = this._getLocalNotesByDate(dateStr);
+    return notes.length > 0 ? notes[0] : null;
+  }
+
+  _getLocalNoteById(noteId) {
     const notes = this._getLocalNotes();
-    notes[dateStr] = { ...notes[dateStr], ...data };
+    return notes.find(n => n.id === noteId) || null;
+  }
+
+  _setLocalNote(dateStr, data, noteId = null) {
+    const notes = this._getLocalNotes();
+    if (noteId) {
+      const idx = notes.findIndex(n => n.id === noteId);
+      if (idx !== -1) {
+        notes[idx] = { ...notes[idx], ...data, id: noteId, date: dateStr };
+      }
+      this._setLocalNotes(notes);
+      return noteId;
+    } else {
+      const id = 'local_note_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      notes.push({ id, date: dateStr, ...data });
+      this._setLocalNotes(notes);
+      return id;
+    }
+  }
+
+  _deleteLocalNote(noteId) {
+    const notes = this._getLocalNotes().filter(n => n.id !== noteId);
     this._setLocalNotes(notes);
   }
 
