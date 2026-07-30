@@ -1,4 +1,4 @@
-whi// ============================================================================
+// ============================================================================
 // STOCK WATCH LIST — Main Application Logic
 // ============================================================================
 
@@ -2624,6 +2624,10 @@ const isTemp = (entry.list || 'main') === 'temp';
 
   // ---- Open the Notes List overlay showing all saved notes ----
   async _openNotesList() {
+    // Show overlay immediately so user doesn't see watchlist flash
+    this.notesListOverlay.style.display = 'flex';
+    this.notesListBody.innerHTML = '<div style="padding:40px;text-align:center;"><span class="spinner" style="display:inline-block;"></span></div>';
+
     // Refresh note dates in case new ones were added
     try {
       const dates = await dataStore.getAllNoteDates();
@@ -2656,8 +2660,6 @@ const isTemp = (entry.list || 'main') === 'temp';
       }
       this._renderNotesList(notesData);
     }
-
-    this.notesListOverlay.style.display = 'flex';
   }
 
   // ---- Close the Notes List overlay ----
