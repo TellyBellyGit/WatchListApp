@@ -4047,6 +4047,19 @@ body.overlay-open {
   overflow: hidden;
 }
 
+/* ---- Fullscreen mode (toggled via #trade-review-fullscreen button) ---- */
+.trade-review-editor-overlay.fullscreen {
+  padding: 0;
+}
+
+.trade-review-editor-overlay.fullscreen .trade-review-editor-modal {
+  max-width: none;
+  height: 100vh;        /* fallback for browsers without dvh support */
+  height: 100dvh;       /* dvh accounts for mobile browser address bars */
+  max-height: none;
+  border-radius: 0;
+}
+
 /* ---- Editor Header ---- */
 .trade-review-editor-header {
   display: flex;

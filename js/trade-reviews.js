@@ -31,6 +31,7 @@ class TradeReviewManager {
     this.editorSymbol = document.getElementById('trade-review-symbol-link');
     this.editorSymbolInfo = document.getElementById('trade-review-symbol-info');
     this.editorSaveStatus = document.getElementById('trade-review-save-status');
+    this.editorFullscreen = document.getElementById('trade-review-fullscreen');
     this.editorClose = document.getElementById('trade-review-close');
     this.editorSave = document.getElementById('trade-review-save');
     this.editorDelete = document.getElementById('trade-review-delete');
@@ -181,6 +182,10 @@ class TradeReviewManager {
     this.btnExportZip.addEventListener('click', () => this._exportMarkdownZip());
 
     // Editor overlay
+    this.editorFullscreen.addEventListener('click', () => {
+      const isFs = this.editorOverlay.classList.toggle('fullscreen');
+      this.editorFullscreen.title = isFs ? 'Exit full screen' : 'Full screen';
+    });
     this.editorClose.addEventListener('click', () => this.closeEditor());
     this.editorSave.addEventListener('click', () => this._doSave());
     this.editorDelete.addEventListener('click', () => this._doDelete());
@@ -657,7 +662,7 @@ class TradeReviewManager {
     };
 
     try {
-      const savedId = await dataStore.saveTradeReview(this._currentReviewId, doc);
+      const savedId = await dataStore.saveTradeReview(doc, this._currentReviewId);
 
       if (!this._currentReviewId) {
         this._currentReviewId = savedId;
