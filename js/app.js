@@ -163,6 +163,7 @@ class StockWatchApp {
     this.dailyNotesDate = document.getElementById('daily-notes-date');
     this.dailyNotesSentiment = document.getElementById('daily-notes-sentiment');
     this.dailyNotesWordCount = document.getElementById('daily-notes-word-count');
+    this.btnNotesIcon = document.getElementById('btn-notes-icon');
     this.btnDailyNotes = document.getElementById('btn-daily-notes');
     this.dailyNotesEditBtn = document.getElementById('daily-notes-edit-btn');
     this.addStockDateEl = document.getElementById('add-stock-date');
@@ -957,6 +958,13 @@ class StockWatchApp {
         this.globalToggleAddSectionBtn.textContent = hidden ? '🔎' : '🔍';
         this.globalToggleAddSectionBtn.title = hidden ? 'Show Add Stock Section' : 'Hide Add Stock Section';
         localStorage.setItem('stockwatchlist_add-section-hidden', hidden);
+      });
+    }
+
+    // Notes icon button — directly opens a blank note editor for quick note creation
+    if (this.btnNotesIcon) {
+      this.btnNotesIcon.addEventListener('click', () => {
+        this._openDailyNotesEditor(true);
       });
     }
 

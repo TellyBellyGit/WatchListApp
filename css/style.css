@@ -200,6 +200,24 @@ body {
   color: var(--text-primary);
 }
 
+/* Notes icon button — matches list-toggle visual style */
+.btn-notes-icon {
+  padding: 5px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+  line-height: 1;
+}
+.btn-notes-icon:hover {
+  background: var(--border-color);
+  color: var(--text-primary);
+}
+
 .btn-list-toggle.active {
   background: var(--accent);
   color: #fff;
