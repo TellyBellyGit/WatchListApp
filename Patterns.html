@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Candle Pattern Knowledge Base — Preview</title>
+<!-- v2.9 -->
+<style>
+  body { font-family: sans-serif; max-width: 700px; margin: 40px auto; background: #fafaf8; color: #222; }
+  .pattern-card { border: 1px solid #ddd; border-radius: 10px; padding: 20px; background: #fff; }
+  .pattern-card__category { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: #888; margin-bottom: 12px; }
+  .pattern-card__diagram { margin: 8px 0 16px; }
+  .pattern-card__description, .pattern-card__context, .pattern-card__pitfall { line-height: 1.6; font-size: 14px; }
+  .pattern-card__back-to-top { display: inline-block; margin-top: 16px; font-size: 13px; color: #555; text-decoration: none; }
+  .pattern-card__back-to-top:hover { text-decoration: underline; }
+
+  .pattern-index { border: 1px solid #ddd; border-radius: 10px; padding: 20px; background: #fff; margin-bottom: 24px; }
+  .pattern-index__title { margin: 0 0 12px; font-size: 16px; }
+  .pattern-index__list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+  .pattern-index__link { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 6px; text-decoration: none; color: #222; font-size: 14px; }
+  .pattern-index__link:hover { background: #f2f2ef; }
+  .pattern-index__bias { font-size: 11px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+  .pattern-index__link--bullish .pattern-index__bias { background: #e1f5ee; color: #085041; }
+  .pattern-index__link--bearish .pattern-index__bias { background: #fcebeb; color: #501313; }
+  .pattern-index__link--both .pattern-index__bias { background: #f1efe8; color: #2c2c2a; }
+  .pattern-index__link--neutral .pattern-index__bias { background: #f1efe8; color: #2c2c2a; }
+  .pattern-index__back-btn { display: block; margin-top: 16px; padding: 10px 16px; background: #222; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; }
+  .pattern-index__back-btn:hover { background: #444; }
+</style>
+</head>
+<body>
+  <div id="kb-root"></div>
+  <script>
+(() => {
+/**
+ * Candlestick Pattern Knowledge Base
+ * -----------------------------------
+ * Static reference data + a reusable SVG generator for candle diagrams.
+ *
+ * DESIGN NOTES
+ * - Each pattern is one plain object (see schema below). Adding a new
+ *   pattern in later stages means adding one object to PATTERNS, not
+ *   drawing a diagram by hand each time.
+ * - Diagrams are generated from a small "shape" description (wick/body
+ *   proportions + bias) rather than hand-coded SVG per pattern, so the
+ *   same generator covers hammers, dojis, engulfing pairs, etc.
+ * - No dependencies. No Firestore. No DataStore changes. Drop this file
+ *   in js/, include it with a <script> tag, and call renderPatternCard().
+ */
+
+/**
+ * Pattern entry schema:
+ * {
+ *   id: string              - unique slug, e.g. "marubozu"
+ *   name: string             - display name
+ *   category: "reversal" | "continuation"
+ *   bias: "bullish" | "bearish" | "both" | "neutral"  - used for the index/nav
+ *   description: string      - plain-English definition
+ *   contextNote: string      - what makes it more/less reliable
+ *   volumeNote: string       - detailed explanation of expected volume behaviour for this pattern
+ *   pitfall: string          - common mistake / false signal
+ *   shapes: [ShapeDef, ...]  - one or two candles to draw (bullish/bearish pair, or single)
+ * }
+ *
+ * ShapeDef (per candle drawn):
+ * {
+ *   bias: "bullish" | "bearish"
+ *   bodyTopPct: number     - 0 (top of range) to 1 (bottom of range): where body top sits
+ *   bodyBottomPct: number  - where body bottom sits
+ *   label: string          - short caption under this candle, e.g. "Buyers in control"
+ * }
+ * Percentages are relative to the full high-low range of that candle's drawing area.
+ */
+
+const PATTERNS = [
+  {
+    id: 'marubozu',
+    name: 'Marubozu',
+    category: 'continuation',
+    bias: 'both',
+    description:
+      'A candle with little to no upper or lower wick — the open sits at (or very near) the low, ' +
+      'and the close sits at (or very near) the high for a bullish marubozu (reversed for bearish). ' +
+      'One side was in full control for the entire candle, with essentially no pushback.',
+    contextNote:
+      'Most meaningful at a breakout point or after a period of consolidation. Less meaningful in the ' +
+      'middle of an already-established trend, where it just confirms "more of the same."',
+    volumeNote:
+      'Volume should be visibly elevated relative to the recent average for a marubozu to carry real weight. ' +
+      'The candle shape shows that one side controlled price for the whole period, but volume shows whether ' +
+      'that control was backed by broad participation or just a handful of large orders. A bullish marubozu ' +
+      'on volume well above the prior several candles suggests genuine buying pressure across many participants ' +
+      'and is more likely to be followed through on. The same shape on volume at or below average is a weaker ' +
+      'signal — it can form from a single large print (one big buy or sell order) moving price through a thin ' +
+      'order book, without real conviction behind it. It is also worth comparing volume on the marubozu itself ' +
+      'to volume on the few candles that follow: strong follow-through volume in the same direction reinforces ' +
+      'the signal, while a sharp volume drop-off immediately after can indicate the move was a single push ' +
+      'rather than the start of a sustained trend.',
+    pitfall:
+      'Can appear on low-volume prints where a single large trade skews the whole candle — check volume ' +
+      'alongside candle shape before treating it as a strong signal.',
+    shapes: [
+      { bias: 'bullish', bodyTopPct: 0, bodyBottomPct: 1, label: 'Buyers in control' },
+      { bias: 'bearish', bodyTopPct: 0, bodyBottomPct: 1, label: 'Sellers in control' }
+    ]
+  },
+  {
+    id: 'hammer',
+    name: 'Hammer',
+    category: 'reversal',
+    bias: 'bullish',
+    description:
+      'A single candle with a small real body near the top of its range and a long lower wick ' +
+      '(at least twice the body length), with little or no upper wick. Appears after a downtrend and ' +
+      'suggests sellers pushed price down during the session but buyers stepped in and drove it back ' +
+      'up near the open.',
+    contextNote:
+      'Only meaningful as a reversal signal when it appears after a clear downtrend or at a support ' +
+      'level — the same shape appearing mid-uptrend or in a sideways range carries no particular meaning.',
+    volumeNote:
+      'For a hammer to carry weight, volume during the session should be elevated relative to the ' +
+      'recent average, showing that the rejection of lower prices involved real buying pressure rather ' +
+      'than a thin, easily-moved order book. Ideally volume on the hammer itself is higher than on the ' +
+      'preceding down candles, signalling a shift in participation. The candle that follows matters too: ' +
+      'a hammer followed by a candle that closes higher on above-average volume adds real confirmation, ' +
+      'while a hammer followed by continued selling on similar or higher volume should be treated as a ' +
+      'failed signal rather than explained away. A hammer on unusually low volume is weak by default — ' +
+      'it may just reflect a lack of trading activity rather than a genuine tug-of-war between buyers ' +
+      'and sellers.',
+    pitfall:
+      'A hammer that forms without a preceding downtrend is not a reversal signal — it is just a candle ' +
+      'shape. Also watch for hammers forming right into a level that has already provided support ' +
+      'multiple times; the "signal" may just be the level doing what it always does, not new buying interest.',
+    shapes: [
+      { bias: 'bullish', bodyTopPct: 0.05, bodyBottomPct: 0.35, label: 'Small body near high, long lower wick' }
+    ]
+  },
+  {
+    id: 'inverted-hammer',
+    name: 'Inverted Hammer',
+    category: 'reversal',
+    bias: 'bullish',
+    description:
+      'A single candle with a small real body near the bottom of its range and a long upper wick, with ' +
+      'little or no lower wick. Appears after a downtrend and suggests buyers attempted to push price ' +
+      'higher during the session even though the close ended up near the open.',
+    contextNote:
+      'A tentative bullish reversal signal, weaker than a hammer, since the long upper wick shows the ' +
+      'higher prices were rejected rather than held. Needs a bullish confirmation candle afterward to ' +
+      'be taken seriously.',
+    volumeNote:
+      'Volume during the inverted hammer session should show a pickup in activity — ideally, higher ' +
+      'volume on the push up (even though it was rejected) than on the recent down candles, indicating ' +
+      'genuine buying interest is starting to appear even if it has not won control yet. Because the ' +
+      'upper wick represents rejected higher prices, watch whether that rejection came on heavy volume ' +
+      '(a stronger signal sellers are still present) or light volume (more consistent with a brief probe ' +
+      'that petered out on its own). The real test is the following candle: a strong up close on volume ' +
+      'clearly above the inverted hammer\'s own volume is the confirmation this pattern needs, since the ' +
+      'pattern alone is often not enough of a signal to act on.',
+    pitfall:
+      'Easy to confuse with a shooting star, which looks visually identical but occurs after an uptrend ' +
+      'and means the opposite thing. Always check the preceding trend before naming the pattern.',
+    shapes: [
+      { bias: 'bullish', bodyTopPct: 0.65, bodyBottomPct: 0.95, label: 'Small body near low, long upper wick' }
+    ]
+  },
+  {
+    id: 'shooting-star',
+    name: 'Shooting Star',
+    category: 'reversal',
+    bias: 'bearish',
+    description:
+      'Visually identical to an inverted hammer — small real body near the bottom of the range, long ' +
+      'upper wick — but forms after an uptrend rather than a downtrend. Shows buyers pushed price ' +
+      'notably higher during the session before sellers took back control and drove it back down near ' +
+      'the open.',
+    contextNote:
+      'The trend context is what makes this a bearish reversal signal rather than a bullish one. A ' +
+      'shooting star at a resistance level or after an extended run-up carries more weight than one ' +
+      'appearing mid-trend.',
+    volumeNote:
+      'A meaningful shooting star typically shows volume expanding into the high of the session (the ' +
+      'push up drew in buyers) followed by that volume failing to hold price up there, which is exactly ' +
+      'what the long upper wick represents. Elevated overall volume on the shooting star itself, compared ' +
+      'to the recent average, suggests real distribution is occurring — larger participants may be using ' +
+      'the rally to sell into strength. Low volume on the shooting star makes it far less reliable, since ' +
+      'a short high-low range with a small body can happen just from normal noise on a quiet session. As ' +
+      'with other single-candle reversal signals, the following candle\'s volume matters most: a lower ' +
+      'close on strong volume the next session is meaningful confirmation, while low-volume drift ' +
+      'afterward suggests the pattern did not attract real selling interest.',
+    pitfall:
+      'The most common mistake is calling this pattern without confirming the prior trend was actually ' +
+      'up — without that context it is just an inverted hammer shape and implies the opposite outcome.',
+    shapes: [
+      { bias: 'bearish', bodyTopPct: 0.65, bodyBottomPct: 0.95, label: 'Small body near low, long upper wick' }
+    ]
+  },
+  {
+    id: 'hanging-man',
+    name: 'Hanging Man',
+    category: 'reversal',
+    bias: 'bearish',
+    description:
+      'Visually identical to a hammer — small real body near the top of the range, long lower wick — ' +
+      'but forms after an uptrend rather than a downtrend. Despite the long lower wick showing buyers ' +
+      'stepped in during the session, the pattern is a bearish warning because it shows sellers were ' +
+      'able to push price down significantly for the first time in a while.',
+    contextNote:
+      'Only meaningful after a sustained uptrend. The long lower wick can look encouraging at a glance, ' +
+      'but the fact that sellers were able to move price that far down within an uptrend is the actual ' +
+      'signal — it needs bearish confirmation on the next candle to be taken seriously.',
+    volumeNote:
+      'Look for volume on the hanging man session to be at or above the recent average — this shows the ' +
+      'intraday sell-off that created the long lower wick involved real participation rather than a ' +
+      'single stray order. A hanging man on very light volume is weak, since a large low-high range with ' +
+      'a small body can form just from thin trading, without real seller conviction. The candle that ' +
+      'follows is the key confirmation: a lower close on volume higher than the hanging man\'s own volume ' +
+      'supports the bearish read, while a higher close, especially on strong volume, effectively ' +
+      'invalidates the signal and the uptrend likely continues.',
+    pitfall:
+      'Many traders react to the lower wick alone and read it as bullish support, missing that the ' +
+      'context (an established uptrend) makes this pattern a warning sign, not a buy signal.',
+    shapes: [
+      { bias: 'bearish', bodyTopPct: 0.05, bodyBottomPct: 0.35, label: 'Small body near high, long lower wick' }
+    ]
+  },
+  {
+    id: 'bullish-engulfing',
+    name: 'Bullish Engulfing',
+    category: 'reversal',
+    bias: 'bullish',
+    description:
+      'A two-candle pattern where a smaller bearish candle is followed by a larger bullish candle whose ' +
+      'real body completely engulfs the body of the prior candle — the second candle opens at or below ' +
+      'the first candle\'s close and closes above the first candle\'s open.',
+    contextNote:
+      'More significant after a downtrend or at a support level, where it suggests a sharp shift in ' +
+      'control from sellers to buyers within a single session.',
+    volumeNote:
+      'The engulfing candle should trade on volume clearly higher than the candle it engulfs — this is ' +
+      'one of the more volume-sensitive patterns, since the whole idea is that buying pressure was strong ' +
+      'enough to completely overwhelm the prior session\'s activity. Volume on the engulfing candle that ' +
+      'is only in line with or below the prior candle\'s volume is a weaker version of the pattern, since ' +
+      'it suggests the size of the body move came more from a wider trading range than from an actual ' +
+      'surge in participation. Comparing the engulfing candle\'s volume to the recent multi-day average ' +
+      'adds further confidence: a genuine shift in control usually shows up as one of the largest volume ' +
+      'days in the recent window, not just a big body on an ordinary volume day.',
+    pitfall:
+      'A common false read is calling an engulfing pattern when the second candle\'s body only engulfs ' +
+      'the first candle\'s body by a small margin, or when it engulfs the wick range but not the actual ' +
+      'open/close of the prior candle — the real-body engulfment is what matters, not the high-low range.',
+    shapes: [
+      { bias: 'bearish', bodyTopPct: 0.35, bodyBottomPct: 0.55, label: 'Small down candle' },
+      { bias: 'bullish', bodyTopPct: 0.1, bodyBottomPct: 0.9, label: 'Larger up candle engulfs it' }
+    ]
+  },
+  {
+    id: 'bearish-engulfing',
+    name: 'Bearish Engulfing',
+    category: 'reversal',
+    bias: 'bearish',
+    description:
+      'The mirror of bullish engulfing — a smaller bullish candle is followed by a larger bearish candle ' +
+      'whose real body completely engulfs the prior candle\'s body, opening at or above the first ' +
+      'candle\'s close and closing below the first candle\'s open.',
+    contextNote:
+      'Carries more weight after an uptrend or at a resistance level, where it suggests buyers who had ' +
+      'been in control were suddenly and decisively overwhelmed by sellers.',
+    volumeNote:
+      'As with bullish engulfing, the engulfing (bearish) candle should show volume clearly above the ' +
+      'candle it engulfs, since the pattern is meant to represent a decisive shift in control rather than ' +
+      'just a wide range on ordinary participation. A bearish engulfing candle that prints on volume ' +
+      'similar to recent sessions is a weaker version of the signal. It is also worth checking whether ' +
+      'volume was front-loaded early in the session (aggressive early selling) or back-loaded near the ' +
+      'close (late-session capitulation) where the tools allow it, since a late heavy-volume push into ' +
+      'the close tends to carry more follow-through than an early sell-off that fades by end of day.',
+    pitfall:
+      'Watch for engulfing patterns forming after only a very short uptrend of one or two candles — the ' +
+      '"reversal" may just be normal chop rather than a genuine change in trend, since the pattern needs ' +
+      'an actual trend to reverse.',
+    shapes: [
+      { bias: 'bullish', bodyTopPct: 0.35, bodyBottomPct: 0.55, label: 'Small up candle' },
+      { bias: 'bearish', bodyTopPct: 0.1, bodyBottomPct: 0.9, label: 'Larger down candle engulfs it' }
+    ]
+  },
+  {
+    id: 'morning-star',
+    name: 'Morning Star',
+    category: 'reversal',
+    bias: 'bullish',
+    description:
+      'A three-candle bullish reversal pattern: a long bearish candle, followed by a small-bodied candle ' +
+      'that gaps or trades lower (showing indecision), followed by a long bullish candle that closes ' +
+      'well into the body of the first candle.',
+    contextNote:
+      'One of the more reliable multi-candle reversal patterns because it shows a full narrative — ' +
+      'strong selling, a pause, then strong buying — rather than relying on a single candle\'s shape. ' +
+      'Works best after an extended downtrend.',
+    volumeNote:
+      'Volume typically tells the story across all three candles. The first (long bearish) candle often ' +
+      'carries above-average volume as the downtrend continues. The middle candle ideally shows volume ' +
+      'drying up — a natural sign that selling pressure is exhausting itself and neither side is in firm ' +
+      'control. The third (long bullish) candle should then show volume expanding again, ideally to the ' +
+      'highest of the three candles, confirming that buyers are stepping in with real conviction rather ' +
+      'than the price simply drifting up on low participation. A morning star where the third candle\'s ' +
+      'volume is weaker than the first candle\'s volume is a lower-confidence version of the pattern, ' +
+      'since it suggests the reversal has not yet attracted the same level of participation as the ' +
+      'preceding downtrend.',
+    pitfall:
+      'The middle candle\'s small body is the key structural requirement — if it has a body similar in ' +
+      'size to the surrounding candles, this is not a morning star, just three candles in a row. Also ' +
+      'watch for the third candle failing to close meaningfully into the first candle\'s body, which ' +
+      'weakens the pattern considerably.',
+    shapes: [
+      { bias: 'bearish', bodyTopPct: 0.1, bodyBottomPct: 0.7, label: 'Long down candle' },
+      { bias: 'neutral', bodyTopPct: 0.72, bodyBottomPct: 0.85, label: 'Small-bodied pause' },
+      { bias: 'bullish', bodyTopPct: 0.15, bodyBottomPct: 0.75, label: 'Strong up candle' }
+    ]
+  },
+  {
+    id: 'evening-star',
+    name: 'Evening Star',
+    category: 'reversal',
+    bias: 'bearish',
+    description:
+      'The bearish mirror of the morning star: a long bullish candle, followed by a small-bodied candle ' +
+      'showing indecision, followed by a long bearish candle that closes well into the body of the first candle.',
+    contextNote:
+      'Most significant after an extended uptrend, particularly at resistance, where the three-candle ' +
+      'sequence tells a clear story of buying exhaustion followed by a decisive move down.',
+    volumeNote:
+      'Volume across the sequence should follow a similar shape to the morning star in reverse: elevated ' +
+      'volume on the first (long bullish) candle as the uptrend continues, a volume lull on the ' +
+      'small-bodied middle candle as buyers and sellers reach a temporary standoff, and then a clear ' +
+      'volume expansion on the third (long bearish) candle as sellers take control. The strongest ' +
+      'versions of this pattern show the third candle\'s volume equal to or greater than the first ' +
+      'candle\'s, indicating the reversal is backed by at least as much participation as the trend it is ' +
+      'reversing. A quiet-volume third candle suggests the down move may be a pause within the uptrend ' +
+      'rather than a genuine reversal.',
+    pitfall:
+      'As with the morning star, the middle candle needs a genuinely small body relative to the other ' +
+      'two — and traders should be cautious calling this pattern in a market that has not had a clear ' +
+      'uptrend to reverse in the first place.',
+    shapes: [
+      { bias: 'bullish', bodyTopPct: 0.1, bodyBottomPct: 0.7, label: 'Long up candle' },
+      { bias: 'neutral', bodyTopPct: 0.72, bodyBottomPct: 0.85, label: 'Small-bodied pause' },
+      { bias: 'bearish', bodyTopPct: 0.15, bodyBottomPct: 0.75, label: 'Strong down candle' }
+    ]
+  },
+  {
+    id: 'doji',
+    name: 'Doji',
+    category: 'reversal',
+    bias: 'neutral',
+    description:
+      'A candle where the open and close are at or very near the same price, leaving little to no real ' +
+      'body — essentially just a wick line with a thin body at its center. Represents a session where ' +
+      'buyers and sellers reached a standstill. Common variants: standard doji (wicks roughly balanced on ' +
+      'both sides), dragonfly doji (long lower wick, little to no upper wick, open/close near the high), ' +
+      'and gravestone doji (long upper wick, little to no lower wick, open/close near the low).',
+    contextNote:
+      'A doji\'s meaning depends entirely on where it appears. After an extended trend, it can signal the ' +
+      'trend is losing momentum — a dragonfly doji after a downtrend and a gravestone doji after an ' +
+      'uptrend are read similarly to a hammer and shooting star respectively. In a sideways or choppy ' +
+      'market, a doji is largely meaningless noise.',
+    volumeNote:
+      'Volume on a doji is most useful as a measure of how much genuine disagreement occurred during the ' +
+      'session rather than how much conviction either side had. A doji on unusually high volume shows a ' +
+      'real tug-of-war — heavy buying and heavy selling roughly cancelled out — and is a more meaningful ' +
+      'signal of trend exhaustion, especially after an extended move. A doji on very light volume is far ' +
+      'less significant, since a near-even open and close can happen simply because very little trading ' +
+      'occurred, not because of any real standoff between buyers and sellers. As with other single-candle ' +
+      'patterns, the volume and direction of the next one or two candles matters more than the doji ' +
+      'itself — a doji followed by a strong directional move on rising volume is a much stronger signal ' +
+      'than the doji in isolation.',
+    pitfall:
+      'Dojis are extremely common on quiet, low-volatility instruments and sessions, and traders new to ' +
+      'candlestick analysis often over-read them as reversal signals when they appear constantly ' +
+      'throughout an already-choppy period rather than at a genuine turning point.',
+    shapes: [
+      { bias: 'neutral', bodyTopPct: 0.47, bodyBottomPct: 0.53, label: 'Standard doji' },
+      { bias: 'neutral', bodyTopPct: 0.06, bodyBottomPct: 0.14, label: 'Dragonfly doji' },
+      { bias: 'neutral', bodyTopPct: 0.86, bodyBottomPct: 0.94, label: 'Gravestone doji' }
+    ]
+  },
+  {
+    id: 'piercing-line',
+    name: 'Piercing Line',
+    category: 'reversal',
+    bias: 'bullish',
+    description:
+      'A two-candle bullish reversal pattern: a bearish candle is followed by a bullish candle that opens ' +
+      'below the prior candle\'s low and then closes above the midpoint of the prior candle\'s real body ' +
+      '(but not all the way above its open).',
+    contextNote:
+      'A more modest version of bullish engulfing — the second candle does not need to fully engulf the ' +
+      'first, just close convincingly above its midpoint. Most meaningful after a downtrend.',
+    volumeNote:
+      'The second (piercing) candle should ideally trade on volume above the first candle\'s volume, ' +
+      'showing that the recovery from the lower open was driven by real buying interest rather than a ' +
+      'brief bounce. Because this pattern only requires closing above the midpoint rather than fully ' +
+      'engulfing the prior candle, volume is an especially useful tiebreaker for judging how convincing ' +
+      'the reversal actually is — a piercing line on strong, rising volume is a meaningfully stronger ' +
+      'signal than one on flat or declining volume, since the latter may just be a partial, half-hearted ' +
+      'bounce within a continuing downtrend. Confirmation on the next candle, ideally with volume holding ' +
+      'above the recent average, adds further weight.',
+    pitfall:
+      'If the second candle closes only slightly above the midpoint of the first candle\'s body, the ' +
+      'pattern is much weaker than a close near the first candle\'s open — treat "just barely above the ' +
+      'midpoint" piercing lines with more caution than clean, deep closes into the prior body.',
+    shapes: [
+      { bias: 'bearish', bodyTopPct: 0.1, bodyBottomPct: 0.6, label: 'Down candle' },
+      { bias: 'bullish', bodyTopPct: 0.35, bodyBottomPct: 0.85, label: 'Closes above midpoint' }
+    ]
+  },
+  {
+    id: 'dark-cloud-cover',
+    name: 'Dark Cloud Cover',
+    category: 'reversal',
+    bias: 'bearish',
+    description:
+      'The bearish mirror of the piercing line: a bullish candle is followed by a bearish candle that ' +
+      'opens above the prior candle\'s high and then closes below the midpoint of the prior candle\'s real body.',
+    contextNote:
+      'Most meaningful after an uptrend or at a resistance level, where the failed gap-up followed by a ' +
+      'deep close back into the prior candle\'s body suggests sellers decisively took control during the session.',
+    volumeNote:
+      'Similar to the piercing line, the second (dark cloud) candle should show volume above the first ' +
+      'candle\'s volume for the pattern to carry real weight — this indicates the reversal from the higher ' +
+      'open was driven by genuine selling pressure rather than a routine pullback. A dark cloud cover ' +
+      'where the second candle\'s volume is unremarkable compared to recent sessions is a weaker signal, ' +
+      'since the deep close into the prior body could simply reflect a wide trading range on an otherwise ' +
+      'ordinary day. Watch the next candle\'s volume too: continued selling on rising volume reinforces ' +
+      'the pattern, while a quick recovery on light volume suggests the pattern did not attract lasting ' +
+      'seller interest.',
+    pitfall:
+      'As with the piercing line, a close only just below the midpoint is a much weaker version of this ' +
+      'pattern than a close deep into the prior candle\'s body — do not treat all "technically qualifying" ' +
+      'dark cloud covers as equally significant.',
+    shapes: [
+      { bias: 'bullish', bodyTopPct: 0.1, bodyBottomPct: 0.6, label: 'Up candle' },
+      { bias: 'bearish', bodyTopPct: 0.35, bodyBottomPct: 0.85, label: 'Closes below midpoint' }
+    ]
+  },
+  {
+    id: 'rising-three-methods',
+    name: 'Rising Three Methods',
+    category: 'continuation',
+    bias: 'bullish',
+    description:
+      'A five-candle bullish continuation pattern: a long bullish candle, followed by three small-bodied ' +
+      'candles that trade within the high-low range of the first candle without breaking below its low, ' +
+      'followed by a final long bullish candle that closes at a new high above the first candle\'s close.',
+    contextNote:
+      'Confirms an existing uptrend is likely to continue after a brief pause or consolidation, rather ' +
+      'than signalling a new trend. The three middle candles represent a controlled pullback, not a ' +
+      'genuine change in control.',
+    volumeNote:
+      'Volume ideally contracts across the three small middle candles, showing that the pullback is ' +
+      'happening on light participation — sellers stepping in briefly rather than mounting a serious ' +
+      'challenge to the trend. The final long bullish candle should then show volume expanding again, ' +
+      'ideally back toward or above the level seen on the first long candle, confirming that buyers have ' +
+      're-asserted control with real conviction rather than the price simply drifting back up. If the ' +
+      'middle candles show volume increasing rather than contracting, that is a warning sign the pullback ' +
+      'may be more serious than a simple pause, and the pattern is less reliable. Weak volume on the ' +
+      'final breakout candle similarly weakens confidence that the continuation will hold.',
+    pitfall:
+      'If any of the three middle candles closes below the low of the first candle, the pattern is ' +
+      'invalidated — that is no longer a controlled pullback but a potential trend change, and should ' +
+      'not be forced into this pattern.',
+    shapes: [
+      { bias: 'bullish', bodyTopPct: 0.1, bodyBottomPct: 0.9, label: 'Long up candle' },
+      { bias: 'bearish', bodyTopPct: 0.3, bodyBottomPct: 0.5, label: 'Small pullback' },
+      { bias: 'bearish', bodyTopPct: 0.35, bodyBottomPct: 0.55, label: 'Small pullback' },
+      { bias: 'bearish', bodyTopPct: 0.3, bodyBottomPct: 0.5, label: 'Small pullback' },
+      { bias: 'bullish', bodyTopPct: 0.05, bodyBottomPct: 0.85, label: 'Strong up candle, new high close' }
+    ]
+  },
+  {
+    id: 'falling-three-methods',
+    name: 'Falling Three Methods',
+    category: 'continuation',
+    bias: 'bearish',
+    description:
+      'The bearish mirror of Rising Three Methods: a long bearish candle, followed by three small-bodied ' +
+      'candles that trade within the high-low range of the first candle without breaking above its high, ' +
+      'followed by a final long bearish candle that closes at a new low below the first candle\'s close.',
+    contextNote:
+      'Confirms an existing downtrend is likely to continue after a brief bounce or consolidation, rather ' +
+      'than signalling a reversal. The three middle candles represent a controlled bounce, not a genuine ' +
+      'change in control.',
+    volumeNote:
+      'Volume ideally contracts across the three small middle candles, showing the bounce is happening on ' +
+      'light participation — buyers stepping in briefly rather than mounting a serious challenge to the ' +
+      'downtrend. The final long bearish candle should then show volume expanding again, ideally back ' +
+      'toward or above the level seen on the first long candle, confirming that sellers have re-asserted ' +
+      'control with real conviction. If the middle candles show volume increasing rather than contracting, ' +
+      'that is a warning sign the bounce may be more serious than a simple pause, and the pattern is less ' +
+      'reliable. Weak volume on the final breakdown candle similarly weakens confidence that the ' +
+      'continuation will hold.',
+    pitfall:
+      'If any of the three middle candles closes above the high of the first candle, the pattern is ' +
+      'invalidated — that is no longer a controlled bounce but a potential trend change, and should not ' +
+      'be forced into this pattern.',
+    shapes: [
+      { bias: 'bearish', bodyTopPct: 0.1, bodyBottomPct: 0.9, label: 'Long down candle' },
+      { bias: 'bullish', bodyTopPct: 0.3, bodyBottomPct: 0.5, label: 'Small bounce' },
+      { bias: 'bullish', bodyTopPct: 0.35, bodyBottomPct: 0.55, label: 'Small bounce' },
+      { bias: 'bullish', bodyTopPct: 0.3, bodyBottomPct: 0.5, label: 'Small bounce' },
+      { bias: 'bearish', bodyTopPct: 0.05, bodyBottomPct: 0.85, label: 'Strong down candle, new low close' }
+    ]
+  },
+  {
+    id: 'bullish-harami',
+    name: 'Bullish Harami',
+    category: 'continuation',
+    bias: 'bullish',
+    description:
+      'A two-candle pattern where a large bearish candle is followed by a small bullish candle whose ' +
+      'entire real body is contained within the body of the first candle — the opposite of an engulfing ' +
+      'pattern. Shows that strong selling momentum has suddenly stalled.',
+    contextNote:
+      'A more tentative signal than bullish engulfing since it reflects indecision — a sudden drop in ' +
+      'range and momentum — rather than a decisive shift to buying. Best treated as an early warning that ' +
+      'a downtrend may be losing steam, needing confirmation before acting.',
+    volumeNote:
+      'A meaningful harami typically shows volume contracting sharply on the second, small-bodied candle ' +
+      'compared to the first — the shrinking range and shrinking volume together tell the same story: ' +
+      'the prior momentum has stalled and neither side is pressing hard. A harami where the second ' +
+      'candle\'s volume is similar to or higher than the first candle\'s volume is a weaker, less clean ' +
+      'version of the pattern, since strong volume alongside a small body suggests genuine indecision ' +
+      'rather than the more typical exhaustion-driven pause. Because the pattern itself is tentative, ' +
+      'watching volume on the next one or two candles is especially important — a move higher on ' +
+      'expanding volume is a much stronger confirmation for a harami than it would be for a full ' +
+      'engulfing pattern, which already carries more conviction on its own.',
+    pitfall:
+      'Traders sometimes treat any small candle after a large one as a harami — the requirement is that ' +
+      'the second candle\'s entire body sits within the first candle\'s body, not just that it is smaller.',
+    shapes: [
+      { bias: 'bearish', bodyTopPct: 0.1, bodyBottomPct: 0.9, label: 'Long down candle' },
+      { bias: 'bullish', bodyTopPct: 0.4, bodyBottomPct: 0.6, label: 'Small body contained within it' }
+    ]
+  },
+  {
+    id: 'bearish-harami',
+    name: 'Bearish Harami',
+    category: 'continuation',
+    bias: 'bearish',
+    description:
+      'The mirror of bullish harami: a large bullish candle is followed by a small bearish candle whose ' +
+      'entire real body is contained within the body of the first candle. Shows that strong buying ' +
+      'momentum has suddenly stalled.',
+    contextNote:
+      'A more tentative signal than bearish engulfing since it reflects indecision rather than a decisive ' +
+      'shift to selling. Best treated as an early warning that an uptrend may be losing steam, needing ' +
+      'confirmation before acting.',
+    volumeNote:
+      'As with the bullish version, volume should contract sharply on the second, small-bodied candle ' +
+      'compared to the first — shrinking range alongside shrinking volume together indicate the prior ' +
+      'buying momentum has stalled. A bearish harami where the second candle\'s volume is similar to or ' +
+      'higher than the first candle\'s is a weaker, messier version of the pattern, since strong volume on ' +
+      'a small body suggests real disagreement rather than typical fading momentum. Because the pattern is ' +
+      'tentative on its own, a move lower on expanding volume over the next one or two candles is the key ' +
+      'confirmation to look for before treating this as a genuine warning sign rather than noise.',
+    pitfall:
+      'Traders sometimes treat any small candle after a large one as a harami — the requirement is that ' +
+      'the second candle\'s entire body sits within the first candle\'s body, not just that it is smaller.',
+    shapes: [
+      { bias: 'bullish', bodyTopPct: 0.1, bodyBottomPct: 0.9, label: 'Long up candle' },
+      { bias: 'bearish', bodyTopPct: 0.4, bodyBottomPct: 0.6, label: 'Small body contained within it' }
+    ]
+  }
+];
+
+/**
+ * Generates an inline SVG string for a pattern's shapes, drawn side by side.
+ * Uses plain hex colors (not CSS vars) so it renders correctly regardless of
+ * the host app's theme system — swap COLORS below to match your app's palette.
+ */
+const CANDLE_COLORS = {
+  bullish: { body: '#1D9E75', stroke: '#0F6E56', text: '#085041' },
+  bearish: { body: '#E24B4A', stroke: '#A32D2D', text: '#791F1F' },
+  neutral: { body: '#B4B2A9', stroke: '#5F5E5A', text: '#2C2C2A' }
+};
+
+function generateCandleSVG(pattern) {
+  const candleWidth = 90;
+  const gap = 180;
+  const drawTop = 70;
+  const drawBottom = 270;
+  const drawHeight = drawBottom - drawTop;
+
+  const totalWidth = pattern.shapes.length * candleWidth + (pattern.shapes.length - 1) * gap + 160;
+  const svgHeight = 340;
+
+  let x = 80;
+  const parts = [];
+
+  pattern.shapes.forEach((shape) => {
+    const colors = CANDLE_COLORS[shape.bias];
+    const bodyTop = drawTop + shape.bodyTopPct * drawHeight;
+    const bodyBottom = drawTop + shape.bodyBottomPct * drawHeight;
+    const centerX = x + candleWidth / 2;
+
+    // wicks drawn proportionally from the candle's full high-low range to the body edge
+    if (bodyTop > drawTop + 2) {
+      parts.push(`<line x1="${centerX}" y1="${drawTop}" x2="${centerX}" y2="${bodyTop}" stroke="${colors.stroke}" stroke-width="1.5"/>`);
+    }
+    if (bodyBottom < drawBottom - 2) {
+      parts.push(`<line x1="${centerX}" y1="${bodyBottom}" x2="${centerX}" y2="${drawBottom}" stroke="${colors.stroke}" stroke-width="1.5"/>`);
+    }
+
+    parts.push(
+      `<rect x="${x}" y="${bodyTop}" width="${candleWidth}" height="${Math.max(bodyBottom - bodyTop, 3)}" rx="3" fill="${colors.body}" fill-opacity="0.18" stroke="${colors.stroke}" stroke-width="1"/>`
+    );
+    const biasTag = shape.bias === 'bullish' ? 'Bullish' : shape.bias === 'bearish' ? 'Bearish' : 'Neutral';
+    parts.push(
+      `<text x="${centerX}" y="300" text-anchor="middle" font-size="12" font-family="sans-serif" font-weight="600" fill="${colors.text}">${biasTag}</text>`
+    );
+    parts.push(
+      `<text x="${centerX}" y="320" text-anchor="middle" font-size="12" font-family="sans-serif" fill="${colors.text}" opacity="0.8">${shape.label}</text>`
+    );
+
+    x += candleWidth + gap;
+  });
+
+  return `<svg viewBox="0 0 ${totalWidth} ${svgHeight}" width="100%" role="img" xmlns="http://www.w3.org/2000/svg">
+    <title>${pattern.name} candlestick diagram</title>
+    ${parts.join('\n    ')}
+  </svg>`;
+}
+
+const BIAS_LABELS = {
+  bullish: 'Bullish',
+  bearish: 'Bearish',
+  both: 'Bullish & bearish',
+  neutral: 'Neutral'
+};
+
+/**
+ * Renders the clickable index shown at the top of the knowledge base:
+ * pattern name + bullish/bearish tag, linking down to that pattern's card.
+ * Requires each card to carry id="pattern-<id>" (see renderPatternCard)
+ * and an element with id="pattern-index-top" to jump back to.
+ */
+function renderPatternIndex(patterns) {
+  const rows = patterns
+    .map(
+      (p) => `
+      <li>
+        <a href="#pattern-${p.id}" class="pattern-index__link pattern-index__link--${p.bias}">
+          <span class="pattern-index__name">${p.name}</span>
+          <span class="pattern-index__bias">${BIAS_LABELS[p.bias]}</span>
+        </a>
+      </li>`
+    )
+    .join('');
+  return `
+    <nav id="pattern-index-top" class="pattern-index" aria-label="Candlestick pattern index">
+      <h2 class="pattern-index__title">Patterns</h2>
+      <ul class="pattern-index__list">${rows}</ul>
+      <a href="index.html" class="pattern-index__back-btn">← Back to Watchlist</a>
+    </nav>
+  `;
+}
+
+/**
+ * Renders a full pattern entry (diagram + text) as an HTML string.
+ * Drop the returned string into any container element's innerHTML.
+ */
+function renderPatternCard(pattern) {
+  return `
+    <div class="pattern-card" id="pattern-${pattern.id}" data-pattern-id="${pattern.id}">
+      <h3 class="pattern-card__name">${pattern.name}</h3>
+      <div class="pattern-card__category">${pattern.category === 'reversal' ? 'Reversal' : 'Continuation'} · ${BIAS_LABELS[pattern.bias]}</div>
+      <div class="pattern-card__diagram">${generateCandleSVG(pattern)}</div>
+      <p class="pattern-card__description">${pattern.description}</p>
+      <p class="pattern-card__context"><strong>Context:</strong> ${pattern.contextNote}</p>
+      <div class="pattern-card__volume">
+        <strong>Volume behaviour:</strong>
+        <p>${pattern.volumeNote}</p>
+      </div>
+      <p class="pattern-card__pitfall"><strong>Watch out:</strong> ${pattern.pitfall}</p>
+      <a href="#pattern-index-top" class="pattern-card__back-to-top">↑ Back to index</a>
+    </div>
+  `;
+}
+
+// Exposed globally for a plain <script> include (no build step, matches app's architecture)
+window.CandlePatterns = { PATTERNS, renderPatternCard, renderPatternIndex, generateCandleSVG };
+
+})();
+</script>
+  <script>
+    (() => {
+      const root = document.getElementById('kb-root');
+      const { PATTERNS, renderPatternCard, renderPatternIndex } = window.CandlePatterns;
+      const index = renderPatternIndex(PATTERNS);
+      const cards = PATTERNS.map(renderPatternCard).join('<hr style="margin:24px 0;border:none;border-top:1px solid #eee;">');
+      root.innerHTML = index + cards;
+
+      // Intercept anchor clicks to avoid polluting browser history
+      root.addEventListener('click', (e) => {
+        const link = e.target.closest('a[href^="#"]');
+        if (!link) return;
+        const targetId = link.getAttribute('href').slice(1);
+        const targetEl = document.getElementById(targetId);
+        if (targetEl) {
+          e.preventDefault();
+          targetEl.scrollIntoView({ behavior: 'smooth' });
+          history.replaceState(null, '', '#' + targetId);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

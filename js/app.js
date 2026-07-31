@@ -3079,6 +3079,8 @@ const isTemp = (entry.list || 'main') === 'temp';
           this.priceActionBtn.classList.remove('active');
           if (action === 'chart-checklist') {
             this._openChartChecklist();
+          } else if (action === 'candlestick-patterns') {
+            window.location.href = 'Patterns.html';
           }
         });
       });
