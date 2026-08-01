@@ -189,6 +189,7 @@ class StockWatchApp {
     this._dailyNoteDisplayDate = null;     // date currently shown in panel
     this._dailyNoteEditorFromList = false; // true when editor was opened from Notes list
     this._currentNoteId = null;            // ID of the note currently being edited
+    this._dailyNoteEditorDate = null;      // date the editor is actually editing
 
     // Dates that have watchlist entries across all three lists (for calendar highlighting)
     this._dataDates = new Set();
@@ -988,7 +989,7 @@ class StockWatchApp {
       this.dailyNotesEditBtn.addEventListener('click', () => this._openDailyNotesEditor());
     }
 
-    // Notes List overlay events
+    // Notes List overlay events — only closes via the Close button
     if (this.notesListCloseBtn) {
       this.notesListCloseBtn.addEventListener('click', () => this._closeNotesList());
     }
@@ -997,13 +998,6 @@ class StockWatchApp {
         this._dailyNoteEditorFromList = true;
         this._closeNotesList();
         this._openDailyNotesEditor(true);
-      });
-    }
-    if (this.notesListOverlay) {
-      this.notesListOverlay.addEventListener('click', (e) => {
-        if (e.target === this.notesListOverlay) {
-          this._closeNotesList();
-        }
       });
     }
 
@@ -1017,14 +1011,7 @@ class StockWatchApp {
       this.notesEditorClose.addEventListener('click', () => this._closeDailyNotesEditor());
     }
 
-    // Notes Editor — Close on overlay click
-    if (this.notesEditorOverlay) {
-      this.notesEditorOverlay.addEventListener('click', (e) => {
-        if (e.target === this.notesEditorOverlay) {
-          this._closeDailyNotesEditor();
-        }
-      });
-    }
+    // Notes Editor — only closes via the Close button (no outside-click close)
 
     // Notes Editor — title input triggers auto-save
     if (this.notesEditorTitle) {
@@ -1041,7 +1028,7 @@ class StockWatchApp {
       this.notesEditorTextarea.addEventListener('input', () => this._updateNoteCharCount());
       // Image paste handler — upload to Firebase Storage, insert as markdown
       this.notesEditorTextarea.addEventListener('paste', (e) => {
-        const dateStr = this.filterDateFromVal || Utils.formatESTDateOnly(new Date());
+        const dateStr = this._dailyNoteEditorDate || this.filterDateFromVal || Utils.formatESTDateOnly(new Date());
         this._handleTextareaImagePaste(e, this.notesEditorTextarea, () => 'daily-note-' + dateStr);
       });
     }
@@ -2533,6 +2520,9 @@ const isTemp = (entry.list || 'main') === 'temp';
       ? Utils.formatESTDateOnly(new Date())
       : (this.filterDateFromVal || Utils.formatESTDateOnly(new Date()));
 
+    // Track the date this editor is working on (used when saving)
+    this._dailyNoteEditorDate = dateStr;
+
     // Format date for display
     const parts = dateStr.split('-');
     const displayDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
@@ -2616,6 +2606,7 @@ const isTemp = (entry.list || 'main') === 'temp';
 
     this.notesEditorOverlay.style.display = 'none';
     this._currentNoteId = null;
+    this._dailyNoteEditorDate = null;
 
     // If editor was opened from the Notes list, re-open the list
     if (this._dailyNoteEditorFromList) {
@@ -2698,6 +2689,7 @@ const isTemp = (entry.list || 'main') === 'temp';
         <span class="notes-list-item-date">${displayDate}</span>
         <span class="notes-list-item-title">${Utils.escapeAttr(title)}</span>
         <span class="notes-list-item-preview">${Utils.escapeAttr(preview) || 'No content'}</span>
+        <button class="btn btn-sm btn-danger notes-list-item-delete" data-note-id="${n.id}" title="Delete note">🗑️</button>
         <span class="notes-list-item-arrow">→</span>
       </div>`;
     }).join('');
@@ -2714,6 +2706,32 @@ const isTemp = (entry.list || 'main') === 'temp';
         this.filterDateFromVal = dateStr;
         this._dailyNoteEditorFromList = true;
         this._openDailyNotesEditor(false, noteId);
+      });
+    });
+
+    // Bind delete events — clicking the delete button removes the note
+    this.notesListBody.querySelectorAll('.notes-list-item-delete').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const noteId = btn.dataset.noteId;
+        if (!confirm('Delete this note?')) return;
+        try {
+          await dataStore.deleteDailyNote(noteId);
+          // Rebuild indicator dates from storage (accurate even if the date had multiple notes)
+          const dates = await dataStore.getAllNoteDates();
+          this._dailyNoteDates = new Set(dates);
+          this._updateNotesButtonIndicator();
+          // Remove the row from the list (or show empty state)
+          const row = btn.closest('.notes-list-item');
+          if (row) row.remove();
+          if (this.notesListBody.querySelectorAll('.notes-list-item').length === 0) {
+            this._renderNotesList([]);
+          }
+          Utils.showToast('Note deleted');
+        } catch (err) {
+          console.warn('[NotesList] Failed to delete note:', err.message);
+          Utils.showToast('Failed to delete note');
+        }
       });
     });
   }
@@ -2875,7 +2893,7 @@ const isTemp = (entry.list || 'main') === 'temp';
   async _doSaveDailyNote() {
     if (!this._dailyNoteDirty) return;
 
-    const dateStr = this.filterDateFromVal || Utils.formatESTDateOnly(new Date());
+    const dateStr = this._dailyNoteEditorDate || this.filterDateFromVal || Utils.formatESTDateOnly(new Date());
     const content = this.notesEditorTextarea.value;
     const title = this.notesEditorTitle ? this.notesEditorTitle.value.trim() : '';
 
