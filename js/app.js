@@ -354,6 +354,69 @@ class StockWatchApp {
     return exchange;
   }
 
+  // ---- Map Finnhub MIC codes to friendly exchange names ----
+  _micToExchange(mic) {
+    if (!mic) return '';
+    const m = String(mic).toUpperCase();
+    const map = {
+      'XNAS': 'NASDAQ',
+      'XNYS': 'NYSE',
+      'XASE': 'AMEX',
+      'ARCX': 'ARCA',
+      'BATS': 'BATS',
+      'BATY': 'BATS',
+      'XETR': 'FRANKFURT',
+      'XBER': 'BERLIN',
+      'XMUN': 'MUNICH',
+      'XSTU': 'STUTTGART',
+      'XHAM': 'HAMBURG',
+      'XFRA': 'FRANKFURT',
+      'XLON': 'LSE',
+      'XPAR': 'PARIS',
+      'XAMS': 'AMSTERDAM',
+      'XBRU': 'BRUSSELS',
+      'XMIL': 'MILAN',
+      'XMAD': 'MADRID',
+      'XSWX': 'SWISS',
+      'XOSL': 'OSLO',
+      'XSTO': 'STOCKHOLM',
+      'XHEL': 'HELSINKI',
+      'XCOP': 'COPENHAGEN',
+      'XWBO': 'VIENNA',
+      'XLIS': 'LISBON',
+      'XDUB': 'DUBLIN',
+      'XHKG': 'HKEX',
+      'XSHG': 'SSE',
+      'XSHE': 'SZSE',
+      'XTKS': 'TSE',
+      'XTYO': 'TOKYO',
+      'XKRX': 'KRX',
+      'XKOS': 'KOSDAQ',
+      'XTAI': 'TWSE',
+      'XSES': 'SGX',
+      'XASX': 'ASX',
+      'XNZE': 'NZX',
+      'XBOM': 'BSE',
+      'XNSE': 'NSE',
+      'XTSX': 'TSX',
+      'XTSE': 'TSX',
+      'XMEX': 'BMV',
+      'XSAU': 'TADAWUL',
+      'XJSE': 'JSE',
+      'XBOG': 'BVC',
+      'XBUE': 'BCBA',
+      'XSGO': 'BCS',
+      'XLIM': 'BVL',
+      'XEPA': 'BME',
+      'OTCM': 'OTC',
+      'OTCG': 'OTC',
+      'OTCQ': 'OTC',
+      'PINX': 'OTC',
+      'OOTC': 'OTC'
+    };
+    return map[m] || m;
+  }
+
   // ---- Toggle WebSocket/Polling from the dot ----
   _toggleWsSubscription(symbol, isOTC) {
     const sym = symbol.toUpperCase();
@@ -1135,7 +1198,20 @@ class StockWatchApp {
       const result = await finnhub.searchSymbol(query);
       if (this._searchCancelled) return;
 
-      const results = (result.result || []).filter(r => r.type === 'Common Stock' && !r.symbol.includes('.'));
+      const results = (result.result || [])
+        .filter(r => r.type === 'Common Stock' && !r.symbol.includes('.'))
+        // Deduplicate: Finnhub sometimes returns the same ticker multiple times with
+        // only a casing difference in the company name (e.g. "CYCURION INC" vs "Cycurion Inc").
+        // Keep only the first occurrence when symbol + description match case-insensitively.
+        .filter((r, i, arr) => {
+          const sym = r.symbol.toUpperCase();
+          const desc = (r.description || '').trim().toUpperCase();
+          return !arr.some((other, j) => {
+            if (j >= i) return false;
+            return other.symbol.toUpperCase() === sym &&
+                   (other.description || '').trim().toUpperCase() === desc;
+          });
+        });
 
       if (results.length === 0) {
         // Try direct quote lookup if search returns nothing
@@ -1169,17 +1245,25 @@ class StockWatchApp {
       const allTags = [...new Set(this.entries.flatMap(e => e.tags || []))].sort();
       const tagDatalistId = 'tag-suggestions';
 
-      this.searchResults.innerHTML = results.slice(0, 8).map(r => {
+      const displayResults = results.slice(0, 8);
+      this.searchResults.innerHTML = displayResults.map(r => {
         const desc = r.description || r.symbol;
         const truncatedDesc = desc.length > 30 ? desc.substring(0, 30) + '…' : desc;
         const activeInfo = this._getListInfo(this.currentList);
+        const exchange = this._micToExchange(r.mic);
         return `
         <div class="search-result-item" data-symbol="${r.symbol}">
-          <span class="symbol">${r.symbol}</span>
-          <span class="name" title="${Utils.escapeAttr(desc)}">${Utils.escapeAttr(truncatedDesc)}</span>
-          <input type="text" class="tag-input-inline" placeholder="Tags (e.g. Pre-market)..." list="${tagDatalistId}" data-symbol="${r.symbol}" autocomplete="off">
-          <input type="text" class="note-input-inline" placeholder="Optional note..." data-symbol="${r.symbol}" maxlength="200">
-          <button class="btn btn-sm btn-add" title="Add to ${activeInfo.label} List">${activeInfo.emoji} Add</button>
+          <div class="search-result-meta">
+            <span class="symbol">${r.symbol}</span>
+            <span class="name" title="${Utils.escapeAttr(desc)}">${Utils.escapeAttr(truncatedDesc)}</span>
+            <span class="price" data-price-for="${r.symbol}">—</span>
+            ${exchange ? `<span class="exchange-badge">${Utils.escapeAttr(exchange)}</span>` : ''}
+          </div>
+          <div class="search-result-actions">
+            <input type="text" class="tag-input-inline" placeholder="Tags (e.g. Pre-market)..." list="${tagDatalistId}" data-symbol="${r.symbol}" autocomplete="off">
+            <input type="text" class="note-input-inline" placeholder="Optional note..." data-symbol="${r.symbol}" maxlength="200">
+            <button class="btn btn-sm btn-add" title="Add to ${activeInfo.label} List">${activeInfo.emoji} Add</button>
+          </div>
         </div>
         `;
       }).join('');
@@ -1266,6 +1350,9 @@ class StockWatchApp {
         input.addEventListener('click', (e) => e.stopPropagation());
       });
 
+      // Fetch ballpark prices (previous close) for displayed results
+      this._fetchSearchPrices(displayResults);
+
       this._enableSearchInput();
     } catch (error) {
       if (this._searchCancelled) return;
@@ -1281,20 +1368,43 @@ class StockWatchApp {
     this.searchInput.focus();
   }
 
+  // ---- Fetch ballpark prices (previous close) for displayed search results ----
+  async _fetchSearchPrices(results) {
+    const symbols = results.map(r => r.symbol);
+    const settled = await Promise.allSettled(symbols.map(s => finnhub.getQuote(s)));
+    if (this._searchCancelled) return;
+    settled.forEach((res, i) => {
+      if (res.status === 'fulfilled' && res.value && res.value.pc) {
+        const el = this.searchResults.querySelector(`.price[data-price-for="${symbols[i]}"]`);
+        if (el) el.textContent = Utils.formatCurrency(res.value.pc);
+      }
+    });
+  }
+
   // ---- Render a single search result (used when Finnhub search returns 0 but direct quote succeeds) ----
   _renderSingleSearchResult(symbol, stockData) {
     const allTags = [...new Set(this.entries.flatMap(e => e.tags || []))].sort();
     const tagDatalistId = 'tag-suggestions';
     const activeInfo = this._getListInfo(this.currentList);
 
+    const companyName = stockData.companyName || symbol;
+    const truncatedName = companyName.length > 30 ? companyName.substring(0, 30) + '…' : companyName;
+    const exchangeLabel = this._formatExchange(stockData.exchange);
+    const priceText = stockData.currentPrice > 0 ? Utils.formatCurrency(stockData.currentPrice) : '—';
+
     this.searchResults.innerHTML = `
       <div class="search-result-item" data-symbol="${symbol}">
-        <span class="symbol">${symbol}</span>
-        <span class="name" title="${Utils.escapeAttr(stockData.companyName || symbol)}">${Utils.escapeAttr((stockData.companyName || symbol).length > 30 ? (stockData.companyName || symbol).substring(0, 30) + '…' : (stockData.companyName || symbol))}</span>
-        <span class="exchange-badge" style="font-size:0.75rem;color:var(--text-muted);margin-left:8px;">${this._formatExchange(stockData.exchange)}</span>
-        <input type="text" class="tag-input-inline" placeholder="Tags (e.g. Pre-market)..." list="${tagDatalistId}" data-symbol="${symbol}" autocomplete="off">
-        <input type="text" class="note-input-inline" placeholder="Optional note..." data-symbol="${symbol}" maxlength="200">
-        <button class="btn btn-sm btn-add" title="Add to ${activeInfo.label} List">${activeInfo.emoji} Add</button>
+        <div class="search-result-meta">
+          <span class="symbol">${symbol}</span>
+          <span class="name" title="${Utils.escapeAttr(companyName)}">${Utils.escapeAttr(truncatedName)}</span>
+          <span class="price">${priceText}</span>
+          ${exchangeLabel ? `<span class="exchange-badge">${Utils.escapeAttr(exchangeLabel)}</span>` : ''}
+        </div>
+        <div class="search-result-actions">
+          <input type="text" class="tag-input-inline" placeholder="Tags (e.g. Pre-market)..." list="${tagDatalistId}" data-symbol="${symbol}" autocomplete="off">
+          <input type="text" class="note-input-inline" placeholder="Optional note..." data-symbol="${symbol}" maxlength="200">
+          <button class="btn btn-sm btn-add" title="Add to ${activeInfo.label} List">${activeInfo.emoji} Add</button>
+        </div>
       </div>
     `;
 
