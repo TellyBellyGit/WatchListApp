@@ -12,6 +12,7 @@ class DataStore {
     this.collectionName = 'watchlist';
     this.mode = 'local';     // 'local' | 'firestore'
     this._initPromise = null;
+    this.lastWriteBlocked = false;  // true if the most recent write fell back to local (e.g. ad-blocker)
   }
 
   // ---- Initialize ----
@@ -167,12 +168,25 @@ class DataStore {
     updates.updatedAt = new Date().toISOString();
 
     if (this.mode === 'firestore') {
-      await this.db.collection(this.collectionName).doc(id).update(updates);
+      try {
+        await this.db.collection(this.collectionName).doc(id).update(updates);
+        this.lastWriteBlocked = false;
+      } catch (e) {
+        // Write was refused (e.g. ad-blocker ERR_BLOCKED_BY_CLIENT) — fall back to local
+        console.warn('[DataStore] Firestore update blocked, falling back to local:', e.message);
+        this.lastWriteBlocked = true;
+        const entries = this._getLocal();
+        const idx = entries.findIndex(e => e.id === id);
+        if (idx !== -1) {
+          entries[idx] = { ...entries[idx], ...updates, _localOnly: true };
+          this._setLocal(entries);
+        }
+      }
     } else {
       const entries = this._getLocal();
       const idx = entries.findIndex(e => e.id === id);
       if (idx !== -1) {
-        entries[idx] = { ...entries[idx], ...updates };
+        entries[idx] = { ...entries[idx], ...updates, _localOnly: true };
         this._setLocal(entries);
       }
     }
@@ -472,6 +486,17 @@ class DataStore {
         snapshot.forEach(doc => {
           reviews.push({ id: doc.id, ...doc.data() });
         });
+
+        // Merge any local-only fallback reviews (saved while cloud writes were
+        // blocked, e.g. by an ad-blocker) so they still appear in the grid.
+        const localReviews = this._getLocalTradeReviews();
+        const cloudIds = new Set(reviews.map(r => r.id));
+        for (const lr of localReviews) {
+          if (lr.id && !cloudIds.has(lr.id)) {
+            reviews.push({ ...lr, _localOnly: true });
+          }
+        }
+
         // Client-side sort by date then createdAt for consistent ordering
         reviews.sort((a, b) => {
           const dateA = a.date || '';
@@ -520,18 +545,41 @@ class DataStore {
       try {
         if (reviewId) {
           await this.db.collection('trade_reviews').doc(reviewId).set(doc, { merge: true });
+          this.lastWriteBlocked = false;
           return reviewId;
         } else {
           if (!doc.createdAt) doc.createdAt = doc.updatedAt;
           const ref = await this.db.collection('trade_reviews').add(doc);
+          this.lastWriteBlocked = false;
           return ref.id;
         }
       } catch (e) {
         console.warn('[DataStore] Failed to save trade review to Firestore, falling back to local:', e.message);
+        this.lastWriteBlocked = true;
         return this._setLocalTradeReview(doc, reviewId);
       }
     } else {
+      this.lastWriteBlocked = true;
       return this._setLocalTradeReview(doc, reviewId);
+    }
+  }
+
+  // ---- Get count of trade reviews linked to a watchlist entry ----
+  async getTradeReviewCountForEntry(watchlistEntryId) {
+    if (!watchlistEntryId) return 0;
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        const snapshot = await this.db.collection('trade_reviews')
+          .where('watchlistEntryId', '==', watchlistEntryId)
+          .get();
+        return snapshot.size;
+      } catch (e) {
+        console.warn('[DataStore] Failed to count trade reviews:', e.message);
+        return this._getLocalTradeReviews().filter(r => r.watchlistEntryId === watchlistEntryId).length;
+      }
+    } else {
+      return this._getLocalTradeReviews().filter(r => r.watchlistEntryId === watchlistEntryId).length;
     }
   }
 
@@ -571,16 +619,20 @@ class DataStore {
 
   _setLocalTradeReview(data, reviewId = null) {
     const reviews = this._getLocalTradeReviews();
+    // Mark as local-only so the UI can surface that this is not in the cloud
+    const localData = { ...data, _localOnly: true };
     if (reviewId) {
       const idx = reviews.findIndex(r => r.id === reviewId);
       if (idx !== -1) {
-        reviews[idx] = { ...reviews[idx], ...data, id: reviewId };
+        reviews[idx] = { ...reviews[idx], ...localData, id: reviewId };
+      } else {
+        reviews.push({ ...localData, id: reviewId });
       }
       this._setLocalTradeReviews(reviews);
       return reviewId;
     } else {
       const id = 'local_review_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-      reviews.push({ id, ...data });
+      reviews.push({ id, ...localData });
       this._setLocalTradeReviews(reviews);
       return id;
     }

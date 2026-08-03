@@ -3988,8 +3988,13 @@ const isTemp = (entry.list || 'main') === 'temp';
       this._stockReviewDirty = false;
 
       if (this.stockReviewSaveStatus) {
-        this.stockReviewSaveStatus.textContent = 'Saved';
-        this.stockReviewSaveStatus.className = 'stock-review-save-status saved';
+        if (dataStore.lastWriteBlocked) {
+          this.stockReviewSaveStatus.textContent = 'Saved locally only — cloud sync blocked';
+          this.stockReviewSaveStatus.className = 'stock-review-save-status unsaved';
+        } else {
+          this.stockReviewSaveStatus.textContent = 'Saved';
+          this.stockReviewSaveStatus.className = 'stock-review-save-status saved';
+        }
       }
     } catch (e) {
       console.warn('[StockReview] Failed to save:', e.message);

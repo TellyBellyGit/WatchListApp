@@ -669,8 +669,15 @@ class TradeReviewManager {
       }
 
       this._isDirty = false;
-      this._updateSaveStatus('Saved ✅');
-      if (!silent) Utils.showToast('Review saved');
+
+      // Detect cloud-blocked fallback (e.g. ad-blocker blocking Firestore writes)
+      if (dataStore.lastWriteBlocked) {
+        this._updateSaveStatus('Saved locally only — cloud sync blocked ⚠️');
+        if (!silent) Utils.showToast('Review saved locally — cloud sync blocked (check ad-blocker)');
+      } else {
+        this._updateSaveStatus('Saved ✅');
+        if (!silent) Utils.showToast('Review saved');
+      }
 
       // Re-fetch from Firestore to keep grid in sync
       await this.loadAndRender();
@@ -828,6 +835,12 @@ class TradeReviewManager {
       pnlPercentHtml = '<span class="tr-card-pnl-pct none">—</span>';
     }
 
+    // Local-only indicator — review was saved to localStorage because the
+    // cloud write was blocked (e.g. ad-blocker)
+    const localBadgeHtml = review._localOnly
+      ? `<span class="tr-card-local-badge" title="Saved locally only — cloud sync was blocked">⚠️ Local</span>`
+      : '';
+
     // Image indicator dot — check if review has any images; always render .tr-card-thumb for alignment
     let hasImage = false;
     let firstImageUrl = '';
@@ -866,6 +879,7 @@ class TradeReviewManager {
         <div class="tr-card-body">
           <div class="tr-card-header">
             <span class="tr-card-date">${dateDisplay}</span>
+            ${localBadgeHtml}
             ${symbolBadge}
             ${pnlHtml}
           </div>

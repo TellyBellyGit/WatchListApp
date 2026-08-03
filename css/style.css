@@ -3942,6 +3942,17 @@ body.overlay-open {
   white-space: nowrap;
 }
 
+.tr-card-local-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--warning);
+  background: var(--warning-bg);
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+  cursor: help;
+}
+
 .tr-card-pnl {
   font-size: 0.75rem;
   font-weight: 700;
