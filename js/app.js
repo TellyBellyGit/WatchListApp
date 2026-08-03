@@ -1582,6 +1582,7 @@ class StockWatchApp {
     // Step 1: Try Alpha Vantage for float/fundamental data
     let avData = null;
     const sym = symbol.toUpperCase();
+    this._updateLoading(`Loading fundamentals for ${sym}...`);
     const av = alphavantage;
     if (av) {
       try {
@@ -1597,10 +1598,11 @@ class StockWatchApp {
     }
 
     // Step 2: Fetch Finnhub data (always needed for price/quote)
+    this._updateLoading('Loading quote & news...');
     const stockData = await finnhub.getFullStockData(symbol);
-    this._hideLoading();
 
     // Step 3: Merge — use Alpha Vantage float data if available, enrich sector/name
+    this._updateLoading('Saving to watchlist...');
     if (avData && !avData._error) {
       // Use Alpha Vantage fundamental data where Finnhub may be sparse
       if (avData.sector && !stockData.sector) stockData.sector = avData.sector;
@@ -1626,6 +1628,7 @@ class StockWatchApp {
       };
       await this._addEntryFromData(symbol, stockData, listName, tags, note, floatData);
     }
+    this._hideLoading();
   }
 
   // ---- Show Float Data Popup (manual entry) ----
@@ -1779,6 +1782,7 @@ class StockWatchApp {
       const sym = symbol.toUpperCase();
 
       // Try Alpha Vantage for float data (non-blocking)
+      this._updateLoading(`Loading fundamentals for ${sym}...`);
       let avData = null;
       const av = alphavantage;
       if (av) {
@@ -1790,6 +1794,7 @@ class StockWatchApp {
         }
       }
 
+      this._updateLoading('Loading quote & news...');
       const stockData = await finnhub.getFullStockData(symbol);
 
       // Merge Alpha Vantage data if available
@@ -1816,6 +1821,7 @@ class StockWatchApp {
         list: this.currentList,
       };
 
+      this._updateLoading('Saving to watchlist...');
       const id = await dataStore.addEntry(entry);
       entry.id = id;
       this.entries.unshift(entry);
@@ -3071,6 +3077,13 @@ const isTemp = (entry.list || 'main') === 'temp';
 
   _hideLoading() {
     this.loadingOverlay.style.display = 'none';
+  }
+
+  // ---- Update the loading overlay message text only (no behavior change) ----
+  _updateLoading(message) {
+    if (!this.loadingOverlay) return;
+    const span = this.loadingOverlay.querySelector('.loading-box span:last-child');
+    if (span) span.textContent = message;
   }
 
   // ---- Bind Price Action events (called early, before API key check) ----
