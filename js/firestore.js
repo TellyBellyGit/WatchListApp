@@ -492,7 +492,9 @@ class DataStore {
         const localReviews = this._getLocalTradeReviews();
         const cloudIds = new Set(reviews.map(r => r.id));
         for (const lr of localReviews) {
-          if (lr.id && !cloudIds.has(lr.id)) {
+          // Skip legacy 'temp_' placeholder IDs — those were only ever bug
+          // artifacts of the image-paste flow, never valid saved reviews.
+          if (lr.id && !lr.id.startsWith('temp_') && !cloudIds.has(lr.id)) {
             reviews.push({ ...lr, _localOnly: true });
           }
         }
@@ -507,10 +509,13 @@ class DataStore {
         return reviews;
       } catch (e) {
         console.warn('[DataStore] Failed to fetch trade reviews:', e.message);
-        return this._getLocalTradeReviews();
+        // Filter out legacy 'temp_' placeholder artifacts (same as below).
+        return this._getLocalTradeReviews().filter(r => !(r.id || '').startsWith('temp_'));
       }
     } else {
-      return this._getLocalTradeReviews();
+      // Filter out legacy 'temp_' placeholder artifacts from the old
+      // image-paste bug (they were never valid saved reviews).
+      return this._getLocalTradeReviews().filter(r => !(r.id || '').startsWith('temp_'));
     }
   }
 
@@ -562,6 +567,22 @@ class DataStore {
       this.lastWriteBlocked = true;
       return this._setLocalTradeReview(doc, reviewId);
     }
+  }
+
+  // ---- Generate a permanent ID for a new trade review ----
+  // Returns a Firestore-compatible auto-ID (no write performed) when the
+  // Firestore client is available, otherwise a localStorage-style ID.
+  // Used so pasted images can be uploaded directly under the review's
+  // final folder before the first save — see TradeReviewManager._handlePaste.
+  generateTradeReviewId() {
+    if (this.db) {
+      try {
+        return this.db.collection('trade_reviews').doc().id;
+      } catch (e) {
+        console.warn('[DataStore] Failed to generate Firestore ID:', e.message);
+      }
+    }
+    return 'local_review_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   }
 
   // ---- Get count of trade reviews linked to a watchlist entry ----

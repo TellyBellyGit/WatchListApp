@@ -10,6 +10,7 @@ class TradeReviewManager {
     this._currentTags = [];
     this._saveTimer = null;
     this._isDirty = false;
+    this._isNewReview = false;
     this._symbolLookupTimer = null;
 
     // View mode
@@ -126,9 +127,12 @@ class TradeReviewManager {
         const blob = item.getAsFile();
         if (!blob) continue;
 
-        // Ensure we have a review ID for uploading
+        // Ensure we have a permanent review ID before uploading. Generating a
+        // real Firestore-style ID here (instead of a 'temp_' placeholder)
+        // guarantees the image lands in the review's final folder and the
+        // review saves under a valid ID with a createdAt timestamp.
         if (!this._currentReviewId) {
-          this._currentReviewId = 'temp_' + Date.now();
+          this._currentReviewId = dataStore.generateTradeReviewId();
         }
 
         try {
@@ -479,6 +483,7 @@ class TradeReviewManager {
   // ---- Open Editor ----
   async openEditor(reviewId, prefillData = null) {
     this._currentReviewId = reviewId;
+    this._isNewReview = (reviewId == null);
     this._currentTags = [];
 
     // Show overlay
@@ -589,6 +594,7 @@ class TradeReviewManager {
     this._currentReviewId = null;
     this._prefillWatchlistEntryId = null;
     this._isDirty = false;
+    this._isNewReview = false;
     this._updateSaveStatus('');
     // Re-fetch from Firestore to pick up the newly saved review
     await this.loadAndRender();
@@ -661,6 +667,13 @@ class TradeReviewManager {
       watchlistEntryId: this._prefillWatchlistEntryId || null
     };
 
+    // First save of a brand-new review — ensure 'createdAt' is present so the
+    // list query (orderBy 'createdAt') returns the document. Without this the
+    // review would be written to Firestore but silently invisible in the grid.
+    if (this._isNewReview) {
+      doc.createdAt = new Date().toISOString();
+    }
+
     try {
       const savedId = await dataStore.saveTradeReview(doc, this._currentReviewId);
 
@@ -669,6 +682,7 @@ class TradeReviewManager {
       }
 
       this._isDirty = false;
+      this._isNewReview = false;
 
       // Detect cloud-blocked fallback (e.g. ad-blocker blocking Firestore writes)
       if (dataStore.lastWriteBlocked) {
@@ -724,6 +738,7 @@ class TradeReviewManager {
     this.editorOverlay.style.display = 'none';
     this._currentReviewId = null;
     this._isDirty = false;
+    this._isNewReview = false;
     this._isDeleting = false;
 
     // Re-render from local array (already spliced) to avoid Firestore cache staleness

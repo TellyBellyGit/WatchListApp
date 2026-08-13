@@ -3678,9 +3678,11 @@ const isTemp = (entry.list || 'main') === 'temp';
       const blob = item.getAsFile();
       if (!blob) continue;
 
-      if (!this._stockReviewEntryId) {
-        this._stockReviewEntryId = 'temp_' + Date.now();
-      }
+      // Upload folder key — normally the watchlist entry ID. If no entry ID is
+      // set, generate a throwaway folder key WITHOUT overwriting
+      // _stockReviewEntryId: the stock-review save path looks the entry up by
+      // this ID, so a fabricated 'temp_' value would silently drop the save.
+      const uploadFolder = this._stockReviewEntryId || dataStore.generateTradeReviewId();
 
       try {
         const range = this._stockReviewQuill.getSelection(true);
@@ -3688,7 +3690,7 @@ const isTemp = (entry.list || 'main') === 'temp';
         const uploadIndex = range.index;
         const uploadLength = 28;
 
-        const downloadUrl = await imageStorage.uploadImage(blob, this._stockReviewEntryId);
+        const downloadUrl = await imageStorage.uploadImage(blob, uploadFolder);
         if (!downloadUrl || downloadUrl.startsWith('data:')) {
           throw new Error('Upload returned a data URI instead of Storage URL');
         }
