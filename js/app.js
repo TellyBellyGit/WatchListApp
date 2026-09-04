@@ -3215,7 +3215,11 @@ const isTemp = (entry.list || 'main') === 'temp';
           if (action === 'chart-checklist') {
             this._openChartChecklist();
           } else if (action === 'candlestick-patterns') {
-            window.location.href = 'Patterns.html';
+            window.location.href = 'patterns4.html';
+          } else if (action === 'support-resistance') {
+            window.open('level2v2.html', '_blank');
+          } else if (action === 'volume-analysis') {
+            window.open('VPA.html', '_blank');
           }
         });
       });
@@ -3617,6 +3621,10 @@ const isTemp = (entry.list || 'main') === 'temp';
     // Escape key to close
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.stockReviewOverlay && this.stockReviewOverlay.style.display === 'flex') {
+        // If the image annotator modal is open on top, it owns Escape — let it
+        // handle the key and do not close the stock review underneath.
+        const annotatorOverlay = document.getElementById('image-annotator-overlay');
+        if (annotatorOverlay && annotatorOverlay.style.display === 'flex') return;
         this._closeStockReview();
       }
     });
@@ -3660,6 +3668,13 @@ const isTemp = (entry.list || 'main') === 'temp';
       this._onStockReviewInput();
       this._updateStockReviewCharCount();
     });
+
+    // Annotate existing images already inside the editor (hover ✏️ over an image)
+    imageAnnotator.attachEditorImageEditing(
+      this._stockReviewQuill,
+      () => this._stockReviewEntryId || dataStore.generateTradeReviewId(),
+      () => this._onStockReviewInput()
+    );
   }
 
   // ---- Handle image paste for stock review Quill editor ----
@@ -3678,6 +3693,12 @@ const isTemp = (entry.list || 'main') === 'temp';
       const blob = item.getAsFile();
       if (!blob) continue;
 
+      // Let the user annotate (draw on) the image before it is inserted.
+      // imageAnnotator.annotate() returns a Blob (annotated PNG, or the
+      // original via "Insert as-is") or null when the paste was cancelled.
+      const annotatedBlob = await imageAnnotator.annotate(blob);
+      if (!annotatedBlob) continue; // user cancelled → drop the paste
+
       // Upload folder key — normally the watchlist entry ID. If no entry ID is
       // set, generate a throwaway folder key WITHOUT overwriting
       // _stockReviewEntryId: the stock-review save path looks the entry up by
@@ -3690,7 +3711,7 @@ const isTemp = (entry.list || 'main') === 'temp';
         const uploadIndex = range.index;
         const uploadLength = 28;
 
-        const downloadUrl = await imageStorage.uploadImage(blob, uploadFolder);
+        const downloadUrl = await imageStorage.uploadImage(annotatedBlob, uploadFolder);
         if (!downloadUrl || downloadUrl.startsWith('data:')) {
           throw new Error('Upload returned a data URI instead of Storage URL');
         }

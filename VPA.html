@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volume Price Analysis (VPA) Master Reference</title>
+    <style>
+        :root {
+            --bg-dark: #0e1117;
+            --panel-bg: #161b22;
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --green-bull: #26a69a;
+            --green-bg: rgba(38, 166, 154, 0.15);
+            --red-bear: #ef5350;
+            --red-bg: rgba(239, 83, 80, 0.15);
+            --accent-blue: #29b6f6;
+            --accent-blue-bg: rgba(41, 182, 246, 0.15);
+            --accent-yellow: #ffca28;
+            --accent-yellow-bg: rgba(255, 202, 40, 0.15);
+            --purple-algo: #ab47bc;
+            --purple-bg: rgba(171, 71, 188, 0.15);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 24px;
+        }
+
+        .container {
+            max-width: 1450px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            padding: 10px 0 20px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 25px;
+        }
+
+        header h1 {
+            font-size: 1.8rem;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .block-header {
+            color: #fff;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin: 35px 0 15px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* BLOCK 1 STYLES */
+        .cycle-container {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .section-title {
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .svg-map-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            background-color: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px 10px 5px 10px;
+            margin-bottom: 15px;
+        }
+
+        .phase-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .phase-card {
+            background-color: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+        }
+
+        .phase-card h4 {
+            font-size: 0.9rem;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .phase-card p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .phase-card ul {
+            margin-top: 8px;
+            padding-left: 16px;
+            font-size: 0.8rem;
+            color: var(--text-main);
+        }
+
+        .phase-card li {
+            margin-bottom: 3px;
+        }
+
+        .definition-box {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--accent-blue);
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .definition-title {
+            color: var(--accent-blue);
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .definition-text {
+            color: var(--text-main);
+            font-size: 0.93rem;
+            line-height: 1.6;
+        }
+
+        .definition-text strong {
+            color: #fff;
+        }
+
+        /* BLOCK 2 STYLES */
+        .sequence-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+            gap: 16px;
+            margin-bottom: 25px;
+        }
+
+        .seq-card {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .seq-card h3 {
+            font-size: 1rem;
+            color: #fff;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .seq-svg-container {
+            background-color: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 12px;
+        }
+
+        .seq-card ul {
+            padding-left: 18px;
+            font-size: 0.83rem;
+            color: var(--text-main);
+            margin-bottom: 10px;
+        }
+
+        .seq-card li {
+            margin-bottom: 4px;
+        }
+
+        .verdict-tag {
+            margin-top: auto;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            text-align: center;
+        }
+
+        /* TABLES & CARDS */
+        .card-table-wrapper {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            margin-bottom: 25px;
+        }
+
+        .vpa-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            text-align: left;
+        }
+
+        .vpa-table th {
+            background-color: #21262d;
+            color: #fff;
+            padding: 12px 16px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+        }
+
+        .vpa-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+
+        .vpa-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .vpa-table tr:hover {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        /* BADGES */
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.78rem;
+            white-space: nowrap;
+        }
+
+        .badge-green { background-color: var(--green-bg); color: var(--green-bull); border: 1px solid var(--green-bull); }
+        .badge-red { background-color: var(--red-bg); color: var(--red-bear); border: 1px solid var(--red-bear); }
+        .badge-yellow { background-color: var(--accent-yellow-bg); color: var(--accent-yellow); border: 1px solid var(--accent-yellow); }
+        .badge-blue { background-color: var(--accent-blue-bg); color: var(--accent-blue); border: 1px solid var(--accent-blue); }
+        .badge-purple { background-color: var(--purple-bg); color: var(--purple-algo); border: 1px solid var(--purple-algo); }
+
+        /* CANDLE LAYOUT */
+        .candle-flex {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .candle-svg {
+            background-color: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+
+        .candle-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .candle-type {
+            font-weight: 600;
+            color: #ffffff;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .candle-sub {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        .law-highlight {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        /* EXECUTION RULES BOX */
+        .rules-box {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--green-bull);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+        }
+
+        .rules-title {
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .rules-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .rules-list li {
+            font-size: 0.92rem;
+            color: var(--text-main);
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .rules-list li:last-child {
+            margin-bottom: 0;
+        }
+
+        .rules-list strong {
+            color: var(--green-bull);
+        }
+
+        @media (max-width: 1100px) {
+            .phase-grid { grid-template-columns: repeat(2, 1fr); }
+            .sequence-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 650px) {
+            .phase-grid { grid-template-columns: 1fr; }
+            .sequence-grid { grid-template-columns: 1fr; }
+            .card-table-wrapper { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Volume Price Analysis (VPA) Master Reference</h1>
+        <p>Market Intent, Wyckoff Structural Cycles, Single-Candle Anomalies & Multi-Bar Sequences</p>
+    </header>
+
+    <!-- BLOCK 1: WYCKOFF MARKET CYCLE MAP -->
+    <div class="block-header">
+        <span>Block 1: Wyckoff Market Cycle & Single-Candle VPA</span>
+    </div>
+
+    <div class="cycle-container">
+        <div class="section-title">
+            <span>Wyckoff Market Cycle & Synchronized Volume Map</span>
+            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">Price Action (Top) vs. Volume Effort (Bottom)</span>
+        </div>
+
+        <div class="svg-map-wrapper">
+            <svg viewBox="0 0 1000 290" width="100%" height="290" preserveAspectRatio="xMidYMid meet">
+                <!-- Vertical Phase Grid Lines -->
+                <line x1="250" y1="10" x2="250" y2="280" stroke="#30363d" stroke-dasharray="4,4"/>
+                <line x1="500" y1="10" x2="500" y2="280" stroke="#30363d" stroke-dasharray="4,4"/>
+                <line x1="750" y1="10" x2="750" y2="280" stroke="#30363d" stroke-dasharray="4,4"/>
+
+                <!-- Horizontal Pane Separator (Price vs Volume) -->
+                <line x1="10" y1="195" x2="990" y2="195" stroke="#30363d" stroke-width="1.5"/>
+                <text x="15" y="190" fill="#8b949e" font-size="9" font-weight="bold">PRICE ACTION PANE</text>
+                <text x="15" y="210" fill="#8b949e" font-size="9" font-weight="bold">VOLUME EFFORT PANE</text>
+
+                <!-- Phase Background Labels -->
+                <text x="125" y="22" fill="#8b949e" font-size="11" font-weight="700" text-anchor="middle">1. ACCUMULATION</text>
+                <text x="375" y="22" fill="#8b949e" font-size="11" font-weight="700" text-anchor="middle">2. MARKUP</text>
+                <text x="625" y="22" fill="#8b949e" font-size="11" font-weight="700" text-anchor="middle">3. DISTRIBUTION</text>
+                <text x="875" y="22" fill="#8b949e" font-size="11" font-weight="700" text-anchor="middle">4. MARKDOWN</text>
+
+                <!-- Structural Support / Resistance Lines -->
+                <line x1="20" y1="155" x2="240" y2="155" stroke="#26a69a" stroke-width="1" stroke-dasharray="2,2"/>
+                <text x="25" y="150" fill="#26a69a" font-size="9">Institutional Support</text>
+
+                <line x1="520" y1="45" x2="740" y2="45" stroke="#ef5350" stroke-width="1" stroke-dasharray="2,2"/>
+                <text x="525" y="40" fill="#ef5350" font-size="9">Institutional Resistance</text>
+
+                <!-- Market Cycle Price Path Curve -->
+                <path d="M 20 115 
+                         Q 50 170 80 155 
+                         T 130 160 
+                         T 180 150 
+                         T 230 140 
+                         L 300 105 
+                         L 340 115 
+                         L 470 40 
+                         Q 530 35 570 45 
+                         T 630 40 
+                         T 680 50 
+                         T 730 60 
+                         L 800 115 
+                         L 870 105 
+                         L 970 185" 
+                      fill="none" stroke="#29b6f6" stroke-width="3" stroke-linecap="round"/>
+
+                <!-- Signal Pins & Nodes on Price Curve -->
+                <circle cx="80" cy="155" r="4" fill="#ffca28"/>
+                <text x="80" y="140" fill="#ffca28" font-size="9" font-weight="bold" text-anchor="middle">Selling Climax</text>
+
+                <circle cx="130" cy="160" r="4" fill="#29b6f6"/>
+                <text x="130" y="180" fill="#29b6f6" font-size="9" font-weight="bold" text-anchor="middle">Stopping Vol</text>
+
+                <circle cx="180" cy="150" r="4" fill="#26a69a"/>
+                <text x="180" y="135" fill="#26a69a" font-size="9" font-weight="bold" text-anchor="middle">Supply Test</text>
+
+                <circle cx="300" cy="105" r="4" fill="#26a69a"/>
+                <text x="300" y="90" fill="#26a69a" font-size="9" font-weight="bold" text-anchor="middle">Validation Bar</text>
+
+                <circle cx="340" cy="115" r="4" fill="#26a69a"/>
+                <text x="340" y="133" fill="#26a69a" font-size="9" font-weight="bold" text-anchor="middle">Pullback Test</text>
+
+                <circle cx="570" cy="45" r="4" fill="#ffca28"/>
+                <text x="570" y="28" fill="#ffca28" font-size="9" font-weight="bold" text-anchor="middle">Buying Climax</text>
+
+                <circle cx="680" cy="50" r="4" fill="#ab47bc"/>
+                <text x="680" y="70" fill="#ab47bc" font-size="9" font-weight="bold" text-anchor="middle">High-Vol Squat</text>
+
+                <circle cx="870" cy="105" r="4" fill="#ef5350"/>
+                <text x="870" y="90" fill="#ef5350" font-size="9" font-weight="bold" text-anchor="middle">Hollow Trap Bounce</text>
+
+                <!-- SYNCHRONIZED VOLUME BARS (BOTTOM PANE) -->
+                <line x1="20" y1="250" x2="980" y2="250" stroke="#8b949e" stroke-dasharray="2,2" stroke-width="1"/>
+                <text x="985" y="253" fill="#8b949e" font-size="8">Avg Vol</text>
+
+                <!-- Phase 1 Volume -->
+                <rect x="35" y="260" width="10" height="20" fill="#ef5350" opacity="0.6"/>
+                <rect x="55" y="245" width="10" height="35" fill="#ef5350" opacity="0.8"/>
+                <rect x="75" y="205" width="12" height="75" fill="#ffca28"/>
+                <rect x="95" y="240" width="10" height="40" fill="#ef5350" opacity="0.6"/>
+                <rect x="124" y="212" width="12" height="68" fill="#29b6f6"/>
+                <rect x="145" y="262" width="10" height="18" fill="#26a69a" opacity="0.5"/>
+                <rect x="175" y="272" width="10" height="8" fill="#26a69a"/>
+                <rect x="195" y="265" width="10" height="15" fill="#26a69a" opacity="0.6"/>
+
+                <!-- Phase 2 Volume -->
+                <rect x="235" y="255" width="10" height="25" fill="#26a69a"/>
+                <rect x="260" y="240" width="10" height="40" fill="#26a69a"/>
+                <rect x="295" y="220" width="12" height="60" fill="#26a69a"/>
+                <rect x="335" y="270" width="10" height="10" fill="#26a69a"/>
+                <rect x="370" y="235" width="10" height="45" fill="#26a69a"/>
+                <rect x="410" y="225" width="10" height="55" fill="#26a69a"/>
+                <rect x="450" y="220" width="10" height="60" fill="#26a69a"/>
+
+                <!-- Phase 3 Volume -->
+                <rect x="500" y="230" width="10" height="50" fill="#ffca28" opacity="0.8"/>
+                <rect x="530" y="220" width="10" height="60" fill="#ffca28" opacity="0.9"/>
+                <rect x="564" y="205" width="12" height="75" fill="#ffca28"/>
+                <rect x="600" y="240" width="10" height="40" fill="#ef5350" opacity="0.7"/>
+                <rect x="635" y="230" width="10" height="50" fill="#26a69a" opacity="0.7"/>
+                <rect x="674" y="208" width="12" height="72" fill="#ab47bc"/>
+                <rect x="710" y="235" width="10" height="45" fill="#ef5350" opacity="0.8"/>
+
+                <!-- Phase 4 Volume -->
+                <rect x="760" y="218" width="10" height="62" fill="#ef5350"/>
+                <rect x="795" y="225" width="10" height="55" fill="#ef5350"/>
+                <rect x="830" y="235" width="10" height="45" fill="#ef5350"/>
+                <rect x="865" y="274" width="10" height="6" fill="#ef5350"/>
+                <rect x="900" y="215" width="10" height="65" fill="#ef5350"/>
+                <rect x="940" y="210" width="10" height="70" fill="#ef5350"/>
+            </svg>
+        </div>
+
+        <div class="phase-grid">
+            <div class="phase-card" style="border-left: 3px solid var(--accent-yellow);">
+                <h4 style="color: var(--accent-yellow);">1. Accumulation Phase</h4>
+                <p>Smart money absorbs panic selling after a prolonged drop to build long inventory.</p>
+                <ul>
+                    <li><strong>Selling Climax:</strong> Ultra-high panic volume spike.</li>
+                    <li><strong>Stopping Volume:</strong> Massive volume absorbs downward flow.</li>
+                    <li><strong>Supply Test:</strong> Flat, dead volume confirms no remaining sellers.</li>
+                </ul>
+            </div>
+            <div class="phase-card" style="border-left: 3px solid var(--green-bull);">
+                <h4 style="color: var(--green-bull);">2. Markup Phase</h4>
+                <p>Path of least resistance is upward. Public joins as trend establishes.</p>
+                <ul>
+                    <li><strong>Validation:</strong> Wide spread + rising volume staircase.</li>
+                    <li><strong>Low-Volume Pullbacks:</strong> Shallow dips on dead volume equal safe re-entries.</li>
+                </ul>
+            </div>
+            <div class="phase-card" style="border-left: 3px solid var(--purple-algo);">
+                <h4 style="color: var(--purple-algo);">3. Distribution Phase</h4>
+                <p>Smart money offloads inventory into retail buyer FOMO near peak prices.</p>
+                <ul>
+                    <li><strong>Buying Climax:</strong> Vertical volume explosion at high.</li>
+                    <li><strong>The Squat:</strong> Massive volume effort, zero price push (heavy limit sells).</li>
+                </ul>
+            </div>
+            <div class="phase-card" style="border-left: 3px solid var(--red-bear);">
+                <h4 style="color: var(--red-bear);">4. Markdown Phase</h4>
+                <p>Supply overpowers demand. Price cascades down rapidly as stops are hit.</p>
+                <ul>
+                    <li><strong>Hollow Moves:</strong> Upward bounces on dead volume (dead-cat traps).</li>
+                    <li><strong>Heavy Down-Bars:</strong> Strong selling validated by persistent volume.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="definition-box">
+        <div class="definition-title">
+            <span>&#9432;</span> VPA Terminology Note: What is "Spread"?
+        </div>
+        <div class="definition-text">
+            In classical VPA, <strong>"Spread"</strong> refers to the <strong>total price range between the High and Low</strong> of the candle (the entire vertical distance fought over), <em>not</em> just the body (Open to Close). Measuring High-to-Low is vital because long wicks represent price rejection, allowing you to catch Stopping Volume, Climax setups, and Absorption even when the candle body itself is narrow.
+        </div>
+    </div>
+
+    <!-- SINGLE CANDLE VPA TABLE -->
+    <div class="card-table-wrapper">
+        <table class="vpa-table">
+            <thead>
+                <tr>
+                    <th style="width: 12%;">VPA Signal</th>
+                    <th style="width: 24%;">Example Candle & Volume</th>
+                    <th style="width: 16%;">Price Action (Spread/Wick)</th>
+                    <th style="width: 13%;">Volume Action</th>
+                    <th style="width: 17%;">VPA Law / Logic</th>
+                    <th style="width: 18%;">Market Meaning</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="badge badge-green">Validation (Healthy Trend)</span></td>
+                    <td>
+                        <div class="candle-flex">
+                            <svg class="candle-svg" width="45" height="75" viewBox="0 0 45 75">
+                                <line x1="22.5" y1="6" x2="22.5" y2="48" stroke="#26a69a" stroke-width="2"/>
+                                <rect x="14" y="10" width="17" height="34" fill="#26a69a" rx="1"/>
+                                <line x1="4" y1="53" x2="41" y2="53" stroke="#30363d" stroke-dasharray="2,2"/>
+                                <rect x="15" y="56" width="15" height="15" fill="#26a69a"/>
+                            </svg>
+                            <div class="candle-info">
+                                <span class="candle-type">Marubozu / Trend Bar</span>
+                                <span class="candle-sub">Wide body, tiny wicks + strong volume</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>Wide spread, closes near the high/low of the candle.</td>
+                    <td>Steady, progressively rising volume.</td>
+                    <td><span class="law-highlight">Effort equals Result:</span> Increased volume confirms real buying or selling.</td>
+                    <td>Genuine institutional participation supporting the direction.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-yellow">Buying Climax (Top)</span></td>
+                    <td>
+                        <div class="candle-flex">
+                            <svg class="candle-svg" width="45" height="75" viewBox="0 0 45 75">
+                                <line x1="22.5" y1="5" x2="22.5" y2="48" stroke="#ef5350" stroke-width="2"/>
+                                <rect x="14" y="36" width="17" height="10" fill="#ef5350" rx="1"/>
+                                <line x1="4" y1="53" x2="41" y2="53" stroke="#30363d" stroke-dasharray="2,2"/>
+                                <rect x="15" y="55" width="15" height="18" fill="#ffca28"/>
+                            </svg>
+                            <div class="candle-info">
+                                <span class="candle-type">Shooting Star / Upper Wick</span>
+                                <span class="candle-sub">Long upper wick + massive vertical volume spike</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>Wide spread or long upper wick after a prolonged move up.</td>
+                    <td>Ultra-high vertical spike in volume.</td>
+                    <td><span class="law-highlight">Climax:</span> Extreme effort offloaded into retail buyer FOMO.</td>
+                    <td>Professionals are distributing (selling) their positions at the peak.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-yellow">Selling Climax (Bottom)</span></td>
+                    <td>
+                        <div class="candle-flex">
+                            <svg class="candle-svg" width="45" height="75" viewBox="0 0 45 75">
+                                <line x1="22.5" y1="5" x2="22.5" y2="48" stroke="#26a69a" stroke-width="2"/>
+                                <rect x="14" y="8" width="17" height="10" fill="#26a69a" rx="1"/>
+                                <line x1="4" y1="53" x2="41" y2="53" stroke="#30363d" stroke-dasharray="2,2"/>
+                                <rect x="15" y="55" width="15" height="18" fill="#ffca28"/>
+                            </svg>
+                            <div class="candle-info">
+                                <span class="candle-type">Hammer / Bullish Pin Bar</span>
+                                <span class="candle-sub">Deep lower tail + massive panic volume spike</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>Wide spread downward, often followed by long lower wicks.</td>
+                    <td>Ultra-high vertical spike in volume.</td>
+                    <td><span class="law-highlight">Climax:</span> Extreme effort absorbing panic-selling retail orders.</td>
+                    <td>Professionals are accumulating (buying) at a major discount.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-purple">The Squat</span></td>
+                    <td>
+                        <div class="candle-flex">
+                            <svg class="candle-svg" width="45" height="75" viewBox="0 0 45 75">
+                                <line x1="22.5" y1="18" x2="22.5" y2="36" stroke="#ab47bc" stroke-width="2"/>
+                                <rect x="14" y="24" width="17" height="5" fill="#ab47bc" rx="1"/>
+                                <line x1="4" y1="53" x2="41" y2="53" stroke="#30363d" stroke-dasharray="2,2"/>
+                                <rect x="15" y="55" width="15" height="18" fill="#ab47bc"/>
+                            </svg>
+                            <div class="candle-info">
+                                <span class="candle-type">Doji / Tiny Spinning Top</span>
+                                <span class="candle-sub">Micro high-to-low range + huge volume bar</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>Very narrow price spread (small candle body).</td>
+                    <td>Massive / High volume.</td>
+                    <td><span class="law-highlight">Anomaly (High Effort, Low Result):</span> Volume is huge, but price refuses to move.</td>
+                    <td>Market Makers have parked giant limit orders, absorbing all flow. Reversal imminent.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-red">Hollow Move (Trap)</span></td>
+                    <td>
+                        <div class="candle-flex">
+                            <svg class="candle-svg" width="45" height="75" viewBox="0 0 45 75">
+                                <line x1="22.5" y1="5" x2="22.5" y2="48" stroke="#ef5350" stroke-width="2"/>
+                                <rect x="14" y="10" width="17" height="32" fill="#ef5350" rx="1"/>
+                                <line x1="4" y1="53" x2="41" y2="53" stroke="#30363d" stroke-dasharray="2,2"/>
+                                <rect x="15" y="70" width="15" height="3" fill="#8b949e"/>
+                            </svg>
+                            <div class="candle-info">
+                                <span class="candle-type">Wide Range "Ghost" Bar</span>
+                                <span class="candle-sub">Big candle range on near-zero volume</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>Wide spread candle moving strongly up or down.</td>
+                    <td>Low / Below average volume.</td>
+                    <td><span class="law-highlight">Anomaly (Low Effort, High Result):</span> Price moves easily without real financial backing.</td>
+                    <td>Unbacked move (lack of institutional interest). Likely to stall or reverse quickly.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-blue">Stopping Volume</span></td>
+                    <td>
+                        <div class="candle-flex">
+                            <svg class="candle-svg" width="45" height="75" viewBox="0 0 45 75">
+                                <line x1="22.5" y1="12" x2="22.5" y2="48" stroke="#29b6f6" stroke-width="2"/>
+                                <rect x="14" y="12" width="17" height="8" fill="#29b6f6" rx="1"/>
+                                <line x1="4" y1="53" x2="41" y2="53" stroke="#30363d" stroke-dasharray="2,2"/>
+                                <rect x="15" y="55" width="15" height="18" fill="#29b6f6"/>
+                            </svg>
+                            <div class="candle-info">
+                                <span class="candle-type">Absorption Tail / Hammer</span>
+                                <span class="candle-sub">Deep lower wick at low + huge volume</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>Narrow spread with a deep lower wick (hammer/pin bar).</td>
+                    <td>Ultra-high volume at the end of a downtrend.</td>
+                    <td><span class="law-highlight">Anomaly (High Effort, Low Result):</span> Heavy selling met by equal institutional buying.</td>
+                    <td>Institutions have slammed the brakes on a drop. A floor is being established.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-green">Test of Supply</span></td>
+                    <td>
+                        <div class="candle-flex">
+                            <svg class="candle-svg" width="45" height="75" viewBox="0 0 45 75">
+                                <line x1="22.5" y1="20" x2="22.5" y2="38" stroke="#26a69a" stroke-width="2"/>
+                                <rect x="14" y="24" width="17" height="9" fill="#26a69a" rx="1"/>
+                                <line x1="4" y1="53" x2="41" y2="53" stroke="#30363d" stroke-dasharray="2,2"/>
+                                <rect x="15" y="70" width="15" height="3" fill="#26a69a"/>
+                            </svg>
+                            <div class="candle-info">
+                                <span class="candle-type">Low-Volume Dip</span>
+                                <span class="candle-sub">Narrow red/green bar + flat volume</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>Small downward dip, narrow spread.</td>
+                    <td>Very low / Flat volume.</td>
+                    <td><span class="law-highlight">Validation:</span> Low effort yields minimal downward movement.</td>
+                    <td>Confirms no active sellers remain in the market. Green light for an upward move.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-red">Test of Demand</span></td>
+                    <td>
+                        <div class="candle-flex">
+                            <svg class="candle-svg" width="45" height="75" viewBox="0 0 45 75">
+                                <line x1="22.5" y1="20" x2="22.5" y2="38" stroke="#ef5350" stroke-width="2"/>
+                                <rect x="14" y="24" width="17" height="9" fill="#ef5350" rx="1"/>
+                                <line x1="4" y1="53" x2="41" y2="53" stroke="#30363d" stroke-dasharray="2,2"/>
+                                <rect x="15" y="70" width="15" height="3" fill="#ef5350"/>
+                            </svg>
+                            <div class="candle-info">
+                                <span class="candle-type">Low-Volume Probe</span>
+                                <span class="candle-sub">Narrow upward push + flat volume</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>Small upward push, narrow spread.</td>
+                    <td>Very low / Flat volume.</td>
+                    <td><span class="law-highlight">Validation:</span> Low effort yields minimal upward movement.</td>
+                    <td>Confirms no active buyers remain at higher levels. Green light for a drop.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- BLOCK 2: MULTI-BAR SEQUENCE BLUEPRINT -->
+    <div class="block-header">
+        <span>Block 2: Multi-Bar Sequence Blueprint</span>
+    </div>
+
+    <div class="sequence-grid">
+        <!-- 1. The Staircase -->
+        <div class="seq-card" style="border-top: 3px solid var(--green-bull);">
+            <h3>The Staircase <span class="badge badge-green">Ideal Ignition</span></h3>
+            <div class="seq-svg-container">
+                <svg viewBox="0 0 200 130" width="100%" height="130">
+                    <line x1="10" y1="85" x2="190" y2="85" stroke="#30363d" stroke-dasharray="2,2"/>
+                    <line x1="40" y1="50" x2="40" y2="78" stroke="#26a69a" stroke-width="1.5"/>
+                    <rect x="34" y="55" width="12" height="18" fill="#26a69a"/>
+                    <line x1="90" y1="35" x2="90" y2="68" stroke="#26a69a" stroke-width="1.5"/>
+                    <rect x="84" y="38" width="12" height="24" fill="#26a69a"/>
+                    <line x1="140" y1="12" x2="140" y2="52" stroke="#26a69a" stroke-width="1.5"/>
+                    <rect x="134" y="15" width="12" height="32" fill="#26a69a"/>
+
+                    <line x1="10" y1="90" x2="190" y2="90" stroke="#30363d"/>
+                    <line x1="10" y1="110" x2="190" y2="110" stroke="#8b949e" stroke-dasharray="2,2"/>
+                    <rect x="34" y="112" width="12" height="13" fill="#26a69a"/>
+                    <rect x="84" y="102" width="12" height="23" fill="#26a69a"/>
+                    <rect x="134" y="94" width="12" height="31" fill="#26a69a"/>
+                </svg>
+            </div>
+            <ul>
+                <li><strong>Price:</strong> Expanding green spreads with higher highs and higher lows.</li>
+                <li><strong>Volume:</strong> Sloping upward harmoniously candle-over-candle.</li>
+                <li><strong>VPA Law:</strong> Effort validates Result across sequence.</li>
+            </ul>
+            <div class="verdict-tag badge-green">Verdict: High-Conviction Trend Entry</div>
+        </div>
+
+        <!-- 2. Absorption & Retest -->
+        <div class="seq-card" style="border-top: 3px solid var(--accent-blue);">
+            <h3>Breakout & Retest <span class="badge badge-blue">The Launchpad</span></h3>
+            <div class="seq-svg-container">
+                <svg viewBox="0 0 200 130" width="100%" height="130">
+                    <line x1="10" y1="52" x2="190" y2="52" stroke="#ef5350" stroke-dasharray="2,2"/>
+                    <line x1="30" y1="18" x2="30" y2="65" stroke="#26a69a" stroke-width="1.5"/>
+                    <rect x="24" y="22" width="12" height="38" fill="#26a69a"/>
+                    <line x1="70" y1="35" x2="70" y2="58" stroke="#ef5350" stroke-width="1.5"/>
+                    <rect x="64" y="42" width="12" height="12" fill="#ef5350"/>
+                    <line x1="110" y1="42" x2="110" y2="60" stroke="#ef5350" stroke-width="1.5"/>
+                    <rect x="104" y="48" width="12" height="8" fill="#ef5350"/>
+                    <line x1="150" y1="15" x2="150" y2="50" stroke="#26a69a" stroke-width="1.5"/>
+                    <rect x="144" y="18" width="12" height="28" fill="#26a69a"/>
+
+                    <line x1="10" y1="90" x2="190" y2="90" stroke="#30363d"/>
+                    <line x1="10" y1="110" x2="190" y2="110" stroke="#8b949e" stroke-dasharray="2,2"/>
+                    <rect x="24" y="93" width="12" height="32" fill="#26a69a"/>
+                    <rect x="64" y="118" width="12" height="7" fill="#ef5350"/>
+                    <rect x="104" y="121" width="12" height="4" fill="#ef5350"/>
+                    <rect x="144" y="100" width="12" height="25" fill="#26a69a"/>
+                </svg>
+            </div>
+            <ul>
+                <li><strong>Price:</strong> Heavy breakout bar above resistance, followed by shallow pullbacks.</li>
+                <li><strong>Volume:</strong> Massive volume on breakout; collapses to near zero on pullback.</li>
+                <li><strong>VPA Law:</strong> Zero selling effort proves overhead supply is cleared.</li>
+            </ul>
+            <div class="verdict-tag badge-blue">Verdict: Low-Risk Re-entry Zone</div>
+        </div>
+
+        <!-- 3. Climax to Exhaustion -->
+        <div class="seq-card" style="border-top: 3px solid var(--accent-yellow);">
+            <h3>Climax & Squat <span class="badge badge-yellow">Exhaustion</span></h3>
+            <div class="seq-svg-container">
+                <svg viewBox="0 0 200 130" width="100%" height="130">
+                    <line x1="40" y1="10" x2="40" y2="70" stroke="#26a69a" stroke-width="1.5"/>
+                    <rect x="34" y="15" width="12" height="48" fill="#26a69a"/>
+                    <line x1="90" y1="8" x2="90" y2="30" stroke="#ab47bc" stroke-width="1.5"/>
+                    <rect x="84" y="15" width="12" height="5" fill="#ab47bc"/>
+                    <line x1="140" y1="18" x2="140" y2="78" stroke="#ef5350" stroke-width="1.5"/>
+                    <rect x="134" y="25" width="12" height="45" fill="#ef5350"/>
+
+                    <line x1="10" y1="90" x2="190" y2="90" stroke="#30363d"/>
+                    <line x1="10" y1="110" x2="190" y2="110" stroke="#8b949e" stroke-dasharray="2,2"/>
+                    <rect x="34" y="93" width="12" height="32" fill="#ffca28"/>
+                    <rect x="84" y="91" width="12" height="34" fill="#ab47bc"/>
+                    <rect x="134" y="96" width="12" height="29" fill="#ef5350"/>
+                </svg>
+            </div>
+            <ul>
+                <li><strong>Price:</strong> Vertical green spike -> micro-body/doji -> engulfing red bar.</li>
+                <li><strong>Volume:</strong> Monster spikes on both the climax and narrow squat bar.</li>
+                <li><strong>VPA Law:</strong> Extreme effort with zero price progress = massive absorption.</li>
+            </ul>
+            <div class="verdict-tag badge-yellow">Verdict: Exit Immediately / Do Not Chase</div>
+        </div>
+
+        <!-- 4. The Hollow Creep -->
+        <div class="seq-card" style="border-top: 3px solid var(--red-bear);">
+            <h3>Hollow Rally <span class="badge badge-red">False Spark</span></h3>
+            <div class="seq-svg-container">
+                <svg viewBox="0 0 200 130" width="100%" height="130">
+                    <line x1="40" y1="48" x2="40" y2="75" stroke="#26a69a" stroke-width="1.5"/>
+                    <rect x="34" y="52" width="12" height="18" fill="#26a69a"/>
+                    <line x1="90" y1="32" x2="90" y2="58" stroke="#26a69a" stroke-width="1.5"/>
+                    <rect x="84" y="36" width="12" height="18" fill="#26a69a"/>
+                    <line x1="140" y1="12" x2="140" y2="42" stroke="#26a69a" stroke-width="1.5"/>
+                    <rect x="134" y="16" width="12" height="22" fill="#26a69a"/>
+
+                    <line x1="10" y1="90" x2="190" y2="90" stroke="#30363d"/>
+                    <line x1="10" y1="110" x2="190" y2="110" stroke="#8b949e" stroke-dasharray="2,2"/>
+                    <rect x="34" y="112" width="12" height="13" fill="#8b949e"/>
+                    <rect x="84" y="117" width="12" height="8" fill="#8b949e"/>
+                    <rect x="134" y="121" width="12" height="4" fill="#8b949e"/>
+                </svg>
+            </div>
+            <ul>
+                <li><strong>Price:</strong> Price drifts upward with wide green candles.</li>
+                <li><strong>Volume:</strong> Flatlining or declining well below the 20-period average.</li>
+                <li><strong>VPA Law:</strong> Low effort yielding high result = unbacked ghost rally.</li>
+            </ul>
+            <div class="verdict-tag badge-red">Verdict: High-Risk Trap / Ignore Entry</div>
+        </div>
+    </div>
+
+    <!-- MULTI-BAR MATRIX TABLE -->
+    <div class="card-table-wrapper">
+        <table class="vpa-table">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">Sequence Pattern</th>
+                    <th style="width: 20%;">Price Trajectory</th>
+                    <th style="width: 18%;">Volume Progression</th>
+                    <th style="width: 22%;">VPA Law Analysis</th>
+                    <th style="width: 25%;">Execution Strategy</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="badge badge-green">The Staircase</span></td>
+                    <td>Consecutive higher highs & higher lows with steady spread expansion.</td>
+                    <td>Steadily increasing bar-over-bar ($Vol_1 < Vol_2 < Vol_3$).</td>
+                    <td><strong>Validation:</strong> Effort matches Result. Real institutional buying pushing ask levels.</td>
+                    <td>Join early on candle 2-3 or wait for first low-volume pullback. High win rate setup.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-blue">Breakout & Retest</span></td>
+                    <td>Wide green breakout candle followed by 2-3 narrow red/doji pullback candles.</td>
+                    <td>Huge volume spike on breakout bar; volume drops off a cliff on pullbacks.</td>
+                    <td><strong>Supply Exhaustion:</strong> High effort breaks key level; near-zero effort on dip confirms no remaining sellers.</td>
+                    <td>Enter near the retest support level as soon as a turn candle appears on rising volume.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-purple">Compression to Expansion</span></td>
+                    <td>3-5 narrow, tight bars (the Squeeze) followed by an explosive directional bar.</td>
+                    <td>Volume flatlines near zero during compression, then explodes on the breakout candle.</td>
+                    <td><strong>Coiled Spring:</strong> Low effort/volatility shifts rapidly into maximum energy release.</td>
+                    <td>Trigger entry on the breakout bar when volume crosses above average.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-yellow">Climax & Absorption</span></td>
+                    <td>Parabolic vertical green candle ending in a small body/doji near the high.</td>
+                    <td>Extreme volume spike on the green bar, followed by equal/higher volume on the narrow bar.</td>
+                    <td><strong>Anomaly (The Squat):</strong> Enormous effort with zero price progress. Market makers absorbing all bids.</td>
+                    <td>Do not enter long under any circumstances. Tighten stops or take profits immediately.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-red">The Ghost Rally</span></td>
+                    <td>Price appears to be rallying nicely with medium-to-wide green bodies.</td>
+                    <td>Volume is declining or trapped below the 20-period moving average line.</td>
+                    <td><strong>Anomaly (Hollow Move):</strong> Price moving easily due to lack of asks, not real institutional demand.</td>
+                    <td>Ignore the movement. Expect a sharp rejection as soon as a real seller appears.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- KEY EXECUTION RULES BOX -->
+    <div class="rules-box">
+        <div class="rules-title">Key Execution Rules for Multi-Bar Analysis</div>
+        <ul class="rules-list">
+            <li><strong>Rule of 3 Candles:</strong> A single candle suggests intent, two candles indicate potential, but three candles establish a validated sequence.</li>
+            <li><strong>Volume Slope Threshold:</strong> In a true Staircase or ignition sequence, volume must exceed the 20-period moving average by the second bar of the sequence.</li>
+            <li><strong>The Pullback Delta:</strong> A healthy pullback should see volume drop by at least 50% relative to the breakout bar's volume bar height.</li>
+        </ul>
+    </div>
+
+    <!-- BLOCK 3: LOCATION & VOLUME BASELINE FILTER TABLE -->
+    <div class="block-header">
+        <span>Block 3: The "Location & Volume Baseline" Filter Table</span>
+    </div>
+
+    <!-- VOLUME PROFILE & LOCATION INTERACTIONS -->
+    <div class="card-table-wrapper">
+        <table class="vpa-table">
+            <thead>
+                <tr>
+                    <th style="width: 18%;">Location Context</th>
+                    <th style="width: 20%;">Price Action at Level</th>
+                    <th style="width: 22%;">Volume Metrics Interaction</th>
+                    <th style="width: 22%;">VPA Validation Rule</th>
+                    <th style="width: 18%;">Execution Verdict</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="badge badge-purple">High Volume Node (HVN) / VPOC</span></td>
+                    <td>Price enters heavy historical transaction zone or major volume shelf.</td>
+                    <td>Massive volume expansion; bids/asks absorb huge order flow.</td>
+                    <td><strong>Heavy Friction Zone:</strong> Breakout requires <em>Ultra-High RVOL</em> to clear resting supply. Rejection on high volume confirms institutional defence.</td>
+                    <td><span class="badge badge-yellow">Require RVOL &gt; 2.5x</span> to trade breakouts through HVNs.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-blue">Low Volume Node (LVN) / Volume Gap</span></td>
+                    <td>Price glides rapidly through thin air / low historical liquidity zone.</td>
+                    <td>Price moves fast on moderate or even sub-average volume.</td>
+                    <td><strong>Low Resistance Glide:</strong> Do <em>not</em> misinterpret low volume in an LVN as a "Ghost Trap." Price moves freely because few orders exist to slow it down.</td>
+                    <td><span class="badge badge-blue">Valid Speed Zone</span> - Ride momentum to next HVN.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-green">Key Support / VWAP / EMA Bounce</span></td>
+                    <td>Price pulls back to test dynamic or horizontal support.</td>
+                    <td>Volume dries up completely on the approach, then spikes on the bounce candle.</td>
+                    <td><strong>Supply Exhaustion:</strong> Low volume on the dip proves sellers are gone; sudden volume surge on turning bar confirms institutional buyers defending.</td>
+                    <td><span class="badge badge-green">High-Conviction Re-Entry</span> on volume surge candle.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-red">Resistance Breakout Failure</span></td>
+                    <td>Price attempts to push past session high or major resistance level.</td>
+                    <td>Volume spikes heavily, but candle body stalls or leaves long upper wick.</td>
+                    <td><strong>Institutional Overhead Defense:</strong> Large limit sell orders absorbing market buy orders. High effort with zero progress at key level.</td>
+                    <td><span class="badge badge-red">Invalidated Breakout</span> - Stand down or take profit.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- RELATIVE VOLUME (RVOL) BASELINE RULES -->
+    <div class="card-table-wrapper">
+        <table class="vpa-table">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">RVOL Metric Tier</th>
+                    <th style="width: 20%;">Threshold vs 20-MA / TOD Baseline</th>
+                    <th style="width: 25%;">VPA Intent & Context</th>
+                    <th style="width: 22%;">Validation Status</th>
+                    <th style="width: 18%;">Rule Application</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><span class="badge badge-yellow">Ultra-High Volume</span></td>
+                    <td><strong>RVOL &gt; 3.0x</strong> (300%+ of baseline)</td>
+                    <td>Institutional Climax, Major Absorption, or Explosive News Ignition.</td>
+                    <td><strong>Climax / Ignition:</strong> Must determine if bar is broad (Ignition) or a Squat/Wick (Climax).</td>
+                    <td>Validate ignition sequences; exit immediately if at trend end.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-green">High / Expansion Volume</span></td>
+                    <td><strong>RVOL 1.5x – 3.0x</strong></td>
+                    <td>Healthy institutional participation driving price direction.</td>
+                    <td><strong>True Validation:</strong> Confirms genuine buying/selling backing the move.</td>
+                    <td>Required for candle 2 of a Staircase breakout.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-blue">Normal / Baseline Volume</span></td>
+                    <td><strong>RVOL 0.8x – 1.5x</strong></td>
+                    <td>Standard market rotation and balanced trading activity.</td>
+                    <td><strong>Neutral Effort:</strong> Price movement follows local trend without extreme push.</td>
+                    <td>Acceptable for inner trend candles, not breakouts.</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-red">Low / Sub-Average Volume</span></td>
+                    <td><strong>RVOL &lt; 0.5x</strong> (&lt; 50% of baseline)</td>
+                    <td>Lack of institutional backing; dead volume environment.</td>
+                    <td><strong>Supply/Demand Test OR Ghost Move:</strong> Valid for pullbacks/tests; Invalid for breakouts.</td>
+                    <td>Must see volume drop to this tier for healthy pullbacks.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+</body>
+</html>

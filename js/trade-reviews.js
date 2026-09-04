@@ -109,6 +109,13 @@ class TradeReviewManager {
     this._quill.on('text-change', () => {
       this._markDirty();
     });
+
+    // Annotate existing images already inside the editor (hover ✏️ over an image)
+    imageAnnotator.attachEditorImageEditing(
+      this._quill,
+      () => this._currentReviewId || dataStore.generateTradeReviewId(),
+      () => this._markDirty()
+    );
   }
 
   // ---- Handle paste for image upload (Firebase Storage only) ----
@@ -127,6 +134,12 @@ class TradeReviewManager {
         const blob = item.getAsFile();
         if (!blob) continue;
 
+        // Let the user annotate (draw on) the image before it is inserted.
+        // imageAnnotator.annotate() returns a Blob (annotated PNG, or the
+        // original via "Insert as-is") or null when the paste was cancelled.
+        const annotatedBlob = await imageAnnotator.annotate(blob);
+        if (!annotatedBlob) continue; // user cancelled → drop the paste
+
         // Ensure we have a permanent review ID before uploading. Generating a
         // real Firestore-style ID here (instead of a 'temp_' placeholder)
         // guarantees the image lands in the review's final folder and the
@@ -143,7 +156,7 @@ class TradeReviewManager {
           const uploadLength = 28;
 
           // Upload to Firebase Storage — must succeed
-          const downloadUrl = await imageStorage.uploadImage(blob, this._currentReviewId);
+          const downloadUrl = await imageStorage.uploadImage(annotatedBlob, this._currentReviewId);
 
           if (!downloadUrl || downloadUrl.startsWith('data:')) {
             throw new Error('Upload returned a data URI instead of Storage URL');

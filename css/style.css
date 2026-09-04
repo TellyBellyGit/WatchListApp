@@ -4532,3 +4532,200 @@ body.overlay-open {
 .notes-list-item-delete:hover {
   background: #b91c1c;
 }
+
+/* ==========================================================================
+   IMAGE ANNOTATOR — Drawing tools for pasted images
+   (modal + toolbar + canvas; z-index sits above all other overlays incl.
+   the trade-review editor at 10000 and its confirm box at 11000)
+   ========================================================================== */
+.image-annotator-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+.image-annotator-modal {
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 1000px;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.image-annotator-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.image-annotator-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.image-annotator-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.image-annotator-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+/* ---- Toolbar ---- */
+.image-annotator-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.annot-tool-btn {
+  min-width: 34px;
+  height: 32px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.annot-tool-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.annot-tool-btn.active {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.annot-tool-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.annot-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 6px;
+}
+
+.annot-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.annot-label input[type="color"] {
+  width: 34px;
+  height: 28px;
+  padding: 1px 2px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  cursor: pointer;
+}
+
+.annot-width-label input[type="range"] {
+  width: 90px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* ---- Canvas ---- */
+.image-annotator-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background:
+    repeating-conic-gradient(var(--bg-tertiary) 0% 25%, var(--bg-primary) 0% 50%) 50% / 20px 20px;
+}
+
+#image-annotator-canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  touch-action: none;
+  box-shadow: var(--shadow-md);
+  background: #fff;
+  cursor: crosshair;
+  border-radius: var(--radius-sm);
+}
+
+
+/* ---- Floating "✏️ Annotate" button over existing editor images ----
+   z-index sits above the trade-review editor (10000) and stock-review overlay
+   (3500) but below the image annotator modal (12000). */
+.ql-editor-annotate-btn {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  z-index: 10500;
+  pointer-events: auto;
+  transition: transform var(--transition), background var(--transition);
+}
+
+.ql-editor-annotate-btn:hover {
+  background: var(--accent-hover);
+  transform: scale(1.08);
+}
+

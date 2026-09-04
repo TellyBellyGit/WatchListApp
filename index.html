@@ -179,8 +179,8 @@
           <div class="price-action-dropdown" id="price-action-dropdown">
             <button class="price-action-dropdown-item" data-action="chart-checklist">📋 Chart Checklist</button>
             <button class="price-action-dropdown-item" data-action="candlestick-patterns">📖 Candlestick Patterns</button>
-            <button class="price-action-dropdown-item placeholder" disabled>📐 Support & Resistance</button>
-            <button class="price-action-dropdown-item placeholder" disabled>📊 Volume Analysis</button>
+            <button class="price-action-dropdown-item" data-action="support-resistance">📐 Support & Resistance</button>
+            <button class="price-action-dropdown-item" data-action="volume-analysis">📊 Volume Analysis</button>
           </div>
         </div>
 
@@ -666,6 +666,41 @@
         </div>
       </div>
     </div>
+
+    <!-- ====== IMAGE ANNOTATOR OVERLAY (drawing tools for pasted images) ====== -->
+    <div class="image-annotator-overlay" id="image-annotator-overlay" style="display:none;">
+      <div class="image-annotator-modal">
+        <div class="image-annotator-header">
+          <span class="image-annotator-title">✏️ Annotate Image</span>
+          <div class="image-annotator-header-right">
+            <span class="image-annotator-hint">Draw on the image, then Save &amp; Insert</span>
+            <button class="btn btn-sm btn-secondary" id="image-annotator-cancel" type="button">Cancel</button>
+            <button class="btn btn-sm btn-secondary" id="image-annotator-raw" type="button" title="Insert the original image without any drawings">Insert as-is</button>
+            <button class="btn btn-sm btn-primary" id="image-annotator-save" type="button">✅ Save &amp; Insert</button>
+          </div>
+        </div>
+        <div class="image-annotator-toolbar" id="image-annotator-toolbar" tabindex="-1">
+          <button class="annot-tool-btn active" data-tool="pen" title="Pen (freehand)">✏️</button>
+          <button class="annot-tool-btn" data-tool="highlighter" title="Highlighter">🖍️</button>
+          <button class="annot-tool-btn" data-tool="arrow" title="Arrow">↗</button>
+          <button class="annot-tool-btn" data-tool="rect" title="Rectangle">▭</button>
+          <button class="annot-tool-btn" data-tool="ellipse" title="Ellipse">◯</button>
+          <button class="annot-tool-btn" data-tool="text" title="Text (click on image to place)">T</button>
+          <button class="annot-tool-btn" data-tool="eraser" title="Eraser (removes drawings only)">⌫</button>
+          <span class="annot-divider"></span>
+          <label class="annot-label" title="Color">🎨 <input type="color" id="image-annotator-color" value="#ff3b30"></label>
+          <label class="annot-label annot-width-label" title="Stroke width">━ <input type="range" id="image-annotator-width" min="1" max="40" value="4"></label>
+          <span class="annot-divider"></span>
+          <button class="annot-tool-btn" id="image-annotator-undo" title="Undo (Ctrl+Z)">↩</button>
+          <button class="annot-tool-btn" id="image-annotator-redo" title="Redo (Ctrl+Y)">↪</button>
+          <button class="annot-tool-btn" id="image-annotator-clear" title="Clear all drawings">🗑</button>
+        </div>
+        <div class="image-annotator-canvas-wrap" id="image-annotator-canvas-wrap">
+          <canvas id="image-annotator-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Firebase SDK -->
@@ -686,11 +721,12 @@
   <script src="js/firebase-config.js"></script>
   <script src="js/firestore.js?v=260813a"></script>
   <script src="js/storage.js?v=250722g"></script>
+  <script src="js/image-annotator.js?v=260813b"></script>
   <script src="js/alphavantage.js"></script>
   <script src="js/finnhub.js"></script>
   <script src="js/websocket.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/trade-reviews.js?v=260813a"></script>
-  <script src="js/app.js?v=260813a"></script>
+  <script src="js/app.js?v=260904a"></script>
 </body>
 </html>
