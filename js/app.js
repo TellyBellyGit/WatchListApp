@@ -11,6 +11,16 @@ const KNOWN_LISTS = [
   { id: 'temp',  label: 'Temp',  emoji: '📝' }
 ];
 
+// ---- Trend Continuation Entry education images (displayed in filename order) ----
+const TREND_CONTINUATION_IMAGES = [
+  '1minPullBEntry.png',
+  '15secPBEntry.png',
+  '2High1High2Entry.png',
+  '3High1Trap.png',
+  'ThreeStructuralConceptsTrendContinuation.png',
+  'TrendContinuationRules.png'
+];
+
 // ---- Strength Scoring Signal Definitions ----
 const STRENGTH_SIGNALS = [
   { id: 'premarket_hold',    signal: 'Pre-market hold',          pts: 1, desc: 'Price is above yesterday\'s close at the open. Bonus: gap up with no immediate fade.' },
@@ -78,6 +88,11 @@ class StockWatchApp {
     this.checklistCounter = document.getElementById('checklist-counter');
     this.checklistCancelBtn = document.getElementById('checklist-cancel');
     this.checklistResetBtn = document.getElementById('checklist-reset');
+
+    // Trend Continuation Entry overlay refs
+    this.trendContinuationOverlay = document.getElementById('trend-continuation-overlay');
+    this.trendContinuationBody = document.getElementById('trend-continuation-body');
+    this.trendContinuationClose = document.getElementById('trend-continuation-close');
 
     // Strength Scoring overlay refs
     this.strengthScoringOverlay = document.getElementById('strength-scoring-overlay');
@@ -3220,6 +3235,8 @@ const isTemp = (entry.list || 'main') === 'temp';
             window.open('level2v2.html', '_blank');
           } else if (action === 'volume-analysis') {
             window.open('VPA.html', '_blank');
+          } else if (action === 'trend-continuation-entry') {
+            this._openTrendContinuation();
           }
         });
       });
@@ -3272,6 +3289,26 @@ const isTemp = (entry.list || 'main') === 'temp';
         this._togglePlaybookDropdown();
       });
     }
+
+    // Trend Continuation Entry overlay — close events
+    if (this.trendContinuationClose) {
+      this.trendContinuationClose.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._closeTrendContinuation();
+      });
+    }
+    if (this.trendContinuationOverlay) {
+      this.trendContinuationOverlay.addEventListener('click', (e) => {
+        if (e.target === this.trendContinuationOverlay) {
+          this._closeTrendContinuation();
+        }
+      });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.trendContinuationOverlay && this.trendContinuationOverlay.classList.contains('visible')) {
+        this._closeTrendContinuation();
+      }
+    });
 
     // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
@@ -3368,6 +3405,31 @@ const isTemp = (entry.list || 'main') === 'temp';
     const total = this.checklistBody.querySelectorAll('.checklist-item').length;
     const checked = this.checklistBody.querySelectorAll('.checklist-item.checked').length;
     this.checklistCounter.textContent = `${checked} / ${total}`;
+  }
+
+  // ---- Build the Trend Continuation Entry gallery (lazy, once) ----
+  _buildTrendContinuationGallery() {
+    if (!this.trendContinuationBody || this.trendContinuationBody.dataset.built) return;
+    this.trendContinuationBody.innerHTML = TREND_CONTINUATION_IMAGES.map((file, i) => `
+      <figure class="trend-continuation-figure">
+        <img src="${file}" alt="${file.replace(/\.png$/i, '')}" loading="lazy">
+        <figcaption>${i + 1}. ${file}</figcaption>
+      </figure>
+    `).join('');
+    this.trendContinuationBody.dataset.built = 'true';
+  }
+
+  // ---- Open the Trend Continuation Entry overlay ----
+  _openTrendContinuation() {
+    if (!this.trendContinuationOverlay) return;
+    this._buildTrendContinuationGallery();
+    this.trendContinuationOverlay.classList.add('visible');
+  }
+
+  // ---- Close the Trend Continuation Entry overlay ----
+  _closeTrendContinuation() {
+    if (!this.trendContinuationOverlay) return;
+    this.trendContinuationOverlay.classList.remove('visible');
   }
 
   // ==========================================================================
