@@ -149,6 +149,16 @@ body {
   background: var(--border-color);
 }
 
+/* Notes editor button — pale green highlight when the stock has a note */
+.btn-edit-notes.has-note {
+  background: var(--positive-bg);
+  color: var(--positive);
+}
+.btn-edit-notes.has-note:hover {
+  background: var(--positive-bg);
+  filter: brightness(1.08);
+}
+
 .btn-danger {
   background: var(--negative);
   color: #fff;

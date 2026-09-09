@@ -2165,6 +2165,8 @@ class StockWatchApp {
     const notesPreview = entry.notes
       ? entry.notes.length > 60 ? entry.notes.substring(0, 60) + '...' : entry.notes
       : 'Click to add notes';
+    // A stock "has a note" when its notes contain visible text (Quill stores HTML)
+    const hasNote = !!(entry.notes && entry.notes.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().length > 0);
 const isTemp = (entry.list || 'main') === 'temp';
 
     const promoteBtn = isTemp
@@ -2186,7 +2188,7 @@ const isTemp = (entry.list || 'main') === 'temp';
       <tr>
         <td>
           ${promoteBtn}
-          <button class="btn btn-sm btn-secondary btn-edit-notes" data-id="${entry.id}" title="Notes: ${Utils.escapeAttr(notesPreview)}">📝</button>
+          <button class="btn btn-sm btn-secondary btn-edit-notes${hasNote ? ' has-note' : ''}" data-id="${entry.id}" title="Notes: ${Utils.escapeAttr(notesPreview)}">📝</button>
           <button class="btn btn-sm btn-secondary btn-refresh-one" data-id="${entry.id}" data-symbol="${entry.symbol}" title="Refresh Price">🔄</button>
           <button class="btn btn-sm btn-secondary btn-delete" data-id="${entry.id}" title="Delete">🗑</button>
           <button class="strength-score-circle" data-id="${entry.id}" title="${Utils.escapeAttr(scoreTitle)}">${displayScore}</button>
