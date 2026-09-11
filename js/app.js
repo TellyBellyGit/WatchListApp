@@ -3237,6 +3237,8 @@ const isTemp = (entry.list || 'main') === 'temp';
             window.open('level2v2.html', '_blank');
           } else if (action === 'volume-analysis') {
             window.open('VPA.html', '_blank');
+          } else if (action === 'volume-price-analysis') {
+            window.open('vpa_learning.html', '_blank');
           } else if (action === 'trend-continuation-entry') {
             this._openTrendContinuation();
           }
