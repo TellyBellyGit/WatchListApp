@@ -80,8 +80,38 @@
 
         <!-- Rules Education Dropdown -->
         <div class="price-action-wrapper">
-          <button class="btn-price-action btn-rules" id="rules-btn">Rules!!</button>
+          <button class="btn-price-action btn-rules" id="rules-btn">VPA</button>
           <div class="price-action-dropdown rules-dropdown" id="rules-dropdown">
+            <button class="price-action-dropdown-item" data-action="vpa-core">Core Ideas</button>
+            <button class="price-action-dropdown-item" data-action="vpa-market-cycles">Market Cycles and Candle VPA</button>
+            <button class="price-action-dropdown-item" data-action="vpa-patterns">Patterns and Axioms</button>
+          </div>
+        </div>
+
+        <!-- Learning Education Dropdown -->
+        <div class="price-action-wrapper">
+          <button class="btn-price-action btn-playbook" id="learning-btn">Learning</button>
+          <div class="price-action-dropdown playbook-dropdown" id="learning-dropdown">
+            <button class="price-action-dropdown-item" data-learning="wisdom">Wisdom</button>
+            <button class="price-action-dropdown-item" data-learning="rules">Rules!!</button>
+            <button class="price-action-dropdown-item" data-learning="playbook">Playbook</button>
+            <div id="learning-panel-wisdom">
+            <div class="wisdom-content">
+              <h3 class="wisdom-heading">Why Normal Doesn't Make Money in Trading</h3>
+              <div class="wisdom-body">
+                <p><strong>The Paradox of "Normal" Behavior:</strong> Normal human behavior is inherently emotional, impulsive, and reactive. Because the crowd behaves "normally" by chasing hype or panicking on sharp price movements, trading like the majority guarantees losing money. To succeed, you must trade the market's structure rather than your own habits.</p>
+                <p><strong>Embrace the Boredom:</strong> Profitable trading is highly repetitive, slow, and unexciting. Chasing excitement or dopamine hits turns trading into a casino. True discipline means neutralizing the need for thrills; a stable equity curve is the byproduct of a boring, consistent process.</p>
+                <p><strong>"Trade as if You Have No Position":</strong> This Japanese philosophical approach requires looking at a chart with zero emotional or financial attachment. When you view price action as if you are completely flat, you see objective market structure instead of your own hopes or fears. Furthermore, sudden, urgent impulses to jump into a trade are warning signs of FOMO, not valid signals.</p>
+                <p><strong>Surrender to Uncertainty:</strong> You cannot force setups or control where the price goes. A professional's only job is to define their risk, execute their edge, and completely surrender to whatever outcome the market provides, maintaining absolute calm amid uncertainty.</p>
+                <p><strong>Commit to a Single System (Kaizen):</strong> System-hopping resets your learning curve back to zero. Real growth comes from choosing one framework, planting deep roots, and applying Kaizen (continuous, incremental improvement) to master it deeply rather than searching for a "holy grail" strategy.</p>
+                <p><strong>Focus on Becoming a "Non-Losing" Trader:</strong> Shift your metrics of success away from daily or weekly monetary gains. Instead, measure success by how perfectly you executed your plan and controlled your emotions. Protecting capital fiercely is the primary goal; profits are simply a byproduct of correct behavior.</p>
+              </div>
+              <div class="wisdom-attribution">
+                Source: <a href="https://www.youtube.com/watch?v=02ndgHlNV2s" target="_blank" rel="noopener">YouTube — Watch Video</a>
+              </div>
+            </div>
+            </div>
+            <div id="learning-panel-rules" style="display:none;">
             <div class="rules-content">
               <div class="rules-eyebrow">TRADING ROOM &mdash; STANDING ORDERS</div>
               <h3 class="rules-heading">HOPE IS <span>NOT</span> A TRADING PLAN</h3>
@@ -118,13 +148,8 @@
               </div>
               <div class="rules-footer">Read it before every open</div>
             </div>
-          </div>
-        </div>
-
-        <!-- Playbook Education Dropdown -->
-        <div class="price-action-wrapper">
-          <button class="btn-price-action btn-playbook" id="playbook-btn">Playbook</button>
-          <div class="price-action-dropdown playbook-dropdown" id="playbook-dropdown">
+            </div>
+            <div id="learning-panel-playbook" style="display:none;">
             <div class="playbook-content">
               <h3 class="playbook-heading">📘 Trading Playbook</h3>
 
@@ -169,6 +194,7 @@
                 <div class="playbook-step"><strong>Archive the Turning Points:</strong> Save screenshots of the exact moments volume confirmed a breakout, a sweep, or a trend continuation.</div>
                 <div class="playbook-step"><strong>Grade Your Narrative:</strong> Review your notes. Did you accurately predict the volume behavior on the pullbacks? Did you stick to the rules of the single stock, or did boredom creep back in?</div>
               </div>
+            </div>
             </div>
           </div>
         </div>

@@ -81,8 +81,13 @@ class StockWatchApp {
     this.wisdomDropdown = document.getElementById('wisdom-dropdown');
     this.rulesBtn = document.getElementById('rules-btn');
     this.rulesDropdown = document.getElementById('rules-dropdown');
-    this.playbookBtn = document.getElementById('playbook-btn');
-    this.playbookDropdown = document.getElementById('playbook-dropdown');
+    this.learningBtn = document.getElementById('learning-btn');
+    this.learningDropdown = document.getElementById('learning-dropdown');
+    this.learningPanels = {
+      wisdom: document.getElementById('learning-panel-wisdom'),
+      rules: document.getElementById('learning-panel-rules'),
+      playbook: document.getElementById('learning-panel-playbook')
+    };
     this.checklistOverlay = document.getElementById('checklist-overlay');
     this.checklistBody = document.getElementById('checklist-body');
     this.checklistCounter = document.getElementById('checklist-counter');
@@ -3286,11 +3291,40 @@ const isTemp = (entry.list || 'main') === 'temp';
       });
     }
 
-    // Playbook dropdown toggle
-    if (this.playbookBtn && this.playbookDropdown) {
-      this.playbookBtn.addEventListener('click', (e) => {
+    // VPA dropdown items - open the matching page in a new tab
+    if (this.rulesDropdown && this.rulesBtn) {
+      this.rulesDropdown.querySelectorAll('.price-action-dropdown-item:not(.placeholder)').forEach((item) => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const action = item.dataset.action;
+          this.rulesDropdown.classList.remove('visible');
+          this.rulesBtn.classList.remove('active');
+          if (action === 'vpa-core') {
+            window.open('vpa-core.html', '_blank');
+          } else if (action === 'vpa-market-cycles') {
+            window.open('VPA.html', '_blank');
+          } else if (action === 'vpa-patterns') {
+            window.open('vpa_learning.html', '_blank');
+          }
+        });
+      });
+    }
+
+    // Learning dropdown toggle
+    if (this.learningBtn && this.learningDropdown) {
+      this.learningBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this._togglePlaybookDropdown();
+        this._toggleLearningDropdown();
+      });
+    }
+
+    // Learning option buttons - show the selected Learning panel
+    if (this.learningDropdown) {
+      this.learningDropdown.querySelectorAll('[data-learning]').forEach((optionBtn) => {
+        optionBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this._showLearningPanel(optionBtn.getAttribute('data-learning'));
+        });
       });
     }
 
@@ -3334,10 +3368,10 @@ const isTemp = (entry.list || 'main') === 'temp';
           this.rulesBtn.classList.remove('active');
         }
       }
-      if (this.playbookDropdown && this.playbookDropdown.classList.contains('visible')) {
-        if (!this.playbookBtn.contains(e.target) && !this.playbookDropdown.contains(e.target)) {
-          this.playbookDropdown.classList.remove('visible');
-          this.playbookBtn.classList.remove('active');
+      if (this.learningDropdown && this.learningDropdown.classList.contains('visible')) {
+        if (!this.learningBtn.contains(e.target) && !this.learningDropdown.contains(e.target)) {
+          this.learningDropdown.classList.remove('visible');
+          this.learningBtn.classList.remove('active');
         }
       }
       if (this.settingsDropdown && this.settingsDropdown.classList.contains('visible')) {
@@ -3375,11 +3409,20 @@ const isTemp = (entry.list || 'main') === 'temp';
     this.rulesBtn.classList.toggle('active', isVisible);
   }
 
-  // ---- Toggle the Playbook dropdown ----
-  _togglePlaybookDropdown() {
-    if (!this.playbookDropdown || !this.playbookBtn) return;
-    const isVisible = this.playbookDropdown.classList.toggle('visible');
-    this.playbookBtn.classList.toggle('active', isVisible);
+  // ---- Toggle the Learning dropdown ----
+  _toggleLearningDropdown() {
+    if (!this.learningDropdown || !this.learningBtn) return;
+    const isVisible = this.learningDropdown.classList.toggle('visible');
+    this.learningBtn.classList.toggle('active', isVisible);
+  }
+
+  // ---- Show one Learning panel and hide the others ----
+  _showLearningPanel(name) {
+    if (!this.learningPanels) return;
+    Object.keys(this.learningPanels).forEach((key) => {
+      const panel = this.learningPanels[key];
+      if (panel) panel.style.display = (key === name) ? '' : 'none';
+    });
   }
 
   // ---- Open the Chart Checklist overlay ----
