@@ -24,6 +24,7 @@ class TradeJournalApp {
     this._quill = null;
     this._fields = {};             // field key → input element
     this._symbolLookupTimer = null;
+    this._sharesAssumed = false;   // true while the 1-share default is in the box
     this._tags = [];
     this._outcomeTouched = false;
     this._activeCategory = null;   // Review-by-category selection
@@ -31,6 +32,10 @@ class TradeJournalApp {
     this._sourceReview = null;     // linked trade review (read-only panel)
     this._isFirstRun = true;
     this._view = 'entries';        // active tab: 'entries' | 'categories'
+    this._lastEntryDate = '';      // so column A can follow the entry date
+    this._importResult = null;     // last CSV read (preview + parsed entries)
+    this._draftResult = null;      // last generated write-up skeleton
+    this._draftTab = 'skeleton';   // draft dialog tab: 'skeleton' | 'prompt'
   }
 
   // ==========================================================================
@@ -42,6 +47,16 @@ class TradeJournalApp {
     this._renderStaticOptions();
     this._initQuill();
     this._bindEvents();
+
+    // The CSV letter map (A–M) has to stay identical to the sheet's 13 columns
+    if (typeof JournalCSV === 'undefined') {
+      console.warn('[TradeJournal] js/journal-csv.js did not load — the CSV import and the Draft helper are unavailable.');
+    } else {
+      const columnProblems = JournalCSV.verifyColumns();
+      if (columnProblems.length) {
+        console.warn('[TradeJournal] CSV column map is out of step with the sheet:', columnProblems);
+      }
+    }
 
     // Persist an in-progress form before the tab closes (best effort)
     window.addEventListener('beforeunload', () => {
@@ -69,6 +84,8 @@ class TradeJournalApp {
     this.btnNew          = $('tj-btn-new');
     this.btnRefresh      = $('tj-btn-refresh');
     this.btnTheme        = $('tj-btn-theme');
+    this.btnImport       = $('tj-btn-import');
+    this.btnDraft        = $('tj-btn-draft');
 
     // Stats + tabs
     this.statsEl         = $('tj-stats');
@@ -109,12 +126,16 @@ class TradeJournalApp {
     this.editorDeleteBtn = $('tj-btn-delete-editor');
     this.editorCloseBtn  = $('tj-btn-close-editor');
     this.editorFullscreen= $('tj-btn-fullscreen');
+    this.editorNewBtn    = $('tj-editor-new');
+    this.editorImportBtn = $('tj-editor-import');
     this.quillContainer  = $('tj-quill');
     this.pnlTotal        = $('tj-pnl-total');
     this.pnlPercent      = $('tj-pnl-percent');
     this.pnlPerShare     = $('tj-pnl-per-share');
     this.durationEl      = $('tj-duration');
     this.realisedREl     = $('tj-realised-r');
+    this.durationHint    = $('tj-duration-hint');
+    this.numbersHint     = $('tj-numbers-hint');
     this.tagsInput       = $('tj-tags-input');
     this.tagChips        = $('tj-tag-chips');
     this.adviceHint      = $('tj-advice-hint');
@@ -126,6 +147,39 @@ class TradeJournalApp {
     // Confirm dialog
     this.confirmOverlay  = $('tj-confirm-overlay');
     this.confirmText     = $('tj-confirm-text');
+    this.confirmOkBtn    = $('tj-confirm-yes');
+    this.confirmCancelBtn= $('tj-confirm-no');
+
+    // Import dialog (CSV → entries)
+    this.importOverlay   = $('tj-import-overlay');
+    this.importDrop      = $('tj-import-drop');
+    this.importFile      = $('tj-import-file');
+    this.importPaste     = $('tj-import-paste');
+    this.importSummary   = $('tj-import-summary');
+    this.importWarnings  = $('tj-import-warnings');
+    this.importPreviewWrap = $('tj-import-preview-wrap');
+    this.importPreviewBody = $('tj-import-preview-body');
+    this.importLoadFormBtn = $('tj-import-load-form');
+    this.importRunBtn    = $('tj-import-run');
+
+    // Draft dialog (offline write-up helper)
+    this.draftOverlay    = $('tj-draft-overlay');
+    this.draftTabs       = Array.from(document.querySelectorAll('[data-draft-tab]'));
+    this.draftPanelSkeleton = $('tj-draft-panel-skeleton');
+    this.draftPanelPrompt   = $('tj-draft-panel-prompt');
+    this.draftNotes      = $('tj-draft-notes');
+    this.draftFields     = $('tj-draft-fields');
+    this.draftApplyBtn   = $('tj-draft-apply');
+    this.draftPromptBox  = $('tj-draft-prompt');
+    this.draftAnswerBox  = $('tj-draft-answer');
+    // Draft inputs are not editor fields, so they are cached by hand
+    this.draftInputs = {
+      facts:     $('tj-draft-facts'),
+      expected:  $('tj-draft-expected'),
+      didInstead:$('tj-draft-didInstead'),
+      context:   $('tj-draft-context'),
+      stopPrice: $('tj-draft-stop')
+    };
 
     // Field map — every input in the editor carries data-field="<key>"
     this._fields = {};
@@ -341,6 +395,11 @@ class TradeJournalApp {
     this.editorOverlay.addEventListener('click', (e) => {
       if (e.target === this.editorOverlay) this.closeEditor();
     });
+    // The overlay covers the page header, so the header's Import / New entry
+    // buttons cannot be reached while a form is open — the editor head carries
+    // its own copies so a second entry or an import never needs a detour.
+    if (this.editorNewBtn) this.editorNewBtn.addEventListener('click', () => this._startAnotherEntry());
+    if (this.editorImportBtn) this.editorImportBtn.addEventListener('click', () => this.openImport());
 
     // Numbers section toggle
     const btnToggleTrade = document.getElementById('tj-btn-toggle-trade');
@@ -360,14 +419,16 @@ class TradeJournalApp {
       this._fields.category.addEventListener('change', () => this._updateCategoryHint());
     }
 
-    // Numbers → live P&L / duration / R
-    ['entryPrice', 'exitPrice', 'shares', 'direction', 'entryTime', 'exitTime', 'fees', 'plannedRiskR']
-      .forEach(key => {
-        const el = this._fields[key];
-        if (!el) return;
-        el.addEventListener('input', () => this._updatePnl());
-        el.addEventListener('change', () => this._updatePnl());
-      });
+    // Timing & prices → the live P&L strip, the duration and the R-multiple.
+    // They also keep column A (the trade date) following the entry date.
+    ['direction', 'entryDate', 'entryTime', 'entryPrice',
+     'exitDate', 'exitTime', 'exitPrice',
+     'shares', 'fees', 'plannedRiskR'].forEach(key => {
+      const el = this._fields[key];
+      if (!el) return;
+      el.addEventListener('input', () => { if (key === 'shares') this._dropAssumedSize(); this._syncTiming(key); });
+      el.addEventListener('change', () => this._syncTiming(key));
+    });
 
     // Outcome is free text — stop auto-filling once the user types in it
     if (this._fields.outcome) {
@@ -399,9 +460,19 @@ class TradeJournalApp {
       this._markDirty();
     });
 
-    // Confirm dialog
-    document.getElementById('tj-confirm-yes').addEventListener('click', () => this._resolveConfirm(true));
-    document.getElementById('tj-confirm-no').addEventListener('click', () => this._resolveConfirm(false));
+    // Confirm dialog (one generic dialog serves delete, import and discard)
+    this.confirmOkBtn.addEventListener('click', () => this._resolveConfirm(true));
+    this.confirmCancelBtn.addEventListener('click', () => this._resolveConfirm(false));
+    this.confirmOverlay.addEventListener('click', (e) => {
+      if (e.target === this.confirmOverlay) this._resolveConfirm(false);
+    });
+
+    // Header: import + draft dialogs
+    if (this.btnImport) this.btnImport.addEventListener('click', () => this.openImport());
+    if (this.btnDraft) this.btnDraft.addEventListener('click', () => this.openDraft());
+
+    this._bindImportDialog();
+    this._bindDraftDialog();
   }
 
   // ==========================================================================
@@ -547,105 +618,200 @@ class TradeJournalApp {
     this._setPnlEl(this.realisedREl, '—', null);
   }
 
+  // ---- Live numbers: read the form, let JournalCSV do the arithmetic ----
+  // One implementation (js/journal-csv.js) serves the live strip, the saved
+  // document and the CSV import, so they cannot drift apart.
   _updatePnl() {
-    const entry = parseFloat(this._fields.entryPrice.value);
-    const exit = parseFloat(this._fields.exitPrice.value);
-    const shares = parseInt(this._fields.shares.value);
-    const fees = parseFloat(this._fields.fees.value);
-    const plannedRisk = parseFloat(this._fields.plannedRiskR.value);
-    const direction = this._fields.direction.value;
+    const values = this._readNumberFields();
+    const fallback = this._fields.date ? this._fields.date.value : '';
+    const numbers = JournalCSV.computeTradeNumbers(Object.assign({}, values, {
+      defaultDate: values.entryDate || fallback
+    }));
 
-    if (isNaN(entry) || isNaN(exit) || isNaN(shares) || entry === 0) {
-      this._clearPnl();
-      return;
-    }
-
-    // Same arithmetic as the Reviews tab so the two views never disagree
-    const perShare = direction === 'long' ? exit - entry : entry - exit;
-    const percent = (perShare / entry) * 100;
-    let total = perShare * shares;
-    if (!isNaN(fees)) total -= fees;   // fees are a cost, always subtracted
-
-    const positive = perShare >= 0;
-    this._setPnlEl(this.pnlPerShare, Utils.formatCurrency(perShare) + '/share', positive);
-    this._setPnlEl(this.pnlPercent, Utils.formatPercent(percent), positive);
-    this._setPnlEl(this.pnlTotal, Utils.formatCurrency(total), total >= 0);
-
-    // Duration (entry → exit, from the combined date+time strings)
-    const start = this._combinedDateTime('entry');
-    const end = this._combinedDateTime('exit');
-    const mins = this._durationMinutes(start, end);
-    this._setPnlEl(this.durationEl, mins == null ? '—' : this._formatDuration(mins), null);
-
-    // R-multiple against the planned risk (1R) in dollars
-    if (!isNaN(plannedRisk) && plannedRisk > 0) {
-      const r = total / plannedRisk;
-      this._setPnlEl(this.realisedREl, (r >= 0 ? '+' : '') + r.toFixed(2) + 'R', r >= 0);
-    } else {
-      this._setPnlEl(this.realisedREl, '—', null);
-    }
+    // A price pair with no size gets 1 share so the strip is not blank — the
+    // write happens before the chips are drawn, so the two always agree
+    this._applyAssumedShares(numbers);
+    this._renderPnlChips(numbers);
+    this._renderTimingHint(numbers);
+    this._renderNumbersHint(numbers);
 
     // Auto-fill Outcome / P&L while the user has not typed their own wording
     if (!this._outcomeTouched && this._fields.outcome) {
-      this._fields.outcome.value =
-        (total >= 0 ? '+' : '-') + '$' + Math.abs(total).toFixed(2) +
-        ' (' + Utils.formatPercent(percent) + ')';
+      this._fields.outcome.value = JournalCSV.outcomeText(numbers) || '';
     }
   }
 
-  // ---- Combine the split date + time inputs of a moment into one ISO-ish string ----
-  _combinedDateTime(which) {
-    const dateVal = this._fields.date ? this._fields.date.value : '';
-    const timeEl = this._fields[which === 'entry' ? 'entryTime' : 'exitTime'];
-    const timeVal = timeEl ? timeEl.value : '';
-    if (!dateVal) return null;
-    if (!timeVal) return null;         // a duration needs both sides
-    return this._combineDateTime(dateVal, timeVal);
+  // The tradeData object for whatever is in the form right now — the same shape
+  // the CSV import writes, because both go through JournalCSV.
+  _buildTradeData(values, fallbackDate) {
+    const numbers = JournalCSV.computeTradeNumbers(Object.assign({}, values, {
+      defaultDate: values.entryDate || fallbackDate || values.date || ''
+    }));
+    return { tradeData: JournalCSV.buildTradeData(values, numbers), numbers };
   }
 
-  _combineDateTime(dateVal, timeVal) {
-    if (!dateVal) return null;
-    if (!timeVal) return dateVal;      // date only
-    return dateVal + 'T' + timeVal;
+  // Every timing/numbers input, already typed
+  _readNumberFields() {
+    const num = (key) => {
+      const el = this._fields[key];
+      if (!el) return null;
+      const v = parseFloat(el.value);
+      return isNaN(v) ? null : v;
+    };
+    const int = (key) => {
+      const el = this._fields[key];
+      if (!el) return null;
+      const v = parseInt(el.value);
+      return isNaN(v) ? null : v;
+    };
+    const txt = (key) => {
+      const el = this._fields[key];
+      return el ? String(el.value || '').trim() : '';
+    };
+    return {
+      direction: txt('direction') || 'long',
+      entryDate: txt('entryDate'),
+      entryTime: txt('entryTime'),
+      entryPrice: num('entryPrice'),
+      exitDate: txt('exitDate'),
+      exitTime: txt('exitTime'),
+      exitPrice: num('exitPrice'),
+      shares: int('shares'),
+      fees: num('fees'),
+      plannedRiskR: num('plannedRiskR'),
+      strategy: txt('strategy'),
+      processScore: int('processScore'),
+      date: txt('date')
+    };
   }
 
-  // ---- Populate the date/time inputs from a stored datetime string ----
-  _applyDateTime(which, isoString) {
-    const timeEl = this._fields[which === 'entry' ? 'entryTime' : 'exitTime'];
-    if (timeEl) timeEl.value = '';
-    if (!isoString || !timeEl) return;
+  _renderPnlChips(numbers) {
+    if (numbers.perShare == null || numbers.pnl == null) {
+      this._clearPnl();
+    } else {
+      this._setPnlEl(this.pnlPerShare, Utils.formatCurrency(numbers.perShare) + '/share', numbers.perShare >= 0);
+      this._setPnlEl(this.pnlPercent,
+        numbers.pnlPercent == null ? '—' : Utils.formatPercent(numbers.pnlPercent), numbers.pnlPercent >= 0);
+      this._setPnlEl(this.pnlTotal, Utils.formatCurrency(numbers.pnl), numbers.pnl >= 0);
+      this._setPnlEl(this.realisedREl,
+        numbers.realisedR == null ? '—' : (numbers.realisedR >= 0 ? '+' : '') + numbers.realisedR.toFixed(2) + 'R',
+        numbers.realisedR == null ? null : numbers.realisedR >= 0);
+    }
+    this._setPnlEl(this.durationEl,
+      numbers.durationMin == null ? '—' : JournalCSV.formatDuration(numbers.durationMin), null);
+  }
 
-    // Handles both "2026-09-29T09:31:00" and datetime-local style values
-    const parts = String(isoString).split('T');
-    if (parts.length === 2) {
-      if (this._fields.date && !this._fields.date.value) this._fields.date.value = parts[0];
-      timeEl.value = parts[1].substring(0, 5); // HH:MM
+  // The line under the timing grid: what the two moments add up to
+  _renderTimingHint(numbers) {
+    if (!this.durationHint) return;
+    const bits = [];
+    if (numbers.entryTime && numbers.exitTime) {
+      bits.push(numbers.entryTime + ' → ' + numbers.exitTime +
+        (numbers.rolledExitDate ? ' (next day)' : '') + ' · ' +
+        JournalCSV.formatDuration(numbers.durationMin));
+    }
+    if (numbers.rolledExitDate) bits.push('Crosses midnight — the exit is read as the next calendar day.');
+    if (numbers.entryTime && numbers.exitTime && numbers.durationMin == null) {
+      bits.push('The exit time is before the entry time.');
+    }
+    const entryDate = this._fields.entryDate ? this._fields.entryDate.value : '';
+    const tradeDate = this._fields.date ? this._fields.date.value : '';
+    if (entryDate && tradeDate && entryDate === tradeDate) bits.push('Column A follows the entry date.');
+
+    this.durationHint.textContent = bits.join(' · ');
+    this.durationHint.style.display = bits.length ? 'block' : 'none';
+  }
+
+  // The line under the strip: why a figure is there that the user never typed
+  _renderNumbersHint(numbers) {
+    if (!this.numbersHint) return;
+    const bits = [];
+    if (numbers.assumedShares) {
+      bits.push('No size entered, so 1 share is assumed for this figure — the Numbers panel below holds it; change it to the real size.');
+    }
+    this.numbersHint.textContent = bits.join(' · ');
+    this.numbersHint.style.display = bits.length ? 'block' : 'none';
+  }
+
+  // ---- The 1-share default ------------------------------------------------
+  // Both prices with no size still has a per-share answer, so the Shares field
+  // is filled with 1 instead of being left blank: the strip populates, the
+  // assumption is on screen in the Numbers panel, and the user types over it.
+  // The value lives in the field, so a save stores the same number the strip
+  // showed — the document can never disagree with what was on screen.
+  _applyAssumedShares(numbers) {
+    const el = this._fields.shares;
+    if (!el) return;
+    // The caret is in the field: it belongs to the user, not to us
+    if (typeof document !== 'undefined' && document.activeElement === el) return;
+
+    const current = String(el.value == null ? '' : el.value).trim();
+
+    if (numbers.assumedShares) {
+      if (current) return;                        // a real size is already there
+      el.value = '1';
+      this._sharesAssumed = true;
+      el.title = 'Assumed from the prices: 1 share. Replace it with the real size for a true P&L.';
+      if (el.classList) el.classList.add('tj-input-assumed');
+      this._setTradeSectionOpen(true);            // so the assumed 1 is on screen
       return;
     }
-    if (this._fields.date && String(isoString).length >= 10) {
-      this._fields.date.value = String(isoString).substring(0, 10);
+
+    // A size in the field now ends the assumption, whoever put it there. Only a
+    // 1 that we wrote is ever cleared, and only once the prices behind it are
+    // gone — the one thing that can void the assumption. A size the user typed
+    // drops the flag in the input listener first; a size applied from a draft or
+    // an imported row is left exactly as it is.
+    if (this._sharesAssumed) {
+      const ours = numbers.perShare == null && current === '1';
+      this._dropAssumedSize();
+      if (ours) el.value = '';
     }
   }
 
-  _durationMinutes(startIso, endIso) {
-    if (!startIso || !endIso) return null;
-    const start = new Date(startIso);
-    const end = new Date(endIso);
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
-    const mins = Math.round((end - start) / 60000);
-    return mins >= 0 ? mins : null;
+  // Stop calling the size an assumption (the user typed their own, or the
+  // prices went away)
+  _dropAssumedSize() {
+    this._sharesAssumed = false;
+    const el = this._fields.shares;
+    if (!el) return;
+    el.title = '';
+    if (el.classList) el.classList.remove('tj-input-assumed');
+  }
+
+  // Entry date → column A (the trade date), until the user types their own date
+  _syncTiming(changedKey) {
+    if (changedKey === 'entryDate' && this._fields.date && this._fields.entryDate) {
+      const next = this._fields.entryDate.value;
+      if (next && (!this._fields.date.value || this._fields.date.value === this._lastEntryDate)) {
+        this._fields.date.value = next;
+      }
+      this._lastEntryDate = next;
+    }
+    this._updatePnl();
+  }
+
+  // ---- Populate a date + time pair from a stored moment ----
+  _applyMoment(which, dateValue, timeValue) {
+    const dateEl = this._fields[which === 'entry' ? 'entryDate' : 'exitDate'];
+    const timeEl = this._fields[which === 'entry' ? 'entryTime' : 'exitTime'];
+    if (dateEl) dateEl.value = '';
+    if (timeEl) timeEl.value = '';
+
+    // Both shapes have to load: the current one (a date column plus a time
+    // column, entryTime holding the full moment) and the older one, where the
+    // whole moment sat in the time field alone.
+    const fromDate = JournalCSV.parseMoment(dateValue);
+    const fromTime = JournalCSV.parseMoment(timeValue);
+    const date = fromDate.date || fromTime.date || '';
+    const time = fromDate.time || fromTime.time || '';
+    if (dateEl && date) dateEl.value = date;
+    if (timeEl && time) timeEl.value = time;
+    if (which === 'entry') this._lastEntryDate = dateEl ? dateEl.value : '';
   }
 
   _formatDuration(mins) {
-    if (mins < 60) return mins + 'm';
-    if (mins < 1440) {
-      const h = Math.floor(mins / 60);
-      const m = mins % 60;
-      return m ? `${h}h ${m}m` : `${h}h`;
-    }
-    const d = Math.floor(mins / 1440);
-    const h = Math.floor((mins % 1440) / 60);
-    return h ? `${d}d ${h}h` : `${d}d`;
+    return JournalCSV.formatDuration(mins);
   }
 
   // ==========================================================================
@@ -665,8 +831,12 @@ class TradeJournalApp {
     } else {
       this._currentId = null;
       this._isNewEntry = true;
-      // Default the date to today (matching the Reviews tab behaviour)
-      if (this._fields.date) this._fields.date.value = Utils.todayLocal();
+      // Default the dates to today (matching the Reviews tab behaviour) so the
+      // timing fields and column A start in agreement
+      const today = Utils.todayLocal();
+      if (this._fields.date) this._fields.date.value = today;
+      if (this._fields.entryDate) this._fields.entryDate.value = today;
+      this._lastEntryDate = today;
       this.editorHeading.textContent = 'New journal entry';
       this.editorDeleteBtn.style.display = 'none';
     }
@@ -693,6 +863,22 @@ class TradeJournalApp {
     this._updateSaveStatus('');
   }
 
+  // ---- "＋ New" / "📥 Import" in the editor head ---------------------------
+  // The overlay covers the whole page, so the header's "+ New entry" and
+  // "Import" buttons are out of reach the moment a form is open. These two
+  // start a second entry (or an import) from inside the form; unsaved work is
+  // confirmed first, never dropped silently.
+  async _startAnotherEntry() {
+    if (this._isDirty) {
+      const ok = await this._confirm(
+        'This entry has <b>unsaved changes</b>.<br>' +
+        'Start a new entry and discard them?',
+        { okLabel: 'Discard and start new', danger: true });
+      if (!ok) return;
+    }
+    this.openEditor(null);
+  }
+
   _clearForm() {
     Object.keys(this._fields).forEach(key => {
       const el = this._fields[key];
@@ -710,7 +896,14 @@ class TradeJournalApp {
     this._tags = [];
     this._renderTagChips();
     this._outcomeTouched = false;
+    this._lastEntryDate = '';
     this._setTradeSectionOpen(false);
+    this._dropAssumedSize();
+    if (this.durationHint) {
+      this.durationHint.textContent = '';
+      this.durationHint.style.display = 'none';
+    }
+    this._clearPnl();
 
     if (this._quill) this._quill.setContents([{ insert: '\n' }], 'silent');
   }
@@ -728,16 +921,18 @@ class TradeJournalApp {
       this._fields.category.innerHTML = JournalCategories.buildCategoryOptionsHtml(entry.category || '');
     }
 
-    // 2) Numbers
+    // 2) Timing, prices and the numbers behind the trade
     const td = entry.tradeData || {};
     if (this._fields.direction && td.direction) this._fields.direction.value = td.direction;
     ['entryPrice', 'exitPrice', 'shares', 'strategy', 'fees', 'plannedRiskR'].forEach(k => {
       const el = this._fields[k];
       if (el && td[k] != null) el.value = td[k];
     });
-    this._applyDateTime('entry', td.entryTime);
-    this._applyDateTime('exit', td.exitTime);
-    this._setTradeSectionOpen(!!entry.tradeData);
+    this._applyMoment('entry', td.entryDate, td.entryTime);
+    this._applyMoment('exit', td.exitDate, td.exitTime);
+
+    // The collapsed Numbers panel only holds size, costs and the planned risk now
+    this._setTradeSectionOpen(!!(td.shares != null || td.fees != null || td.plannedRiskR != null || td.strategy));
 
     // 3) Mentor advice
     const mentor = entry.mentor || {};
@@ -793,55 +988,21 @@ class TradeJournalApp {
       console.warn('[TradeJournal] Category is not in the sheet vocabulary:', doc.category);
     }
 
-    // 2) Numbers
-    const num = (key) => {
-      const el = this._fields[key];
-      if (!el) return null;
-      const v = parseFloat(el.value);
-      return isNaN(v) ? null : v;
-    };
-    const int = (key) => {
-      const el = this._fields[key];
-      if (!el) return null;
-      const v = parseInt(el.value);
-      return isNaN(v) ? null : v;
-    };
+    // 2) Timing, prices and the numbers behind the trade — built by the one
+    //    shared implementation in js/journal-csv.js that the CSV import uses too
+    const values = this._readNumberFields();
+    const built = this._buildTradeData(values, doc.date);
+    doc.tradeData = built.tradeData;
 
-    const direction = this._fields.direction ? this._fields.direction.value : 'long';
-    const entryPrice = num('entryPrice');
-    const exitPrice = num('exitPrice');
-    const shares = int('shares');
-    const fees = num('fees');
-    const plannedRiskR = num('plannedRiskR');
+    // Column A is the trade date: it follows the entry date unless the user
+    // typed their own
+    if (!doc.date && built.numbers.entryDate) doc.date = built.numbers.entryDate;
 
-    let pnl = null;
-    let pnlPercent = null;
-    if (entryPrice != null && exitPrice != null && shares != null && entryPrice !== 0) {
-      const perSharePnl = direction === 'long' ? exitPrice - entryPrice : entryPrice - exitPrice;
-      pnl = perSharePnl * shares - (fees != null ? fees : 0);
-      pnlPercent = (perSharePnl / entryPrice) * 100;
+    // Column L stays a faithful restatement of the numbers
+    if (!doc.outcome) {
+      const derived = JournalCSV.outcomeText(built.numbers);
+      if (derived) doc.outcome = derived;
     }
-
-    const entryTime = this._combineDateTime(doc.date, this._fields.entryTime ? this._fields.entryTime.value : '');
-    const exitTime = this._combineDateTime(doc.date, this._fields.exitTime ? this._fields.exitTime.value : '');
-    const durationMin = this._durationMinutes(entryTime, exitTime);
-    const realisedR = (pnl != null && plannedRiskR && plannedRiskR > 0) ? pnl / plannedRiskR : null;
-
-    doc.tradeData = {
-      direction,
-      entryPrice,
-      exitPrice,
-      shares,
-      strategy: this._fields.strategy ? (this._fields.strategy.value.trim() || null) : null,
-      fees,
-      plannedRiskR,
-      entryTime,
-      exitTime,
-      pnl,
-      pnlPercent,
-      durationMin,
-      realisedR
-    };
 
     // 3) AI-mentor advice (who said it, what they said, has it been applied)
     doc.mentor = {
@@ -863,7 +1024,7 @@ class TradeJournalApp {
 
     // 5) Meta
     doc.tags = this._tags.length ? [...this._tags] : [];
-    doc.processScore = int('processScore');
+    doc.processScore = values.processScore;
     doc.symbol = doc.ticker ? doc.ticker.toUpperCase() : null;
     const hint = document.getElementById('tj-ticker-hint');
     doc.companyName = hint ? (hint.textContent || null) : null;
@@ -1036,10 +1197,20 @@ class TradeJournalApp {
     this._applyFilters();
   }
 
-  _confirmDelete(htmlMessage) {
+  // ---- Generic confirm dialog (delete, import and discard all reuse it) ----
+  // opts: { okLabel, cancelLabel, danger }
+  _confirm(htmlMessage, opts = {}) {
     this.confirmText.innerHTML = htmlMessage;
+    this.confirmOkBtn.textContent = opts.okLabel || 'Yes';
+    this.confirmCancelBtn.textContent = opts.cancelLabel || 'Cancel';
+    this.confirmOkBtn.className = 'btn btn-sm ' + (opts.danger === false ? 'btn-primary' : 'btn-danger');
     this.confirmOverlay.style.display = 'flex';
     return new Promise(resolve => { this._confirmResolve = resolve; });
+  }
+
+  // Delete keeps its own name so the two call sites stay readable
+  _confirmDelete(htmlMessage) {
+    return this._confirm(htmlMessage, { okLabel: '🗑️ Delete', danger: true });
   }
 
   _resolveConfirm(result) {
@@ -1177,10 +1348,10 @@ class TradeJournalApp {
     if (td.direction && this._fields.direction) this._fields.direction.value = td.direction;
     ['entryPrice', 'exitPrice', 'shares', 'strategy'].forEach(k => setIf(k, td[k]));
     if (td.fees != null) setIf('fees', td.fees);
-    if (td.entryTime || td.exitTime) {
-      this._setTradeSectionOpen(true);
-      this._applyDateTime('entry', td.entryTime);
-      this._applyDateTime('exit', td.exitTime);
+    if (td.entryTime || td.exitTime || td.entryDate || td.exitDate) {
+      this._applyMoment('entry', td.entryDate, td.entryTime);
+      this._applyMoment('exit', td.exitDate, td.exitTime);
+      if (td.shares != null || td.fees != null || td.plannedRiskR != null) this._setTradeSectionOpen(true);
     }
 
     // Review hand-off: remember the id and show the read-only panel
@@ -1382,10 +1553,13 @@ class TradeJournalApp {
           `spreadsheet columns, the numbers behind the trade, and an optional annotated deep dive.</div>` +
           `<div class="tj-empty-actions">` +
           `<button type="button" class="btn btn-primary" id="tj-empty-new">+ Add your first entry</button>` +
+          `<button type="button" class="btn btn-secondary" id="tj-empty-import">📥 Import a CSV</button>` +
           `<button type="button" class="btn btn-secondary" id="tj-empty-sample">See an example entry</button>` +
           `</div>`;
         const newBtn = document.getElementById('tj-empty-new');
         if (newBtn) newBtn.addEventListener('click', () => this.openEditor(null));
+        const importBtn = document.getElementById('tj-empty-import');
+        if (importBtn) importBtn.addEventListener('click', () => this.openImport());
         const sampleBtn = document.getElementById('tj-empty-sample');
         if (sampleBtn) sampleBtn.addEventListener('click', () => this._loadSampleIntoForm());
       }
@@ -1402,6 +1576,24 @@ class TradeJournalApp {
 
     const cells = cols.map(c => {
       switch (c.key) {
+        case 'date': {
+          // The trade date, with the timing and the time in trade under it
+          const numbers = JournalCSV.computeTradeNumbers({
+            direction: td.direction, entryDate: td.entryDate, entryTime: td.entryTime,
+            exitDate: td.exitDate, exitTime: td.exitTime,
+            entryPrice: td.entryPrice, exitPrice: td.exitPrice, shares: td.shares,
+            fees: td.fees, plannedRiskR: td.plannedRiskR, defaultDate: entry.date
+          });
+          const timing = JournalCSV.describeTiming(numbers);
+          if (!entry.date && !timing) return `<td class="tj-muted">—</td>`;
+          const main = entry.date ? `<div class="tj-cell-main">${JournalText.esc(entry.date)}</div>` : '';
+          const sub = timing
+            ? `<div class="tj-cell-sub" title="Entry time → exit time and time in trade">${JournalText.esc(timing)}</div>`
+            : '';
+          if (!entry.date) return `<td><div class="tj-cell-sub">${JournalText.esc(timing)}</div></td>`;
+          return `<td>${main}${sub}</td>`;
+        }
+
         case 'category': {
           if (!entry.category) return `<td class="tj-muted">—</td>`;
           const label = (meta ? meta.icon + ' ' : '') + entry.category;
@@ -1824,6 +2016,473 @@ class TradeJournalApp {
   }
 
   // ==========================================================================
+  // CSV IMPORT — "Import" in the header (js/journal-csv.js does the reading)
+  // ==========================================================================
+  // Three ways in, all optional: drop a file, choose a file, or paste text. The
+  // preview shows exactly what would be written, including every warning, and
+  // nothing is saved until the Import button is pressed.
+  _bindImportDialog() {
+    if (!this.importOverlay) return;
+    const $ = (id) => document.getElementById(id);
+
+    $('tj-import-close').addEventListener('click', () => this.closeImport());
+    this.importOverlay.addEventListener('click', (e) => {
+      if (e.target === this.importOverlay) this.closeImport();
+    });
+
+    // Drag and drop onto the drop zone
+    ['dragenter', 'dragover'].forEach(evt => this.importDrop.addEventListener(evt, (e) => {
+      e.preventDefault();
+      this.importDrop.classList.add('hover');
+    }));
+    ['dragleave', 'drop'].forEach(evt => this.importDrop.addEventListener(evt, (e) => {
+      e.preventDefault();
+      this.importDrop.classList.remove('hover');
+    }));
+    this.importDrop.addEventListener('drop', (e) => {
+      const file = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files[0] : null;
+      if (file) this._readImportFile(file);
+    });
+
+    $('tj-import-pick').addEventListener('click', () => this.importFile.click());
+    this.importFile.addEventListener('change', () => {
+      const file = this.importFile.files ? this.importFile.files[0] : null;
+      if (file) this._readImportFile(file);
+    });
+
+    // Pasted text is read on demand (and re-read when it changes)
+    this.importPaste.addEventListener('input', () => this._resetImportPreview());
+    $('tj-import-preview').addEventListener('click', () => this._readImportText(this.importPaste.value));
+    $('tj-import-clear').addEventListener('click', () => {
+      this.importPaste.value = '';
+      this._resetImportPreview();
+    });
+
+    $('tj-import-example').addEventListener('click', () => {
+      this.importPaste.value = JournalCSV.buildExample();
+      this._readImportText(this.importPaste.value);
+      Utils.showToast('Example CSV loaded — press Import to keep it');
+    });
+    $('tj-import-download').addEventListener('click', () => {
+      const name = JournalCSV.downloadExample();
+      Utils.showToast('Example CSV downloaded: ' + name);
+    });
+    $('tj-import-copy').addEventListener('click', async () => {
+      const ok = await Utils.copyToClipboard(JournalCSV.buildExample());
+      Utils.showToast(ok ? 'Example CSV copied' : 'Could not copy — use Download instead', ok ? 'success' : 'error');
+    });
+
+    this.importRunBtn.addEventListener('click', () => this._importEntries());
+    this.importLoadFormBtn.addEventListener('click', () => this._loadImportRowIntoForm());
+  }
+
+  openImport(prefillText) {
+    if (!this.importOverlay) return;
+    if (this.draftOverlay) this.draftOverlay.style.display = 'none';
+    this.importOverlay.style.display = 'flex';
+
+    if (typeof prefillText === 'string' && prefillText.trim()) {
+      this.importPaste.value = prefillText;
+      this._readImportText(prefillText);
+    } else if (!this.importPaste.value.trim()) {
+      this._resetImportPreview();
+    }
+    this.importPaste.focus();
+  }
+
+  closeImport() {
+    if (this.importOverlay) this.importOverlay.style.display = 'none';
+  }
+
+  _readImportFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || '');
+      this.importPaste.value = text;
+      Utils.showToast('Read ' + file.name);
+      this._readImportText(text);
+    };
+    reader.onerror = () => Utils.showToast('Could not read that file', 'error');
+    reader.readAsText(file);
+  }
+
+  // Parse the paste box and show what would be imported
+  _readImportText(text) {
+    const source = String(text == null ? '' : text);
+    if (!source.trim()) {
+      this._resetImportPreview();
+      if (this.importSummary) this.importSummary.textContent = 'Nothing to read yet.';
+      return null;
+    }
+
+    let result;
+    try {
+      result = JournalCSV.toEntries(source, { defaultDate: Utils.todayLocal() });
+    } catch (e) {
+      console.error('[TradeJournal] CSV read failed:', e);
+      this._resetImportPreview();
+      if (this.importSummary) this.importSummary.textContent = 'That CSV could not be read: ' + e.message;
+      return null;
+    }
+
+    this._importResult = result;
+    this._renderImportPreview(result);
+    return result;
+  }
+
+  _renderImportPreview(result) {
+    const n = result.entries.length;
+    if (this.importSummary) {
+      this.importSummary.textContent = JournalCSV.summary(result) +
+        ' — ' + (n ? 'ready to import' : 'nothing importable');
+    }
+
+    // Notes: they never block an import, they explain what was read
+    const warnings = result.warnings || [];
+    if (this.importWarnings) {
+      if (warnings.length) {
+        this.importWarnings.style.display = 'block';
+        this.importWarnings.innerHTML =
+          '<div class="tj-warn-title">' + warnings.length + (warnings.length === 1 ? ' note' : ' notes') + '</div>' +
+          '<ul>' + warnings.slice(0, 40).map(w => '<li>' + JournalText.esc(w) + '</li>').join('') + '</ul>' +
+          (warnings.length > 40 ? '<div class="tj-muted tj-small">…and ' + (warnings.length - 40) + ' more</div>' : '');
+      } else {
+        this.importWarnings.style.display = 'none';
+        this.importWarnings.innerHTML = '';
+      }
+    }
+
+    // One preview row per parsed entry, so the numbers are visible before saving
+    if (n && this.importPreviewWrap && this.importPreviewBody) {
+      this.importPreviewWrap.style.display = 'block';
+      this.importPreviewBody.innerHTML = result.preview.map(p => {
+        const cls = p.pnl == null ? 'tj-muted' : (p.pnl >= 0 ? 'positive' : 'negative');
+        const cat = p.category ? JournalCategories.iconFor(p.category) + ' ' + p.category : '—';
+        const price = (v) => (v == null ? '—' : String(v));
+        return '<tr>' +
+          '<td class="tj-muted">' + JournalText.esc(p.line == null ? '' : String(p.line)) + '</td>' +
+          '<td>' + JournalText.esc(p.date || '—') + '</td>' +
+          '<td>' + JournalText.esc(p.ticker || '—') + '</td>' +
+          '<td title="' + JournalText.esc(p.category || '') + '">' + JournalText.esc(cat) + '</td>' +
+          '<td>' + JournalText.esc(p.direction) + '</td>' +
+          '<td>' + JournalText.esc(p.timing || '—') + '</td>' +
+          '<td class="tj-num">' + JournalText.esc(price(p.entryPrice)) + '</td>' +
+          '<td class="tj-num">' + JournalText.esc(price(p.exitPrice)) + '</td>' +
+          '<td class="tj-num ' + cls + '">' + JournalText.esc(p.pnlText || '—') + '</td>' +
+          '</tr>';
+      }).join('');
+    } else if (this.importPreviewWrap && this.importPreviewBody) {
+      this.importPreviewWrap.style.display = 'none';
+      this.importPreviewBody.innerHTML = '';
+    }
+
+    if (this.importRunBtn) {
+      this.importRunBtn.disabled = n === 0;
+      this.importRunBtn.textContent = 'Import ' + n + (n === 1 ? ' entry' : ' entries');
+    }
+    if (this.importLoadFormBtn) this.importLoadFormBtn.disabled = n === 0;
+  }
+
+  _resetImportPreview() {
+    this._importResult = null;
+    if (this.importSummary) this.importSummary.textContent = '';
+    if (this.importWarnings) {
+      this.importWarnings.style.display = 'none';
+      this.importWarnings.innerHTML = '';
+    }
+    if (this.importPreviewWrap) this.importPreviewWrap.style.display = 'none';
+    if (this.importPreviewBody) this.importPreviewBody.innerHTML = '';
+    if (this.importRunBtn) {
+      this.importRunBtn.disabled = true;
+      this.importRunBtn.textContent = 'Import 0 entries';
+    }
+    if (this.importLoadFormBtn) this.importLoadFormBtn.disabled = true;
+  }
+
+  // Write every parsed row as its own journal entry
+  async _importEntries() {
+    const result = this._importResult || this._readImportText(this.importPaste.value);
+    if (!result || !result.entries.length) {
+      Utils.showToast('Nothing to import — read the rows first', 'error');
+      return;
+    }
+
+    const n = result.entries.length;
+    const ok = await this._confirm(
+      'Import <b>' + n + '</b> ' + (n === 1 ? 'entry' : 'entries') + ' into the journal?<br>' +
+      'Each row becomes its own entry, with the P&amp;L, the duration and the R-multiple computed from its own numbers.',
+      { okLabel: '📥 Import ' + n, danger: false }
+    );
+    if (!ok) return;
+
+    this.importRunBtn.disabled = true;
+    this.importRunBtn.textContent = 'Importing…';
+    const stamp = new Date().toISOString();
+    let saved = 0;
+    let failed = 0;
+
+    for (let i = 0; i < result.entries.length; i++) {
+      const doc = Object.assign({}, result.entries[i], { createdAt: stamp });
+      try {
+        const id = await dataStore.saveJournalEntry(doc, null);
+        if (id) saved++; else failed++;
+      } catch (e) {
+        console.error('[TradeJournal] Import of row ' + (i + 1) + ' failed:', e);
+        failed++;
+      }
+    }
+
+    this.closeImport();
+    await this.loadEntries(false);
+    const msg = 'Imported ' + saved + (saved === 1 ? ' entry' : ' entries') + (failed ? ' — ' + failed + ' failed' : '');
+    Utils.showToast(msg, failed ? 'error' : 'success');
+    this._updateSaveStatus(msg);
+  }
+
+  // Take one parsed row into the editor so it can be checked before saving
+  _loadImportRowIntoForm() {
+    const result = this._importResult || this._readImportText(this.importPaste.value);
+    if (!result || !result.entries.length) {
+      Utils.showToast('Read the rows first', 'error');
+      return;
+    }
+
+    const entry = result.entries[0];
+    this.closeImport();
+    this.openEditor(null);
+    this._fillForm(entry);
+
+    // The outcome text came from the CSV, not from the user's own typing, so it
+    // keeps following the numbers until they edit it themselves
+    this._outcomeTouched = false;
+    this._updatePnl();
+    this._markDirty();
+    Utils.showToast('Row 1 loaded into the form — check it, then Save');
+  }
+
+  // ==========================================================================
+  // DRAFT HELPER — "Draft" in the header (js/journal-draft.js, offline)
+  // ==========================================================================
+  // Tab 1 writes a guided skeleton from the facts in the form. Tab 2 hands the
+  // job to whatever AI chat the user already has: it writes the prompt, shows
+  // the exact CSV format, and pipes the answer straight back into Import.
+  _bindDraftDialog() {
+    if (!this.draftOverlay) return;
+    const $ = (id) => document.getElementById(id);
+
+    $('tj-draft-close').addEventListener('click', () => this.closeDraft());
+    $('tj-draft-close-foot').addEventListener('click', () => this.closeDraft());
+    this.draftOverlay.addEventListener('click', (e) => {
+      if (e.target === this.draftOverlay) this.closeDraft();
+    });
+
+    this.draftTabs.forEach(tab => tab.addEventListener('click', () => this._switchDraftTab(tab.dataset.draftTab)));
+
+    $('tj-draft-generate').addEventListener('click', () => this._generateDraft());
+    $('tj-draft-clear').addEventListener('click', () => {
+      Object.keys(this.draftInputs).forEach(k => {
+        const el = this.draftInputs[k];
+        if (el) el.value = '';
+      });
+      this._draftResult = null;
+      this._renderDraftFields(null);
+      this._renderDraftNotes([]);
+      this._refreshDraftPrompt();
+    });
+    this.draftApplyBtn.addEventListener('click', () => this._applyDraft());
+
+    $('tj-draft-copy-prompt').addEventListener('click', () => this._copyDraftPrompt());
+    $('tj-draft-refresh-prompt').addEventListener('click', () => this._refreshDraftPrompt());
+    $('tj-draft-copy-example').addEventListener('click', () => this._copyDraftExample());
+    $('tj-draft-download-example').addEventListener('click', () => this._downloadDraftExample());
+    $('tj-draft-to-import').addEventListener('click', () => this._sendDraftToImport());
+  }
+
+  openDraft() {
+    if (!this.draftOverlay) return;
+    this.draftOverlay.style.display = 'flex';
+    this._switchDraftTab(this._draftTab || 'skeleton');
+    this._refreshDraftPrompt();
+  }
+
+  closeDraft() {
+    if (this.draftOverlay) this.draftOverlay.style.display = 'none';
+  }
+
+  _switchDraftTab(tab) {
+    this._draftTab = tab === 'prompt' ? 'prompt' : 'skeleton';
+    this.draftTabs.forEach(t => t.classList.toggle('active', t.dataset.draftTab === this._draftTab));
+    if (this.draftPanelSkeleton) this.draftPanelSkeleton.style.display = this._draftTab === 'skeleton' ? 'block' : 'none';
+    if (this.draftPanelPrompt) this.draftPanelPrompt.style.display = this._draftTab === 'prompt' ? 'block' : 'none';
+    if (this._draftTab === 'prompt') this._refreshDraftPrompt();
+  }
+
+  // The facts the helper builds from: the form's own values plus whatever was
+  // typed in the dialog. Nothing is invented when a field is empty.
+  _draftInput() {
+    const values = this._readNumberFields();
+    const v = this.draftInputs || {};
+    const read = (el) => (el ? String(el.value || '').trim() : '');
+    const field = (key) => (this._fields[key] ? String(this._fields[key].value || '').trim() : '');
+    return Object.assign({}, values, {
+      // A size the journal assumed is not a size the user gave, so the helper is
+      // told there is none: it says so instead of quoting a fake 1-share result
+      shares: this._sharesAssumed ? '' : values.shares,
+      ticker: field('ticker'),
+      timeframe: field('timeframe'),
+      setup: field('setup'),
+      category: field('category'),
+      processScore: field('processScore'),
+      facts: read(v.facts),
+      expected: read(v.expected),
+      didInstead: read(v.didInstead),
+      context: read(v.context),
+      stopPrice: read(v.stopPrice)
+    });
+  }
+
+  _generateDraft() {
+    this._draftResult = JournalDraft.build(this._draftInput());
+
+    const notes = this._draftResult.notes.slice();
+    if (!this._isEditorOpen()) {
+      notes.unshift('The entry editor was closed, so this draft was built from the values left in the form. ' +
+        'Apply it to open an entry, and check the ticker, the category and the prices first.');
+    }
+
+    this._renderDraftFields(this._draftResult);
+    this._renderDraftNotes(notes);
+    this._refreshDraftPrompt();
+    Utils.showToast(this._draftResult.fields.length + ' fields drafted — untick anything you disagree with');
+  }
+
+  // The editor is the only place the draft can write to
+  _isEditorOpen() {
+    return !!(this.editorOverlay && this.editorOverlay.style.display !== 'none');
+  }
+
+  _renderDraftFields(result) {
+    if (!this.draftFields) return;
+    const fields = (result && result.fields) ? result.fields : [];
+    if (!fields.length) {
+      this.draftFields.innerHTML = '<div class="tj-muted tj-small">Nothing generated yet.</div>';
+      if (this.draftApplyBtn) this.draftApplyBtn.disabled = true;
+      return;
+    }
+
+    this.draftFields.innerHTML = fields.map(f => {
+      const existing = this._fields[f.key] && this._fields[f.key].value.trim();
+      const tags = (f.focus ? '<span class="tj-badge tj-badge-ok">most important for this category</span>' : '') +
+        (existing ? '<span class="tj-badge tj-muted">the form already has text here</span>' : '');
+      return '<div class="tj-draft-field">' +
+        '<label class="tj-draft-head">' +
+          '<input type="checkbox" data-draft-use="' + JournalText.esc(f.key) + '" checked>' +
+          '<b>' + JournalText.esc(f.letter + ' · ' + f.label) + '</b>' + tags +
+        '</label>' +
+        '<textarea class="tj-input tj-draft-text" data-draft-text="' + JournalText.esc(f.key) + '" rows="4">' +
+          JournalText.esc(f.text) +
+        '</textarea>' +
+        '</div>';
+    }).join('');
+
+    if (this.draftApplyBtn) this.draftApplyBtn.disabled = false;
+  }
+
+  _renderDraftNotes(notes) {
+    if (!this.draftNotes) return;
+    const list = notes || [];
+    if (!list.length) {
+      this.draftNotes.style.display = 'none';
+      this.draftNotes.innerHTML = '';
+      return;
+    }
+    this.draftNotes.style.display = 'block';
+    this.draftNotes.innerHTML = '<div class="tj-warn-title">What the numbers say</div><ul>' +
+      list.map(n => '<li>' + JournalText.esc(n) + '</li>').join('') + '</ul>';
+  }
+
+  _applyDraft() {
+    if (!this.draftFields) return;
+
+    // Collect first: opening the editor clears the form, so nothing may be
+    // written until the editor is up
+    const picked = [];
+    Array.from(this.draftFields.querySelectorAll('[data-draft-use]')).forEach(box => {
+      if (!box.checked) return;
+      const key = box.dataset.draftUse;
+      const area = this.draftFields.querySelector('[data-draft-text="' + key + '"]');
+      const text = area ? String(area.value).trim() : '';
+      if (text) picked.push({ key, text });
+    });
+
+    if (!picked.length) {
+      Utils.showToast('Tick at least one field with text in it', 'error');
+      return;
+    }
+
+    this.closeDraft();
+    if (!this._isEditorOpen()) this.openEditor(null);
+
+    let applied = 0;
+    let overwritten = 0;
+    picked.forEach(item => {
+      const el = this._fields[item.key];
+      if (!el) return;
+      if (el.value.trim()) overwritten++;
+      el.value = item.text;
+      applied++;
+    });
+
+    this._markDirty();
+    this._updatePnl();
+    Utils.showToast('Applied ' + applied + (applied === 1 ? ' field' : ' fields') +
+      (overwritten ? ' — ' + overwritten + ' replaced existing text' : ''));
+  }
+
+  // ---- Tab 2: the prompt and the round trip through the user's own AI ----
+  _refreshDraftPrompt() {
+    if (!this.draftPromptBox) return;
+    try {
+      this.draftPromptBox.value = JournalDraft.prompt(this._draftInput());
+    } catch (e) {
+      console.error('[TradeJournal] Could not build the draft prompt:', e);
+      this.draftPromptBox.value = 'Could not build the prompt — see the console.';
+    }
+  }
+
+  async _copyDraftPrompt() {
+    this._refreshDraftPrompt();
+    const ok = await Utils.copyToClipboard(this.draftPromptBox.value);
+    Utils.showToast(ok ? 'Prompt copied — paste it into your chat' : 'Could not copy the prompt', ok ? 'success' : 'error');
+  }
+
+  async _copyDraftExample() {
+    const ok = await Utils.copyToClipboard(JournalCSV.buildExample());
+    Utils.showToast(ok ? 'Example CSV copied' : 'Could not copy — use Download instead', ok ? 'success' : 'error');
+  }
+
+  _downloadDraftExample() {
+    const name = JournalCSV.downloadExample();
+    Utils.showToast('Example CSV downloaded: ' + name);
+  }
+
+  // The answer from the chat comes back in through the same paste box the CSV
+  // import uses, so the letters are read by exactly the same parser
+  _sendDraftToImport() {
+    const text = this.draftAnswerBox ? this.draftAnswerBox.value.trim() : '';
+    if (!text) {
+      Utils.showToast('Paste the CSV your chat wrote back first', 'error');
+      return;
+    }
+    this.openImport(text);
+  }
+
+
+
+
+
+  // ==========================================================================
   // Example entry (empty-state helper)
   // ==========================================================================
   // Fills the editor with one realistic completed row so a first-time user can
@@ -1864,16 +2523,19 @@ class TradeJournalApp {
     set('adviceStatus', 'not-applied');
     set('processScore', '3');
 
-    // The numbers behind the trade (the panel is opened so they are visible)
+    // The numbers behind the trade (timing + prices are the visible section)
     set('direction', 'long');
+    set('entryDate', Utils.todayLocal());
+    set('entryTime', '09:41');
     set('entryPrice', '178.40');
+    set('exitDate', Utils.todayLocal());
+    set('exitTime', '09:47');
     set('exitPrice', '177.55');
     set('shares', '120');
     set('fees', '2.10');
     set('plannedRiskR', '150');
-    set('entryTime', '09:41');
-    set('exitTime', '09:47');
     set('strategy', 'ORB — momentum continuation');
+    this._lastEntryDate = Utils.todayLocal();
 
     // Tags
     this._tags = ['chase', 'opening-range'];

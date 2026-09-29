@@ -37,6 +37,10 @@
         <span class="tj-badge tj-badge-muted" id="tj-cloud-badge" title="Checking the cloud connection…">…</span>
         <span class="tj-save-status" id="tj-save-status"></span>
         <button class="btn btn-secondary btn-sm" id="tj-btn-refresh" type="button" title="Reload entries from the cloud">🔄 Refresh</button>
+        <button class="btn btn-secondary btn-sm" id="tj-btn-import" type="button"
+          title="Import trade journal entries from a CSV file or pasted text (columns A–Z)">📥 Import</button>
+        <button class="btn btn-secondary btn-sm" id="tj-btn-draft" type="button"
+          title="Draft the write-up from the facts in this form — runs entirely in this page">✍️ Draft</button>
         <button class="btn btn-primary" id="tj-btn-new" type="button">+ New entry</button>
         <button class="btn btn-icon" id="tj-btn-theme" type="button" title="Toggle light/dark mode">☀️</button>
         <a class="btn btn-secondary btn-sm" href="index.html" title="Back to the main dashboard">↩ Main app</a>
@@ -150,6 +154,10 @@
           <span class="tj-dirty" id="tj-editor-dirty" style="display:none;">● unsaved</span>
           <div class="tj-editor-head-right">
             <button class="btn btn-icon" id="tj-btn-fullscreen" type="button" title="Full screen">⛶</button>
+            <button class="btn btn-secondary btn-sm" id="tj-editor-new" type="button"
+              title="Start another entry without leaving this form — unsaved changes are confirmed first">＋ New</button>
+            <button class="btn btn-secondary btn-sm" id="tj-editor-import" type="button"
+              title="Read a CSV into the journal without leaving this form">📥 Import</button>
             <button class="btn btn-danger btn-sm" id="tj-btn-delete-editor" type="button" style="display:none;">🗑️ Delete</button>
             <button class="btn btn-secondary btn-sm" id="tj-btn-close-editor" type="button">Close</button>
             <button class="btn btn-primary btn-sm" id="tj-btn-save-editor" type="button">💾 Save</button>
@@ -249,29 +257,67 @@
             </div>
           </div>
 
-          <!-- ===== Numbers behind the trade (feeds Outcome, duration, R) ===== -->
-          <div class="tj-section-bar">
-            <button class="btn btn-secondary btn-sm" id="tj-btn-toggle-trade" type="button">Numbers ▼</button>
-            <span class="tj-muted tj-small">Optional, but they compute Outcome, duration and the R-multiple.</span>
-          </div>
-
-          <div class="tj-trade-section" id="tj-trade-section" style="display:none;">
+          <!-- ===== Timing & prices — columns N–T, always visible =====
+               These are the fields that drive the duration, the net P&L and the
+               R-multiple, so they are not hidden behind the Numbers toggle. -->
+          <h3 class="tj-subhead">
+            Timing &amp; prices
+            <span class="tj-muted tj-small">— columns N–T: direction, the two moments and the two fills</span>
+          </h3>
+          <div class="tj-timing">
             <div class="tj-form-grid">
               <div class="tj-field">
-                <label for="tj-field-direction">Direction</label>
+                <label for="tj-field-direction">N · Direction</label>
                 <select id="tj-field-direction" data-field="direction">
                   <option value="long">Long</option>
                   <option value="short">Short</option>
                 </select>
               </div>
               <div class="tj-field">
-                <label for="tj-field-entryPrice">Entry price</label>
+                <label for="tj-field-entryDate">O · Entry date</label>
+                <input type="date" id="tj-field-entryDate" data-field="entryDate">
+              </div>
+              <div class="tj-field">
+                <label for="tj-field-entryTime">P · Entry time</label>
+                <input type="time" id="tj-field-entryTime" data-field="entryTime">
+              </div>
+              <div class="tj-field">
+                <label for="tj-field-entryPrice">Q · Entry price</label>
                 <input type="number" id="tj-field-entryPrice" data-field="entryPrice" step="0.01" placeholder="178.40">
               </div>
               <div class="tj-field">
-                <label for="tj-field-exitPrice">Exit price</label>
+                <label for="tj-field-exitDate">R · Exit date <span class="tj-muted tj-small">— only when the trade runs past midnight</span></label>
+                <input type="date" id="tj-field-exitDate" data-field="exitDate">
+              </div>
+              <div class="tj-field">
+                <label for="tj-field-exitTime">S · Exit time</label>
+                <input type="time" id="tj-field-exitTime" data-field="exitTime">
+              </div>
+              <div class="tj-field">
+                <label for="tj-field-exitPrice">T · Exit price</label>
                 <input type="number" id="tj-field-exitPrice" data-field="exitPrice" step="0.01" placeholder="177.55">
               </div>
+            </div>
+
+            <div class="tj-chips tj-pnl-strip">
+              <span class="tj-chip"><span class="tj-chip-label">Net P&amp;L</span><span class="tj-chip-value tj-pnl-value" id="tj-pnl-total">—</span></span>
+              <span class="tj-chip"><span class="tj-chip-label">Return</span><span class="tj-chip-value tj-pnl-value" id="tj-pnl-percent">—</span></span>
+              <span class="tj-chip"><span class="tj-chip-label">Per share</span><span class="tj-chip-value tj-pnl-value" id="tj-pnl-per-share">—</span></span>
+              <span class="tj-chip"><span class="tj-chip-label">In trade</span><span class="tj-chip-value" id="tj-duration">—</span></span>
+              <span class="tj-chip"><span class="tj-chip-label">Realised R</span><span class="tj-chip-value tj-pnl-value" id="tj-realised-r">—</span></span>
+            </div>
+            <div class="tj-hint-line" id="tj-numbers-hint"></div>
+            <div class="tj-hint-line" id="tj-duration-hint"></div>
+          </div>
+
+          <!-- ===== Numbers behind the trade (size, costs, planned risk) ===== -->
+          <div class="tj-section-bar">
+            <button class="btn btn-secondary btn-sm" id="tj-btn-toggle-trade" type="button">Numbers ▼</button>
+            <span class="tj-muted tj-small">Optional — size, costs and the planned 1R behind the R-multiple. Both prices with no size default to 1 share.</span>
+          </div>
+
+          <div class="tj-trade-section" id="tj-trade-section" style="display:none;">
+            <div class="tj-form-grid">
               <div class="tj-field">
                 <label for="tj-field-shares">Shares</label>
                 <input type="number" id="tj-field-shares" data-field="shares" step="1" min="0" placeholder="120">
@@ -285,25 +331,9 @@
                 <input type="number" id="tj-field-plannedRiskR" data-field="plannedRiskR" step="0.01" placeholder="150">
               </div>
               <div class="tj-field">
-                <label for="tj-field-entryTime">Entry time</label>
-                <input type="time" id="tj-field-entryTime" data-field="entryTime">
-              </div>
-              <div class="tj-field">
-                <label for="tj-field-exitTime">Exit time</label>
-                <input type="time" id="tj-field-exitTime" data-field="exitTime">
-              </div>
-              <div class="tj-field tj-field-full">
-                <label for="tj-field-strategy">Strategy label</label>
+                <label for="tj-field-strategy">X · Strategy label</label>
                 <input type="text" id="tj-field-strategy" data-field="strategy" placeholder="ORB — momentum continuation">
               </div>
-            </div>
-
-            <div class="tj-chips tj-pnl-strip">
-              <span class="tj-chip"><span class="tj-chip-label">Net P&amp;L</span><span class="tj-chip-value tj-pnl-value" id="tj-pnl-total">—</span></span>
-              <span class="tj-chip"><span class="tj-chip-label">Return</span><span class="tj-chip-value tj-pnl-value" id="tj-pnl-percent">—</span></span>
-              <span class="tj-chip"><span class="tj-chip-label">Per share</span><span class="tj-chip-value tj-pnl-value" id="tj-pnl-per-share">—</span></span>
-              <span class="tj-chip"><span class="tj-chip-label">In trade</span><span class="tj-chip-value" id="tj-duration">—</span></span>
-              <span class="tj-chip"><span class="tj-chip-label">Realised R</span><span class="tj-chip-value tj-pnl-value" id="tj-realised-r">—</span></span>
             </div>
           </div>
 
@@ -398,7 +428,172 @@
     </div>
 
     <!-- ==================================================================
-         CONFIRM DIALOG — promise wrapper in js/journal.js (_showConfirm)
+         IMPORT DIALOG — CSV in, journal entries out
+         A dropped file, a chosen file or pasted text; the columns are read by
+         the letters A–Z. Parser + arithmetic: js/journal-csv.js
+         ================================================================== -->
+    <div class="tj-dialog-overlay" id="tj-import-overlay" style="display:none;">
+      <div class="tj-dialog" role="dialog" aria-modal="true" aria-labelledby="tj-import-heading">
+        <div class="tj-dialog-head">
+          <h2 id="tj-import-heading">📥 Import entries from CSV</h2>
+          <button class="btn btn-icon" id="tj-import-close" type="button" title="Close">✕</button>
+        </div>
+
+        <div class="tj-dialog-body">
+          <div class="tj-dialog-hint">
+            Every column is read by its letter: <b>A–M</b> are the 13 journal columns and <b>N–Z</b> carry the
+            direction, the entry/exit timing and prices, the size and the tags. Any subset of letters works —
+            the ones a row does not need are simply left blank.
+          </div>
+
+          <div class="tj-drop" id="tj-import-drop">
+            <div class="tj-drop-icon">📄</div>
+            <div class="tj-drop-text">
+              <b>Drop a .csv file here</b>, or
+              <button type="button" class="tj-link-btn" id="tj-import-pick">choose a file</button>,
+              or paste the rows into the box below.
+            </div>
+            <input type="file" id="tj-import-file" accept=".csv,.txt,text/csv,text/plain" style="display:none;">
+          </div>
+
+          <div class="tj-dialog-row">
+            <button class="btn btn-secondary btn-sm" id="tj-import-example" type="button">📋 Load the example CSV</button>
+            <button class="btn btn-secondary btn-sm" id="tj-import-download" type="button">⬇️ Download the example</button>
+            <button class="btn btn-secondary btn-sm" id="tj-import-copy" type="button">🧩 Copy the example</button>
+            <button class="btn btn-secondary btn-sm" id="tj-import-clear" type="button">✕ Clear</button>
+          </div>
+
+          <textarea class="tj-input tj-dialog-textarea tj-mono" id="tj-import-paste" rows="7" spellcheck="false"
+            placeholder="A,B,D,N,O,P,Q,R,S,T,U,V,W&#10;2026-09-29,NVDA,Poor entry,long,2026-09-29,09:41,178.40,2026-09-29,09:47,177.55,120,2.10,150"></textarea>
+
+          <div class="tj-dialog-actions">
+            <button class="btn btn-secondary btn-sm" id="tj-import-preview" type="button">🔍 Read the rows</button>
+            <span class="tj-muted tj-small">Nothing is saved until Import is pressed.</span>
+          </div>
+
+          <div class="tj-import-summary" id="tj-import-summary"></div>
+
+          <div class="tj-warn-list" id="tj-import-warnings" style="display:none;"></div>
+
+          <div class="table-wrapper tj-import-preview" id="tj-import-preview-wrap" style="display:none;">
+            <table class="tj-table">
+              <thead>
+                <tr>
+                  <th>Line</th><th>Date</th><th>Ticker</th><th>Category</th><th>Dir</th>
+                  <th>Timing</th><th class="tj-num">Entry</th><th class="tj-num">Exit</th>
+                  <th class="tj-num">Net P&amp;L</th>
+                </tr>
+              </thead>
+              <tbody id="tj-import-preview-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="tj-dialog-foot">
+          <button class="btn btn-secondary btn-sm" id="tj-import-load-form" type="button" disabled>✏️ Load row 1 into the form</button>
+          <button class="btn btn-primary btn-sm" id="tj-import-run" type="button" disabled>Import 0 entries</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ==================================================================
+         DRAFT DIALOG — the offline write-up helper
+         Tab 1 turns the facts in the form into a guided skeleton; tab 2 writes a
+         prompt for the user's own AI chat and shows the exact CSV format to
+         paste back into Import. No network, no key. Code: js/journal-draft.js
+         ================================================================== -->
+    <div class="tj-dialog-overlay" id="tj-draft-overlay" style="display:none;">
+      <div class="tj-dialog tj-dialog-wide" role="dialog" aria-modal="true" aria-labelledby="tj-draft-heading">
+        <div class="tj-dialog-head">
+          <h2 id="tj-draft-heading">✍️ Draft the write-up</h2>
+          <button class="btn btn-icon" id="tj-draft-close" type="button" title="Close">✕</button>
+        </div>
+
+        <div class="tj-dialog-body">
+          <div class="tj-dialog-hint">
+            This runs entirely in this page — nothing is uploaded and there is no key to configure.
+            What the form cannot know is left as an “— EDIT” marker rather than invented.
+          </div>
+
+          <div class="tj-dialog-tabs">
+            <button class="tj-dialog-tab active" type="button" data-draft-tab="skeleton">1 · Guided skeleton</button>
+            <button class="tj-dialog-tab" type="button" data-draft-tab="prompt">2 · Prompt &amp; example CSV</button>
+          </div>
+
+          <div id="tj-draft-panel-skeleton">
+            <div class="tj-form-grid">
+              <div class="tj-field tj-field-full">
+                <label for="tj-draft-facts">What happened — one fact per line</label>
+                <textarea id="tj-draft-facts" rows="4" placeholder="Opening range broke with volume&#10;I had missed the first push&#10;Stop sat 90c away instead of 35c"></textarea>
+              </div>
+              <div class="tj-field">
+                <label for="tj-draft-expected">What I expected</label>
+                <textarea id="tj-draft-expected" rows="2" placeholder="Price to hold above the breakout level"></textarea>
+              </div>
+              <div class="tj-field">
+                <label for="tj-draft-didInstead">What I actually did instead <span class="tj-muted tj-small">— optional</span></label>
+                <textarea id="tj-draft-didInstead" rows="2" placeholder="Bought the extension 0.40 above the level"></textarea>
+              </div>
+              <div class="tj-field">
+                <label for="tj-draft-context">Context <span class="tj-muted tj-small">— index, sector, time of day</span></label>
+                <textarea id="tj-draft-context" rows="2" placeholder="Sector strong, index pushing highs"></textarea>
+              </div>
+              <div class="tj-field">
+                <label for="tj-draft-stop">Stop price <span class="tj-muted tj-small">— optional, gives the stop distance in R</span></label>
+                <input type="number" id="tj-draft-stop" step="0.01" placeholder="177.50">
+              </div>
+            </div>
+
+            <div class="tj-dialog-actions">
+              <button class="btn btn-primary btn-sm" id="tj-draft-generate" type="button">✨ Generate the skeleton</button>
+              <button class="btn btn-secondary btn-sm" id="tj-draft-clear" type="button">✕ Clear</button>
+              <span class="tj-muted tj-small">Uses the ticker, category, direction, times and prices already in the form.</span>
+            </div>
+
+            <div class="tj-warn-list" id="tj-draft-notes" style="display:none;"></div>
+
+            <div class="tj-draft-fields" id="tj-draft-fields">
+              <div class="tj-muted tj-small">Nothing generated yet — write down what happened, then press Generate.</div>
+            </div>
+          </div>
+          <div id="tj-draft-panel-prompt" style="display:none;">
+            <div class="tj-dialog-hint">
+              Prefer your own AI chat? Copy the prompt below into it, then paste its answer into the box under it
+              and send it to Import. The answer is read by column letter, so the chat's formatting does not matter.
+            </div>
+
+            <div class="tj-dialog-row">
+              <button class="btn btn-secondary btn-sm" id="tj-draft-copy-prompt" type="button">📋 Copy the prompt</button>
+              <button class="btn btn-secondary btn-sm" id="tj-draft-refresh-prompt" type="button">↻ Refresh the prompt</button>
+              <button class="btn btn-secondary btn-sm" id="tj-draft-copy-example" type="button">🧩 Copy the example CSV</button>
+              <button class="btn btn-secondary btn-sm" id="tj-draft-download-example" type="button">⬇️ Download the example</button>
+            </div>
+
+            <label class="tj-dialog-label" for="tj-draft-prompt">The prompt — copy this into your chat</label>
+            <textarea class="tj-input tj-dialog-textarea tj-mono" id="tj-draft-prompt" rows="8" readonly></textarea>
+
+            <label class="tj-dialog-label" for="tj-draft-answer">Paste the CSV your chat wrote back</label>
+            <textarea class="tj-input tj-dialog-textarea tj-mono" id="tj-draft-answer" rows="5" spellcheck="false"
+              placeholder="A,B,D,N,O,P,Q,R,S,T,U,V,W&#10;2026-09-29,NVDA,Poor entry,long,2026-09-29,09:41,178.40,2026-09-29,09:47,177.55,120,2.10,150"></textarea>
+
+            <div class="tj-dialog-row">
+              <button class="btn btn-primary btn-sm" id="tj-draft-to-import" type="button">📥 Send it to Import</button>
+              <span class="tj-muted tj-small">The Import dialog opens with this text in its paste box.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="tj-dialog-foot">
+          <button class="btn btn-secondary btn-sm" id="tj-draft-close-foot" type="button">Close</button>
+          <button class="btn btn-primary btn-sm" id="tj-draft-apply" type="button" disabled>Apply the ticked lines to the form</button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ==================================================================
+         CONFIRM DIALOG — promise wrapper in js/journal.js (_confirm)
          ================================================================== -->
     <div class="tj-confirm-overlay" id="tj-confirm-overlay" style="display:none;">
       <div class="tj-confirm-box" role="dialog" aria-modal="true" aria-labelledby="tj-confirm-text">
@@ -425,16 +620,20 @@
   <script src="js/config.js"></script>
   <script src="js/config-manager.js"></script>
   <script src="js/firebase-config.js"></script>
-  <script src="js/utils.js"></script>
+  <script src="js/utils.js?v=260929a"></script>
   <script src="js/firestore.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/image-annotator.js"></script>
   <script src="js/finnhub.js"></script>
 
   <!-- Trade Journal vocabulary first (defines JOURNAL_* globals + JournalText /
-       JournalCategories used by journal.js), then the page controller -->
+       JournalCategories used by journal.js), then the CSV reader/writer (which
+       also owns the P&L / duration / R arithmetic), then the offline draft
+       helper, then the page controller. Order matters. -->
   <script src="js/journal-categories.js"></script>
-  <script src="js/journal.js"></script>
+  <script src="js/journal-csv.js?v=260929b"></script>
+  <script src="js/journal-draft.js?v=260929b"></script>
+  <script src="js/journal.js?v=260929c"></script>
 </body>
 </html>
 

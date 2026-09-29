@@ -5105,6 +5105,14 @@ body.overlay-open {
   line-height: 1.4;
 }
 
+/* The Shares box holds a number the journal assumed, not one the user typed */
+.tj-field input.tj-input-assumed {
+  border-color: var(--warning);
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-style: italic;
+}
+
 /* ---- P&L colouring (shared with .positive / .negative on the main app) ---- */
 .tj-table .positive,
 .tj-chips .positive,
@@ -5405,6 +5413,7 @@ body.overlay-open {
   align-items: center;
   gap: 8px;
   margin-left: auto;
+  flex-wrap: wrap;
 }
 
 .tj-dirty {
@@ -5639,6 +5648,264 @@ body.overlay-open {
 }
 
 /* ============================================================================
+   TIMING & PRICES (columns N–T, always visible)
+   ============================================================================ */
+.tj-timing {
+  margin: 6px 0 14px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+
+.tj-timing .tj-form-grid { margin-bottom: 4px; }
+
+/* The trade date with the timing and the time in trade underneath it */
+.tj-cell-main { font-weight: 600; }
+
+.tj-cell-sub {
+  margin-top: 2px;
+  font-size: 0.68rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ============================================================================
+   DIALOGS (import + draft)
+   ============================================================================ */
+.tj-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10500;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+  overflow-y: auto;
+  background: rgba(15, 23, 42, 0.62);
+}
+
+.tj-dialog {
+  width: 100%;
+  max-width: 720px;
+  margin: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.tj-dialog-wide { max-width: 900px; }
+
+.tj-dialog-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+.tj-dialog-head h2 {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tj-dialog-body {
+  padding: 14px 16px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.tj-dialog-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-primary);
+}
+
+.tj-dialog-hint {
+  margin-bottom: 12px;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.tj-dialog-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.tj-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.tj-dialog-label {
+  display: block;
+  margin: 10px 0 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.tj-dialog-textarea {
+  width: 100%;
+  resize: vertical;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.tj-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Courier New', monospace;
+  font-size: 0.72rem;
+}
+
+/* ---- Drop zone ---- */
+.tj-drop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.tj-drop.hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.tj-drop-icon { font-size: 1.4rem; }
+.tj-drop-text { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6; }
+
+.tj-link-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ---- Warnings + import summary ---- */
+.tj-warn-list {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--warning);
+  border-left: 4px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--text-primary);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.tj-warn-title {
+  margin-bottom: 4px;
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.tj-warn-list ul { margin: 0; padding-left: 18px; }
+
+.tj-import-summary {
+  margin: 6px 0 0;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+}
+
+.tj-import-preview { max-height: 280px; }
+
+/* ============================================================================
+   DRAFT HELPER
+   ============================================================================ */
+.tj-dialog-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.tj-dialog-tab {
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.tj-dialog-tab:hover { background: var(--bg-tertiary); }
+
+.tj-dialog-tab.active {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  color: var(--text-primary);
+}
+
+.tj-draft-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.tj-draft-field {
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+
+.tj-draft-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.tj-draft-text {
+  width: 100%;
+  resize: vertical;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  font-family: inherit;
+}
+
+
+/* ============================================================================
    RESPONSIVE
    ============================================================================ */
 @media (max-width: 720px) {
@@ -5649,6 +5916,12 @@ body.overlay-open {
   .tj-editor-overlay { padding: 10px; }
   .tj-editor-body { padding: 12px; }
   .tj-cat-columns { grid-template-columns: 1fr; }
+  .tj-timing { padding: 10px; }
+  .tj-dialog-overlay { padding: 10px; }
+  .tj-dialog-body { max-height: none; padding: 12px; }
+  .tj-dialog-head, .tj-dialog-foot { padding: 10px 12px; }
+  .tj-dialog-foot { flex-wrap: wrap; justify-content: stretch; }
+  .tj-import-preview { max-height: none; }
 }
 /* ==== end Trade Journal page styles ==== */
 

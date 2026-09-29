@@ -217,6 +217,36 @@ const Utils = {
     URL.revokeObjectURL(url);
   },
 
+  // ---- Copy text to the clipboard (async, with a legacy fallback) ----
+  // Returns true when the text made it to the clipboard. Used by the Trade
+  // Journal import/draft dialogs, which hand CSV and prompt text to the user.
+  async copyToClipboard(text) {
+    const value = String(text == null ? '' : text);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+    } catch (e) {
+      // Permission denied or an insecure context — try the old approach
+    }
+
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = value;
+      ta.setAttribute('readonly', 'readonly');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) {
+      return false;
+    }
+  },
+
   // ---- Escape HTML Attribute (for tooltips) ----
   escapeAttr(str) {
     if (!str) return '';
