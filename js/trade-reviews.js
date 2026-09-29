@@ -24,6 +24,7 @@ class TradeReviewManager {
     this.btnExportCsv = document.getElementById('btn-export-reviews-csv');
     this.btnExportZip = document.getElementById('btn-export-reviews-zip');
     this.btnViewToggle = document.getElementById('btn-view-toggle');
+    this.btnOpenJournal = document.getElementById('btn-open-journal');
 
     // Editor overlay refs
     this.editorOverlay = document.getElementById('trade-review-editor-overlay');
@@ -197,6 +198,11 @@ class TradeReviewManager {
     // Export
     this.btnExportCsv.addEventListener('click', () => this._exportCSV());
     this.btnExportZip.addEventListener('click', () => this._exportMarkdownZip());
+
+    // Trade Journal hand-off — hands the open review to TradeJournal.html
+    if (this.btnOpenJournal) {
+      this.btnOpenJournal.addEventListener('click', () => this._openTradeJournal(this._currentReviewId));
+    }
 
     // Editor overlay
     this.editorFullscreen.addEventListener('click', () => {
@@ -839,6 +845,54 @@ class TradeReviewManager {
         this.openEditor(card.dataset.id);
       });
     });
+
+    // Trade Journal hand-off button on each card
+    this.grid.querySelectorAll('[data-journal]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._openTradeJournal(btn.dataset.journal);
+      });
+    });
+  }
+
+  // ---- Trade Journal hand-off -------------------------------------------------
+  // Writes the payload shape js/journal.js._applyPrefillValues() expects under the
+  // shared storage key ('swl_journal_prefill' / JOURNAL_PREFILL_KEY in
+  // js/journal-categories.js) and navigates to the standalone journal page.
+  // Without a review id the journal simply opens empty.
+  _openTradeJournal(reviewId) {
+    const review = reviewId ? this._reviews.find(r => r.id === reviewId) : null;
+
+    if (review) {
+      const td = review.tradeData || {};
+      const payload = {
+        date: review.date || Utils.todayLocal(),
+        ticker: review.symbol || null,
+        setup: td.strategy || null,
+        tradeData: {
+          direction: td.direction || null,
+          entryPrice: td.entryPrice != null ? td.entryPrice : null,
+          exitPrice: td.exitPrice != null ? td.exitPrice : null,
+          shares: td.shares != null ? td.shares : null,
+          strategy: td.strategy || null,
+          entryTime: td.entryTime || null,
+          exitTime: td.exitTime || null
+        },
+        reviewId: review.id
+      };
+
+      try {
+        localStorage.setItem('swl_journal_prefill', JSON.stringify(payload));
+      } catch (e) {
+        console.warn('[TradeReviews] Could not store the journal prefill payload:', e);
+        // Storage blocked — fall back to the URL deep link, which links the review
+        window.location.href = 'TradeJournal.html?review=' + encodeURIComponent(review.id);
+        return;
+      }
+      Utils.showToast('Opening the Trade Journal with this trade…');
+    }
+
+    window.location.href = 'TradeJournal.html';
   }
 
   _renderCard(review) {
@@ -910,6 +964,8 @@ class TradeReviewManager {
             ${localBadgeHtml}
             ${symbolBadge}
             ${pnlHtml}
+            <button type="button" class="tr-card-journal" data-journal="${review.id}"
+              title="Log this trade in the Trade Journal" aria-label="Log in Trade Journal">📓</button>
           </div>
           <h3 class="tr-card-title">${Utils.escapeAttr(review.title || 'Untitled Review')}</h3>
           <p class="tr-card-preview">${Utils.escapeAttr(preview)}</p>

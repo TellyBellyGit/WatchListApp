@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trade Journal — TradrDash</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Quill Rich Text Editor (same build as the main app / Reviews tab) -->
+  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+</head>
+<body>
+
+  <!-- ======================================================================
+       TRADE JOURNAL
+       Standalone page for Day_Trading_Journal.xlsx: the 13 columns of the
+       sheet, the numbers behind each trade, the advice loop, an optional
+       annotated deep dive, and a Review-by-Category pivot.
+
+       Data: journal_entries/{id} in Firestore (localStorage fallback).
+       Controller: js/journal.js   Vocabulary: js/journal-categories.js
+       ====================================================================== -->
+  <div class="container">
+
+    <!-- ====== HEADER ====== -->
+    <div class="header tj-header">
+      <div class="header-left">
+        <h1>📓 Trade Journal</h1>
+        <div class="subtitle">
+          Day Trading Journal — the 13 columns of <b>Day_Trading_Journal.xlsx</b>, plus numbers,
+          advice and an annotated deep dive.
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="tj-badge tj-badge-muted" id="tj-cloud-badge" title="Checking the cloud connection…">…</span>
+        <span class="tj-save-status" id="tj-save-status"></span>
+        <button class="btn btn-secondary btn-sm" id="tj-btn-refresh" type="button" title="Reload entries from the cloud">🔄 Refresh</button>
+        <button class="btn btn-primary" id="tj-btn-new" type="button">+ New entry</button>
+        <button class="btn btn-icon" id="tj-btn-theme" type="button" title="Toggle light/dark mode">☀️</button>
+        <a class="btn btn-secondary btn-sm" href="index.html" title="Back to the main dashboard">↩ Main app</a>
+      </div>
+    </div>
+
+    <!-- ====== PREFILL BANNER (filled by js/journal.js) ====== -->
+    <div class="tj-banner" id="tj-prefill-banner" style="display:none;"></div>
+
+    <!-- ====== STATS STRIP (computed over the filtered view) ====== -->
+    <div class="tj-stats" id="tj-stats"></div>
+
+    <!-- ====== VIEW TABS ====== -->
+    <div class="tj-tabs" role="tablist">
+      <button class="tj-tab active" type="button" data-tab="entries">📋 Entries</button>
+      <button class="tj-tab" type="button" data-tab="categories">🧭 Review by category</button>
+    </div>
+
+    <!-- ==================================================================
+         VIEW 1 — ENTRIES
+         ================================================================== -->
+    <div id="tj-panel-entries">
+
+      <!-- Filters -->
+      <div class="tj-filters">
+        <input type="text" class="tj-input tj-search" id="tj-search" placeholder="Search ticker, setup, lesson, advice…" autocomplete="off">
+        <select class="tj-input" id="tj-filter-category"></select>
+        <select class="tj-input" id="tj-filter-timeframe"></select>
+        <select class="tj-input" id="tj-filter-advice">
+          <option value="">All advice states</option>
+          <option value="missing">No advice recorded</option>
+          <option value="unapplied">Advice not applied yet</option>
+          <option value="applied">Advice applied</option>
+        </select>
+        <label class="tj-date-filter">From <input type="date" class="tj-input" id="tj-filter-from"></label>
+        <label class="tj-date-filter">To <input type="date" class="tj-input" id="tj-filter-to"></label>
+        <button class="btn btn-secondary btn-sm" id="tj-btn-clear-filters" type="button">✕ Clear filters</button>
+        <span class="tj-result-count" id="tj-result-count"></span>
+      </div>
+
+      <!-- Table — one row per journal entry, all 13 columns -->
+      <div class="table-wrapper tj-table-wrapper">
+        <table class="tj-table">
+          <thead id="tj-table-head"></thead>
+          <tbody id="tj-table-body"></tbody>
+        </table>
+      </div>
+      <div class="tj-empty" id="tj-empty-state" style="display:none;"></div>
+    </div>
+
+    <!-- ==================================================================
+         VIEW 2 — REVIEW BY CATEGORY
+         ================================================================== -->
+    <div id="tj-panel-categories" style="display:none;">
+      <div class="tj-section-hint">
+        Every category from the <b>Categories</b> sheet, ranked by net P&amp;L (worst first) so the
+        rows that need attention sit at the top. Click a row for the definition, the entries behind
+        it, and the advice that keeps repeating there.
+      </div>
+
+      <div class="table-wrapper tj-table-wrapper">
+        <table class="tj-table tj-pivot">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th class="tj-num">Entries</th>
+              <th class="tj-num">Win %</th>
+              <th class="tj-num">Net P&amp;L</th>
+              <th class="tj-num">Avg R</th>
+              <th class="tj-num" title="Entries with advice marked as applied / entries that have advice">Advice applied</th>
+            </tr>
+          </thead>
+          <tbody id="tj-cat-pivot-body"></tbody>
+        </table>
+      </div>
+
+      <div class="tj-cat-detail-empty" id="tj-cat-detail-empty"></div>
+
+      <!-- Detail for the selected category -->
+      <div class="tj-cat-detail" id="tj-cat-detail" style="display:none;">
+        <div class="tj-cat-detail-head">
+          <h2 id="tj-cat-detail-title"></h2>
+          <div class="tj-cat-detail-meaning" id="tj-cat-detail-meaning"></div>
+        </div>
+
+        <div class="tj-chips" id="tj-cat-detail-stats"></div>
+
+        <div class="tj-cat-columns">
+          <div class="tj-cat-col">
+            <h3 class="tj-subhead">Entries in this category</h3>
+            <div class="tj-cat-list" id="tj-cat-list"></div>
+          </div>
+          <div class="tj-cat-col">
+            <h3 class="tj-subhead">Advice given here <span class="tj-muted tj-small">— repeated points are the signal</span></h3>
+            <div class="tj-advice-list" id="tj-cat-advice"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================
+         EDITOR — the sheet's 13 columns + numbers + advice + deep dive
+         Every input carries data-field="<key>", which is what js/journal.js
+         maps onto the Firestore document.
+         ================================================================== -->
+    <div class="tj-editor-overlay" id="tj-editor-overlay" style="display:none;">
+      <div class="tj-editor">
+
+        <div class="tj-editor-head">
+          <h2 id="tj-editor-heading">New journal entry</h2>
+          <span class="tj-dirty" id="tj-editor-dirty" style="display:none;">● unsaved</span>
+          <div class="tj-editor-head-right">
+            <button class="btn btn-icon" id="tj-btn-fullscreen" type="button" title="Full screen">⛶</button>
+            <button class="btn btn-danger btn-sm" id="tj-btn-delete-editor" type="button" style="display:none;">🗑️ Delete</button>
+            <button class="btn btn-secondary btn-sm" id="tj-btn-close-editor" type="button">Close</button>
+            <button class="btn btn-primary btn-sm" id="tj-btn-save-editor" type="button">💾 Save</button>
+          </div>
+        </div>
+
+        <div class="tj-editor-body">
+
+          <!-- Read-only panel: the trade review this entry was created from -->
+          <div class="tj-source-review" id="tj-source-review" style="display:none;">
+            <div class="tj-subhead">
+              Source trade review
+              <span class="tj-badge" id="tj-link-badge" style="display:none;">🔗 Linked review</span>
+            </div>
+            <div id="tj-source-review-body"></div>
+          </div>
+
+          <!-- ===== Columns A–F: the facts of the trade ===== -->
+          <div class="tj-form-grid">
+            <div class="tj-field">
+              <label for="tj-field-date">A · Date</label>
+              <input type="date" id="tj-field-date" data-field="date">
+            </div>
+
+            <div class="tj-field">
+              <label for="tj-field-ticker">B · Ticker</label>
+              <input type="text" id="tj-field-ticker" data-field="ticker" placeholder="NVDA" autocomplete="off">
+              <div class="tj-hint-line" id="tj-ticker-hint"></div>
+            </div>
+
+            <div class="tj-field">
+              <label for="tj-field-timeframe">C · Timeframe</label>
+              <input type="text" id="tj-field-timeframe" data-field="timeframe" list="tj-timeframe-list" placeholder="5-min" autocomplete="off">
+            </div>
+
+            <div class="tj-field">
+              <label for="tj-field-category">D · Category</label>
+              <select id="tj-field-category" data-field="category"></select>
+              <div class="tj-hint-line tj-category-hint" id="tj-category-hint" style="display:none;"></div>
+            </div>
+
+            <div class="tj-field">
+              <label for="tj-field-setup">E · Setup</label>
+              <input type="text" id="tj-field-setup" data-field="setup" list="tj-setup-list" placeholder="Opening range break" autocomplete="off">
+            </div>
+
+            <div class="tj-field">
+              <label for="tj-field-entryTrigger">F · Entry / Trigger</label>
+              <input type="text" id="tj-field-entryTrigger" data-field="entryTrigger" placeholder="What had to happen for you to enter?">
+            </div>
+          </div>
+
+          <!-- Suggestions for C and E — free text is still allowed -->
+          <datalist id="tj-timeframe-list"></datalist>
+          <datalist id="tj-setup-list"></datalist>
+
+          <!-- ===== Columns G–I: what happened and why ===== -->
+          <div class="tj-form-grid">
+            <div class="tj-field tj-field-full">
+              <label for="tj-field-whyEntered">G · Why I Entered</label>
+              <textarea id="tj-field-whyEntered" data-field="whyEntered" rows="3"
+                placeholder="The reason at the moment of entry — level, volume, context."></textarea>
+            </div>
+            <div class="tj-field tj-field-full">
+              <label for="tj-field-whatWentWrong">H · What Went Wrong</label>
+              <textarea id="tj-field-whatWentWrong" data-field="whatWentWrong" rows="3"
+                placeholder="What price actually did versus what you expected."></textarea>
+            </div>
+            <div class="tj-field tj-field-full">
+              <label for="tj-field-whyItWentWrong">I · Why It Went Wrong</label>
+              <textarea id="tj-field-whyItWentWrong" data-field="whyItWentWrong" rows="3"
+                placeholder="The real cause: chase, size, timing, no level, ignored the plan…"></textarea>
+            </div>
+          </div>
+
+          <!-- ===== Columns J–M: the correction and the review ===== -->
+          <div class="tj-form-grid">
+            <div class="tj-field tj-field-full">
+              <label for="tj-field-advice">J · Advice / Correction <span class="tj-muted tj-small">— the fix, as one instruction</span></label>
+              <textarea id="tj-field-advice" data-field="advice" rows="3"
+                placeholder="If this happens again, do this instead…"></textarea>
+              <div class="tj-hint-line" id="tj-advice-hint"></div>
+            </div>
+            <div class="tj-field">
+              <label for="tj-field-keyLesson">K · Key Lesson</label>
+              <textarea id="tj-field-keyLesson" data-field="keyLesson" rows="3"
+                placeholder="One sentence you want to remember next week."></textarea>
+            </div>
+            <div class="tj-field">
+              <label for="tj-field-outcome">L · Outcome / P&amp;L <span class="tj-muted tj-small">(auto-filled from the numbers)</span></label>
+              <input type="text" id="tj-field-outcome" data-field="outcome" placeholder="+$320.00 (+1.42%)">
+            </div>
+            <div class="tj-field tj-field-full">
+              <label for="tj-field-review">M · Review</label>
+              <textarea id="tj-field-review" data-field="review" rows="3"
+                placeholder="Cold look back at the trade: process, execution, what to repeat."></textarea>
+            </div>
+          </div>
+
+          <!-- ===== Numbers behind the trade (feeds Outcome, duration, R) ===== -->
+          <div class="tj-section-bar">
+            <button class="btn btn-secondary btn-sm" id="tj-btn-toggle-trade" type="button">Numbers ▼</button>
+            <span class="tj-muted tj-small">Optional, but they compute Outcome, duration and the R-multiple.</span>
+          </div>
+
+          <div class="tj-trade-section" id="tj-trade-section" style="display:none;">
+            <div class="tj-form-grid">
+              <div class="tj-field">
+                <label for="tj-field-direction">Direction</label>
+                <select id="tj-field-direction" data-field="direction">
+                  <option value="long">Long</option>
+                  <option value="short">Short</option>
+                </select>
+              </div>
+              <div class="tj-field">
+                <label for="tj-field-entryPrice">Entry price</label>
+                <input type="number" id="tj-field-entryPrice" data-field="entryPrice" step="0.01" placeholder="178.40">
+              </div>
+              <div class="tj-field">
+                <label for="tj-field-exitPrice">Exit price</label>
+                <input type="number" id="tj-field-exitPrice" data-field="exitPrice" step="0.01" placeholder="177.55">
+              </div>
+              <div class="tj-field">
+                <label for="tj-field-shares">Shares</label>
+                <input type="number" id="tj-field-shares" data-field="shares" step="1" min="0" placeholder="120">
+              </div>
+              <div class="tj-field">
+                <label for="tj-field-fees">Fees / commissions</label>
+                <input type="number" id="tj-field-fees" data-field="fees" step="0.01" placeholder="2.10">
+              </div>
+              <div class="tj-field">
+                <label for="tj-field-plannedRiskR">Planned risk 1R ($)</label>
+                <input type="number" id="tj-field-plannedRiskR" data-field="plannedRiskR" step="0.01" placeholder="150">
+              </div>
+              <div class="tj-field">
+                <label for="tj-field-entryTime">Entry time</label>
+                <input type="time" id="tj-field-entryTime" data-field="entryTime">
+              </div>
+              <div class="tj-field">
+                <label for="tj-field-exitTime">Exit time</label>
+                <input type="time" id="tj-field-exitTime" data-field="exitTime">
+              </div>
+              <div class="tj-field tj-field-full">
+                <label for="tj-field-strategy">Strategy label</label>
+                <input type="text" id="tj-field-strategy" data-field="strategy" placeholder="ORB — momentum continuation">
+              </div>
+            </div>
+
+            <div class="tj-chips tj-pnl-strip">
+              <span class="tj-chip"><span class="tj-chip-label">Net P&amp;L</span><span class="tj-chip-value tj-pnl-value" id="tj-pnl-total">—</span></span>
+              <span class="tj-chip"><span class="tj-chip-label">Return</span><span class="tj-chip-value tj-pnl-value" id="tj-pnl-percent">—</span></span>
+              <span class="tj-chip"><span class="tj-chip-label">Per share</span><span class="tj-chip-value tj-pnl-value" id="tj-pnl-per-share">—</span></span>
+              <span class="tj-chip"><span class="tj-chip-label">In trade</span><span class="tj-chip-value" id="tj-duration">—</span></span>
+              <span class="tj-chip"><span class="tj-chip-label">Realised R</span><span class="tj-chip-value tj-pnl-value" id="tj-realised-r">—</span></span>
+            </div>
+          </div>
+
+          <!-- ===== Advice from a mentor / AI review, and whether it stuck ===== -->
+          <h3 class="tj-subhead">Advice &amp; follow-through</h3>
+          <div class="tj-form-grid">
+            <div class="tj-field">
+              <label for="tj-field-mentorSource">Who gave the advice</label>
+              <input type="text" id="tj-field-mentorSource" data-field="mentorSource" list="tj-mentor-source-list"
+                placeholder="AI mentor review / coach / self">
+            </div>
+            <div class="tj-field">
+              <label for="tj-field-adviceStatus">Have I applied it?</label>
+              <select id="tj-field-adviceStatus" data-field="adviceStatus">
+                <option value="not-reviewed">Not reviewed yet</option>
+                <option value="applied">Applied</option>
+                <option value="partially-applied">Partially applied</option>
+                <option value="not-applied">Not applied yet</option>
+                <option value="n/a">Not applicable</option>
+              </select>
+            </div>
+            <div class="tj-field">
+              <label for="tj-field-processScore">Process score (1–5)</label>
+              <input type="number" id="tj-field-processScore" data-field="processScore" min="1" max="5" step="1" placeholder="3">
+            </div>
+            <div class="tj-field tj-field-full">
+              <label for="tj-field-mentorRaw">What was said, verbatim <span class="tj-muted tj-small">— the Review-by-Category view groups these</span></label>
+              <textarea id="tj-field-mentorRaw" data-field="mentorRaw" rows="3"
+                placeholder="Paste the mentor / AI feedback here so recurring points surface in the category pivot."></textarea>
+            </div>
+          </div>
+          <datalist id="tj-mentor-source-list">
+            <option value="AI mentor review"></option>
+            <option value="Human coach"></option>
+            <option value="Self review"></option>
+          </datalist>
+
+          <!-- ===== Tags ===== -->
+          <h3 class="tj-subhead">Tags</h3>
+          <div class="tj-tags">
+            <input type="text" class="tj-input" id="tj-tags-input"
+              placeholder="Type a tag and press Enter (e.g. chase, fomo, size)" autocomplete="off">
+            <div class="tj-chips" id="tj-tag-chips"></div>
+          </div>
+
+          <!-- ===== Deep dive (Quill) — paste a chart to annotate + attach ===== -->
+          <h3 class="tj-subhead">
+            Deep dive
+            <span class="tj-muted tj-small">— paste a chart screenshot with Ctrl+V to annotate and attach it</span>
+          </h3>
+          <div class="tj-quill-wrap"><div id="tj-quill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================
+         IMAGE ANNOTATOR OVERLAY — identical markup to the main app because
+         js/image-annotator.js resolves these element IDs directly.
+         Opened by js/journal.js when a chart is pasted into the deep dive.
+         ================================================================== -->
+    <div class="image-annotator-overlay" id="image-annotator-overlay" style="display:none;">
+      <div class="image-annotator-modal">
+        <div class="image-annotator-header">
+          <span class="image-annotator-title">✏️ Annotate Image</span>
+          <div class="image-annotator-header-right">
+            <span class="image-annotator-hint">Draw on the image, then Save &amp; Insert</span>
+            <button class="btn btn-sm btn-secondary" id="image-annotator-cancel" type="button">Cancel</button>
+            <button class="btn btn-sm btn-secondary" id="image-annotator-raw" type="button" title="Insert the original image without any drawings">Insert as-is</button>
+            <button class="btn btn-sm btn-primary" id="image-annotator-save" type="button">✅ Save &amp; Insert</button>
+          </div>
+        </div>
+        <div class="image-annotator-toolbar" id="image-annotator-toolbar" tabindex="-1">
+          <button class="annot-tool-btn active" data-tool="pen" title="Pen (freehand)">✏️</button>
+          <button class="annot-tool-btn" data-tool="highlighter" title="Highlighter">🖍️</button>
+          <button class="annot-tool-btn" data-tool="arrow" title="Arrow">↗</button>
+          <button class="annot-tool-btn" data-tool="rect" title="Rectangle">▭</button>
+          <button class="annot-tool-btn" data-tool="ellipse" title="Ellipse">◯</button>
+          <button class="annot-tool-btn" data-tool="text" title="Text (click on image to place)">T</button>
+          <button class="annot-tool-btn" data-tool="eraser" title="Eraser (removes drawings only)">⌫</button>
+          <span class="annot-divider"></span>
+          <label class="annot-label" title="Color">🎨 <input type="color" id="image-annotator-color" value="#ff3b30"></label>
+          <label class="annot-label annot-width-label" title="Stroke width">━ <input type="range" id="image-annotator-width" min="1" max="40" value="4"></label>
+          <span class="annot-divider"></span>
+          <button class="annot-tool-btn" id="image-annotator-undo" title="Undo (Ctrl+Z)">↩</button>
+          <button class="annot-tool-btn" id="image-annotator-redo" title="Redo (Ctrl+Y)">↪</button>
+          <button class="annot-tool-btn" id="image-annotator-clear" title="Clear all drawings">🗑</button>
+        </div>
+        <div class="image-annotator-canvas-wrap" id="image-annotator-canvas-wrap">
+          <canvas id="image-annotator-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================
+         CONFIRM DIALOG — promise wrapper in js/journal.js (_showConfirm)
+         ================================================================== -->
+    <div class="tj-confirm-overlay" id="tj-confirm-overlay" style="display:none;">
+      <div class="tj-confirm-box" role="dialog" aria-modal="true" aria-labelledby="tj-confirm-text">
+        <div class="tj-confirm-text" id="tj-confirm-text"></div>
+        <div class="tj-confirm-actions">
+          <button class="btn btn-secondary btn-sm" id="tj-confirm-no" type="button">Cancel</button>
+          <button class="btn btn-danger btn-sm" id="tj-confirm-yes" type="button">🗑️ Delete</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.container -->
+
+  <!-- Firebase SDK (compat build — same version as index.html) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+  <!-- Quill Rich Text Editor (the deep-dive editor) -->
+  <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+
+  <!-- Shared modules — order matters: journal.js consumes all of these -->
+  <!-- config.js is gitignored (local dev fallback); config-manager.js is primary -->
+  <script src="js/config.js"></script>
+  <script src="js/config-manager.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/firestore.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/image-annotator.js"></script>
+  <script src="js/finnhub.js"></script>
+
+  <!-- Trade Journal vocabulary first (defines JOURNAL_* globals + JournalText /
+       JournalCategories used by journal.js), then the page controller -->
+  <script src="js/journal-categories.js"></script>
+  <script src="js/journal.js"></script>
+</body>
+</html>
+

@@ -1074,7 +1074,7 @@ tbody tr:hover {
   border-radius: 50%;
   cursor: pointer;
   background: var(--bg-secondary);
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 0.85rem;
   line-height: 1;
   transition: all var(--transition);
@@ -3808,6 +3808,15 @@ body.overlay-open {
   color: #fff;
 }
 
+/* ---- Journal link (anchor styled as a button, filters bar) ---- */
+.btn-journal-link {
+  text-decoration: none;
+}
+.btn-journal-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* ---- Reviews Container ---- */
 .trade-reviews-container {
   margin-top: 16px;
@@ -4073,6 +4082,29 @@ body.overlay-open {
   border-radius: 4px;
   white-space: nowrap;
   cursor: help;
+}
+
+/* Journal hand-off button on each review card (Trade Reviews → Trade Journal) */
+.tr-card-journal {
+  margin-left: auto;
+  padding: 2px 6px;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+.tr-card-journal:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+.trade-reviews-grid.grid-view .tr-card-journal {
+  margin-left: auto;
 }
 
 .tr-card-pnl {
@@ -4850,4 +4882,773 @@ body.overlay-open {
   background: var(--accent-hover);
   transform: scale(1.08);
 }
+
+
+/* ============================================================================
+   TRADE JOURNAL PAGE — TradeJournal.html
+   ----------------------------------------------------------------------------
+   Standalone page controller: js/journal.js   Vocabulary: js/journal-categories.js
+   All classes are prefixed `tj-` so nothing here can leak into the main app.
+   Reuses the shared tokens (--bg-*, --text-*, --accent, --positive/--negative)
+   and the shared .btn / .table-wrapper / .image-annotator-* rules above.
+   ============================================================================ */
+
+/* ---- Page header ---- */
+.tj-header {
+  gap: 12px;
+}
+
+.tj-header .subtitle {
+  max-width: 60ch;
+}
+
+/* ---- Cloud / source badge (Firestore vs localStorage) ---- */
+.tj-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tj-badge-muted { color: var(--text-muted); }
+.tj-badge-ok    { color: var(--positive); border-color: var(--positive); background: var(--positive-bg); }
+.tj-badge-warn  { color: var(--warning);  border-color: var(--warning);  background: var(--warning-bg); }
+.tj-badge-bad   { color: var(--negative); border-color: var(--negative); background: var(--negative-bg); }
+
+/* ---- Save status ("✓ Saved 10:42", "Saving…") ---- */
+.tj-save-status {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* ---- Prefill banner (main app → journal hand-off) ---- */
+.tj-banner {
+  position: relative;
+  margin-bottom: 16px;
+  padding: 12px 40px 12px 14px;
+  border: 1px solid var(--accent);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--accent-light);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.tj-banner b { font-weight: 700; }
+
+.tj-banner-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.tj-banner-close:hover {
+  background: rgba(127, 127, 127, 0.18);
+  color: var(--text-primary);
+}
+
+/* ---- Stats strip ---- */
+.tj-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.tj-stat {
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.tj-stat-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.tj-stat-value {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.tj-stat-sub {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+/* ---- View tabs ---- */
+.tj-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tj-tab {
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+
+.tj-tab:hover { background: var(--bg-tertiary); }
+
+.tj-tab.active {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+  color: var(--accent);
+}
+
+/* ---- Filters row ---- */
+.tj-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tj-input {
+  padding: 7px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.8rem;
+}
+
+.tj-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.tj-search { flex: 1 1 240px; min-width: 180px; }
+
+.tj-date-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.tj-result-count {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* ---- Section hint / typography helpers ---- */
+.tj-section-hint {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border-color);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.tj-subhead {
+  margin: 18px 0 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tj-muted { color: var(--text-muted); }
+.tj-small { font-size: 0.72rem; font-weight: 400; }
+.tj-num   { text-align: right; font-variant-numeric: tabular-nums; }
+
+.tj-hint-line {
+  margin-top: 4px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ---- P&L colouring (shared with .positive / .negative on the main app) ---- */
+.tj-table .positive,
+.tj-chips .positive,
+.tj-cat-detail .positive,
+.tj-stats .positive { color: var(--positive); }
+
+.tj-table .negative,
+.tj-chips .negative,
+.tj-cat-detail .negative,
+.tj-stats .negative { color: var(--negative); }
+
+/* ---- Entries table ---- */
+.tj-table-wrapper {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.tj-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.tj-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 9px 10px;
+  text-align: left;
+  white-space: nowrap;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tj-table thead th.tj-num { text-align: right; }
+
+/* Sortable headers (js/journal.js writes data-sort) */
+.tj-table thead th[data-sort] {
+  cursor: pointer;
+  user-select: none;
+}
+
+.tj-table thead th[data-sort]:hover { color: var(--accent); }
+
+.tj-table tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  vertical-align: top;
+  max-width: 320px;
+  overflow-wrap: anywhere;
+}
+
+.tj-table tbody tr:hover { background: var(--bg-tertiary); }
+.tj-table tbody tr:last-child td { border-bottom: none; }
+
+.tj-cell-category { white-space: nowrap; font-weight: 600; }
+
+.tj-actions {
+  display: flex;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.tj-icon-btn {
+  padding: 2px 5px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.tj-icon-btn:hover {
+  background: var(--accent-light);
+  border-color: var(--accent);
+}
+
+/* ---- Pivot table (Review by category) ---- */
+.tj-pivot tbody tr {
+  cursor: pointer;
+}
+
+.tj-pivot tbody tr.selected {
+  background: var(--accent-light);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.tj-pivot tbody td:first-child { font-weight: 600; }
+
+/* ---- Empty state ---- */
+.tj-empty {
+  margin-top: 12px;
+  padding: 32px 20px;
+  text-align: center;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.tj-empty-title {
+  margin-bottom: 6px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tj-empty-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* ---- Small button modifier used inside the journal (empty state etc.) ---- */
+.tj-btn-sm {
+  padding: 4px 10px;
+  font-size: 0.72rem;
+}
+
+/* ---- Category detail ---- */
+.tj-cat-detail-empty {
+  padding: 18px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.tj-cat-detail {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.tj-cat-detail-head h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tj-cat-detail-meaning {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.tj-cat-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.tj-cat-list,
+.tj-advice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 460px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.tj-cat-col { min-width: 0; }
+
+/* Entries behind the selected category */
+.tj-cat-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  cursor: pointer;
+  transition: border-color var(--transition), transform var(--transition);
+}
+
+.tj-cat-item:hover {
+  border-color: var(--accent);
+  transform: translateX(2px);
+}
+
+.tj-cat-item-main { min-width: 0; }
+
+.tj-cat-item-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tj-cat-item-side {
+  flex: 0 0 auto;
+  text-align: right;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* Advice pool for the selected category (repeated advice gets a 🔁 badge) */
+.tj-advice-row {
+  padding: 9px 10px;
+  margin-bottom: 6px;
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--warning);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+}
+
+.tj-advice-text {
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.tj-advice-meta {
+  margin-top: 4px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.tj-advice-count { font-size: 0.68rem; }
+
+/* ============================================================================
+   EDITOR — overlay, 13-column form, numbers panel, tags, deep dive
+   ============================================================================ */
+.tj-editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 16px;
+  background: rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(2px);
+  overflow-y: auto;
+}
+
+.tj-editor {
+  width: 100%;
+  max-width: 1080px;
+  margin: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+/* Full-screen mode toggled by #tj-btn-fullscreen (class on the overlay) */
+.tj-editor-overlay.fullscreen { padding: 0; }
+
+.tj-editor-overlay.fullscreen .tj-editor {
+  max-width: none;
+  width: 100%;
+  min-height: 100vh;
+  border-radius: 0;
+  border: none;
+}
+
+.tj-editor-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tj-editor-head h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tj-editor-head-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.tj-dirty {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--warning);
+}
+
+.tj-editor-body { padding: 16px; }
+
+/* ---- 13-column grid ---- */
+.tj-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.tj-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tj-field-full { grid-column: 1 / -1; }
+
+.tj-field label {
+  margin-bottom: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.tj-field input,
+.tj-field select,
+.tj-field textarea {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.8rem;
+}
+
+.tj-field textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.tj-field input:focus,
+.tj-field select:focus,
+.tj-field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.tj-category-hint {
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+/* ---- Section bar ("Numbers ▼") + collapsible numbers panel ---- */
+.tj-section-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 20px 0 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.tj-trade-section {
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+
+/* ---- Chips (numbers strip) ---- */
+.tj-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.tj-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  font-size: 0.75rem;
+}
+
+.tj-chip-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.tj-chip-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.tj-pnl-strip { margin-top: 12px; }
+
+.tj-pnl-value { min-width: 3ch; text-align: right; }
+
+/* ---- Tags ---- */
+.tj-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ---- Quill deep dive ---- */
+.tj-quill-wrap {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+.tj-quill-wrap .ql-toolbar {
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+.tj-quill-wrap .ql-container {
+  border: none;
+  font-family: inherit;
+  font-size: 0.82rem;
+}
+
+.tj-quill-wrap .ql-editor {
+  min-height: 200px;
+  color: var(--text-primary);
+}
+
+.tj-quill-wrap .ql-editor.ql-blank::before {
+  color: var(--text-muted);
+  font-style: normal;
+}
+
+.tj-quill-wrap .ql-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+}
+
+.tj-quill-wrap .ql-snow .ql-stroke { stroke: var(--text-secondary); }
+.tj-quill-wrap .ql-snow .ql-fill { fill: var(--text-secondary); }
+.tj-quill-wrap .ql-snow .ql-picker { color: var(--text-secondary); }
+
+.tj-quill-missing {
+  padding: 18px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* ---- Linked source trade review (read-only) ---- */
+.tj-source-review {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid var(--accent);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--accent-light);
+}
+
+.tj-linked-preview {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.tj-linked-title {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* ============================================================================
+   CONFIRM DIALOG
+   ============================================================================ */
+.tj-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.62);
+}
+
+.tj-confirm-box {
+  width: 100%;
+  max-width: 420px;
+  padding: 20px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-lg);
+}
+
+.tj-confirm-text {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  line-height: 1.55;
+}
+
+.tj-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
+@media (max-width: 720px) {
+  .tj-header { align-items: flex-start; }
+  .tj-header .header-right { width: 100%; }
+  .tj-result-count { margin-left: 0; }
+  .tj-form-grid { grid-template-columns: 1fr; }
+  .tj-editor-overlay { padding: 10px; }
+  .tj-editor-body { padding: 12px; }
+  .tj-cat-columns { grid-template-columns: 1fr; }
+}
+/* ==== end Trade Journal page styles ==== */
 

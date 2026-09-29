@@ -665,6 +665,203 @@ class DataStore {
   }
 
   // ==========================================================================
+  // Journal Entries — the 13-column trade journal (TradeJournal.html)
+  // ==========================================================================
+  // Separate collection from `trade_reviews`: a review is the free-form Quill
+  // narrative (the deep dive), a journal entry is the structured 13-column row
+  // from Day_Trading_Journal.xlsx plus the mentor advice. An entry may point at
+  // a review through `reviewId` (a link, never a copy) so the same narrative is
+  // never stored twice.
+
+  // ---- Get all journal entries ----
+  async getAllJournalEntries() {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        // Single orderBy to avoid needing a composite index (same approach as
+        // trade reviews). Entries are sorted client-side by trade date.
+        const snapshot = await this.db.collection('journal_entries')
+          .orderBy('createdAt', 'desc')
+          .get();
+        const entries = [];
+        snapshot.forEach(doc => {
+          entries.push({ id: doc.id, ...doc.data() });
+        });
+
+        // Merge local-only fallbacks (saved while cloud writes were blocked)
+        const localEntries = this._getLocalJournalEntries();
+        const cloudIds = new Set(entries.map(e => e.id));
+        for (const le of localEntries) {
+          if (le.id && !cloudIds.has(le.id)) {
+            entries.push({ ...le, _localOnly: true });
+          }
+        }
+
+        return this._sortJournalEntries(entries);
+      } catch (e) {
+        console.warn('[DataStore] Failed to fetch journal entries:', e.message);
+        return this._sortJournalEntries(this._getLocalJournalEntries());
+      }
+    } else {
+      return this._sortJournalEntries(this._getLocalJournalEntries());
+    }
+  }
+
+  // ---- Newest trade date first, then most recently edited ----
+  _sortJournalEntries(entries) {
+    return entries.sort((a, b) => {
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      if (dateA !== dateB) return dateB.localeCompare(dateA);
+      return (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || '');
+    });
+  }
+
+  // ---- Get a single journal entry by ID ----
+  async getJournalEntry(id) {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        const doc = await this.db.collection('journal_entries').doc(id).get();
+        if (doc.exists) {
+          return { id: doc.id, ...doc.data() };
+        }
+        return this._getLocalJournalEntryById(id);
+      } catch (e) {
+        console.warn('[DataStore] Failed to get journal entry:', e.message);
+        return this._getLocalJournalEntryById(id);
+      }
+    } else {
+      return this._getLocalJournalEntryById(id);
+    }
+  }
+
+  // ---- Save a journal entry (creates new or updates existing) ----
+  async saveJournalEntry(data, entryId = null) {
+    await this._ensureInit();
+    const doc = {
+      ...data,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (this.mode === 'firestore') {
+      try {
+        if (entryId) {
+          await this.db.collection('journal_entries').doc(entryId).set(doc, { merge: true });
+          this.lastWriteBlocked = false;
+          return entryId;
+        } else {
+          if (!doc.createdAt) doc.createdAt = doc.updatedAt;
+          const ref = await this.db.collection('journal_entries').add(doc);
+          this.lastWriteBlocked = false;
+          return ref.id;
+        }
+      } catch (e) {
+        console.warn('[DataStore] Failed to save journal entry to Firestore, falling back to local:', e.message);
+        this.lastWriteBlocked = true;
+        return this._setLocalJournalEntry(doc, entryId);
+      }
+    } else {
+      this.lastWriteBlocked = true;
+      return this._setLocalJournalEntry(doc, entryId);
+    }
+  }
+
+  // ---- Delete a journal entry by ID ----
+  async deleteJournalEntry(entryId) {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        await this.db.collection('journal_entries').doc(entryId).delete();
+      } catch (e) {
+        console.warn('[DataStore] Failed to delete journal entry:', e.message);
+      }
+    }
+    // Always clear the local copy too, so a blocked cloud delete cannot leave a
+    // resurrected row behind on the next read.
+    this._deleteLocalJournalEntry(entryId);
+  }
+
+  // ---- Generate a permanent ID for a new journal entry ----
+  // Mirrors generateTradeReviewId(): images pasted into the deep-dive editor are
+  // uploaded under the entry's final folder before the first save, so the ID has
+  // to exist before anything is written.
+  generateJournalId() {
+    if (this.db) {
+      try {
+        return this.db.collection('journal_entries').doc().id;
+      } catch (e) {
+        console.warn('[DataStore] Failed to generate Firestore ID:', e.message);
+      }
+    }
+    return 'local_journal_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  // ---- Count journal entries linked to a trade review ----
+  async getJournalEntryCountForReview(reviewId) {
+    if (!reviewId) return 0;
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        const snapshot = await this.db.collection('journal_entries')
+          .where('reviewId', '==', reviewId)
+          .get();
+        return snapshot.size;
+      } catch (e) {
+        console.warn('[DataStore] Failed to count journal entries:', e.message);
+        return this._getLocalJournalEntries().filter(e => e.reviewId === reviewId).length;
+      }
+    } else {
+      return this._getLocalJournalEntries().filter(e => e.reviewId === reviewId).length;
+    }
+  }
+
+  // ---- Local Storage Helpers for Journal Entries ----
+  _getLocalJournalEntries() {
+    try {
+      const raw = localStorage.getItem('stockwatchlist_journal_entries');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  _setLocalJournalEntries(entries) {
+    localStorage.setItem('stockwatchlist_journal_entries', JSON.stringify(entries));
+  }
+
+  _getLocalJournalEntryById(id) {
+    const entries = this._getLocalJournalEntries();
+    return entries.find(e => e.id === id) || null;
+  }
+
+  _setLocalJournalEntry(data, entryId = null) {
+    const entries = this._getLocalJournalEntries();
+    // Mark as local-only so the UI can surface that this is not in the cloud
+    const localData = { ...data, _localOnly: true };
+    if (entryId) {
+      const idx = entries.findIndex(e => e.id === entryId);
+      if (idx !== -1) {
+        entries[idx] = { ...entries[idx], ...localData, id: entryId };
+      } else {
+        entries.push({ ...localData, id: entryId });
+      }
+      this._setLocalJournalEntries(entries);
+      return entryId;
+    } else {
+      const id = 'local_journal_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      entries.push({ id, ...localData });
+      this._setLocalJournalEntries(entries);
+      return id;
+    }
+  }
+
+  _deleteLocalJournalEntry(entryId) {
+    const entries = this._getLocalJournalEntries().filter(e => e.id !== entryId);
+    this._setLocalJournalEntries(entries);
+  }
+
+  // ==========================================================================
   // Local Storage Helpers (for watchlist entries)
   // ==========================================================================
 
