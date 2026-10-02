@@ -5169,6 +5169,8 @@ body.overlay-open {
   color: var(--text-primary);
   vertical-align: top;
   max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   overflow-wrap: anywhere;
 }
 
