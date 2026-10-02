@@ -77,11 +77,25 @@
         </select>
         <label class="tj-date-filter">From <input type="date" class="tj-input" id="tj-filter-from"></label>
         <label class="tj-date-filter">To <input type="date" class="tj-input" id="tj-filter-to"></label>
+        <select class="tj-input" id="tj-group-by" title="How the rows are listed">
+          <option value="session">🧩 Group by session</option>
+          <option value="none">▤ One row per trade</option>
+        </select>
+        <span class="tj-group-actions" id="tj-group-actions" style="display:none;">
+          <button class="btn btn-secondary btn-sm" id="tj-btn-expand-groups" type="button"
+            title="Open every session in this view">⤢ Expand all</button>
+          <button class="btn btn-secondary btn-sm" id="tj-btn-collapse-groups" type="button"
+            title="Close every session in this view">⤡ Collapse all</button>
+        </span>
         <button class="btn btn-secondary btn-sm" id="tj-btn-clear-filters" type="button">✕ Clear filters</button>
         <span class="tj-result-count" id="tj-result-count"></span>
       </div>
 
-      <!-- Table — one row per journal entry, all 13 columns -->
+      <!-- The table lists one row per SESSION by default: several legs of one
+           ticker on one day collapse into a single row that opens on click.
+           A session with one leg stays a plain row, so a journal with nothing
+           to group looks exactly as it always did. Rolled up from the legs by
+           js/journal-csv.js — no session figure is ever stored. -->
       <div class="table-wrapper tj-table-wrapper">
         <table class="tj-table">
           <thead id="tj-table-head"></thead>
@@ -173,6 +187,20 @@
               <span class="tj-badge" id="tj-link-badge" style="display:none;">🔗 Linked review</span>
             </div>
             <div id="tj-source-review-body"></div>
+          </div>
+
+          <!-- ===== Session =====
+               One ticker on one day is ONE session, however many legs it took,
+               and the legs are separate rows that share a groupId. The strip says
+               which session this row will save into and offers the only two ways
+               to change that: store the group id, or split the row out of it.
+               Written by js/journal.js (_renderSessionStrip). -->
+          <div class="tj-session-strip" id="tj-session-strip" style="display:none;">
+            <div class="tj-session-strip-text" id="tj-session-strip-text"></div>
+            <div class="tj-session-strip-actions">
+              <button class="btn btn-secondary btn-sm" id="tj-btn-group-session" type="button">🔗 Store the group id</button>
+              <button class="btn btn-secondary btn-sm" id="tj-btn-split-session" type="button">✂️ Split out</button>
+            </div>
           </div>
 
           <!-- ===== Columns A–F: the facts of the trade ===== -->
@@ -487,6 +515,19 @@
               <tbody id="tj-import-preview-body"></tbody>
             </table>
           </div>
+
+          <!-- Sessions: rows that share a ticker and a date get one stored group
+               id, so the session is explicit from the moment it exists. A row
+               that repeats nothing keeps no id at all. Unticking this changes
+               nothing about how the rows are read — the table still groups a
+               ticker on a date — it only decides whether an id is written. -->
+          <div class="tj-import-groups">
+            <label class="tj-import-groups-tick" for="tj-import-group-session">
+              <input type="checkbox" id="tj-import-group-session" checked>
+              Store a group id on rows that share a ticker and a date
+            </label>
+            <span class="tj-muted tj-small" id="tj-import-group-note"></span>
+          </div>
         </div>
 
         <div class="tj-dialog-foot">
@@ -631,9 +672,9 @@
        also owns the P&L / duration / R arithmetic), then the offline draft
        helper, then the page controller. Order matters. -->
   <script src="js/journal-categories.js"></script>
-  <script src="js/journal-csv.js?v=260929b"></script>
+  <script src="js/journal-csv.js?v=260929c"></script>
   <script src="js/journal-draft.js?v=260929b"></script>
-  <script src="js/journal.js?v=260929c"></script>
+  <script src="js/journal.js?v=260929e"></script>
 </body>
 </html>
 

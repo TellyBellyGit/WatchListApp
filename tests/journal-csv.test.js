@@ -73,19 +73,27 @@ console.log('\n=== Journal CSV + Draft round-trip test ===\n');
 // 1. The letter map A–Z
 // ============================================================================
 const fields = CSV.fields();
-eq('A–Z: 26 columns', fields.length, 26);
+eq('A–Z: 26 lettered columns', CSV.letters().length, 26);
+eq('field map: the 26 letters plus the letterless Group column', fields.length, 27);
 eq('A–Z: letters in order', CSV.letters().join(','),
   'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z');
-check('A–Z: keys are unique', new Set(CSV.keys()).size === 26);
+check('field map: keys are unique', new Set(CSV.keys()).size === 27);
 eq('A–M match the sheet columns (letter + key)',
   CSV.verifyColumns(), []);
 eq('A–M keys equal JOURNAL_COLUMNS', CSV.letters().slice(0, 13).map(l => CSV.keyByLetter(l)),
   JOURNAL_COLUMNS.map(c => c.key));
 eq('sheet letters equal CSV letters', CSV.letters().slice(0, 13), JOURNAL_COLUMNS.map(c => c.sheet));
 eq('N–Z are the timing/price/meta letters',
-  fields.slice(13).map(f => f.key),
+  fields.slice(13, 26).map(f => f.key),
   ['direction', 'entryDate', 'entryTime', 'entryPrice', 'exitDate', 'exitTime',
    'exitPrice', 'shares', 'fees', 'plannedRiskR', 'strategy', 'tags', 'processScore']);
+eq('the one letterless field is the session group', CSV.namedKeys(), ['groupId']);
+check('a letterless field is not addressable by letter',
+  CSV.fieldByLetter(null) === null && CSV.letterByKey('groupId') === null);
+check('the named field is still reachable by name',
+  CSV.fieldByKey('groupId') !== null && CSV.fieldByKey('groupId').label === 'Group');
+eq('csvKeys() is the A–Z subset (the example CSV is unchanged)', CSV.csvKeys().length, 26);
+check('csvKeys() keeps sheet order', CSV.csvKeys().join(',') === CSV.keys().slice(0, 26).join(','));
 
 // ============================================================================
 // 2. The example CSV: build → parse → documents
@@ -469,6 +477,177 @@ eq('prompt example: ticker', fromExample.entries[0].ticker, 'NVDA');
 eq('prompt example: category', fromExample.entries[0].category, 'Poor entry');
 close('prompt example: net P&L', fromExample.entries[0].tradeData.pnl, -104.10, 0.005);
 eq('prompt example: letters row is a subset', promptCsv.trim().split(/\r?\n/)[0].split(',').length, 13);
+
+// ============================================================================
+// 8. Sessions — several legs of one ticker on one day are ONE session
+// ============================================================================
+// A stored row carrying only what grouping and the rollup care about.
+const leg = (id, date, ticker, pnl, extra = {}) => Object.assign({
+  id, date, ticker,
+  tradeData: {
+    pnl, realisedR: pnl == null ? null : pnl / 100,
+    durationMin: 5, shares: 10, fees: 1
+  },
+  mentor: {}, tags: []
+}, extra);
+
+// ---- The session key: ticker + date ---------------------------------------
+eq('session: ticker + date make the key',
+  CSV.sessionKey(leg('a', '2026-09-29', 'nvda', 10)), 'NVDA@2026-09-29');
+eq('session: the ticker is case-insensitive',
+  CSV.sessionKey(leg('b', '2026-09-29', 'NVDA', 10)),
+  CSV.sessionKey(leg('c', '2026-09-29', 'nvda', 10)));
+check('session: another date is another session',
+  CSV.sessionKey(leg('a', '2026-09-29', 'NVDA', 1)) !== CSV.sessionKey(leg('a', '2026-09-30', 'NVDA', 1)));
+eq('session: a row with neither ticker nor date has no key',
+  CSV.sessionKey({ id: 'x', date: '', ticker: '' }), null);
+
+// ---- The group key: a stored id wins, else the session key ---------------
+eq('group key: computed from ticker + date',
+  CSV.groupKeyFor(leg('a', '2026-09-29', 'nvda', 10)), 'auto:NVDA@2026-09-29');
+eq('group key: a stored id always wins',
+  CSV.groupKeyFor(leg('a', '2026-09-29', 'nvda', 10, { groupId: 'grp_1' })), 'g:grp_1');
+check('group key: a stored id outranks a different ticker and date',
+  CSV.groupKeyFor({ id: 'a', date: '2026-09-29', ticker: 'NVDA', groupId: 'grp_1' }) ===
+  CSV.groupKeyFor({ id: 'b', date: '2027-01-04', ticker: 'TSLA', groupId: 'grp_1' }));
+check('group key: a split-out row never merges back',
+  CSV.groupKeyFor({ id: 'a', date: '2026-09-29', ticker: 'NVDA', groupId: 'solo_a' }) !==
+  CSV.groupKeyFor({ id: 'b', date: '2026-09-29', ticker: 'NVDA', groupId: 'solo_b' }));
+check('group key: two orphans are not merged with each other',
+  CSV.groupKeyFor({ id: 'a' }) !== CSV.groupKeyFor({ id: 'b' }));
+eq('isGrouped: a real id counts', CSV.isGrouped({ groupId: 'grp_x' }), true);
+eq('isGrouped: a solo id does not', CSV.isGrouped({ groupId: 'solo_x' }), false);
+eq('isGrouped: null does not', CSV.isGrouped({ groupId: null }), false);
+eq('soloGroupId: built from the row it splits', CSV.soloGroupId('abc'), 'solo_abc');
+check('isSoloGroupId: only the solo prefix',
+  CSV.isSoloGroupId('solo_abc') && !CSV.isSoloGroupId('grp_abc'));
+
+// ---- Grouping a filtered, sorted list -------------------------------------
+const nvdaLegs = [
+  leg('n1', '2026-09-29', 'NVDA', 120),
+  leg('n2', '2026-09-29', 'NVDA', -40.5),
+  leg('n3', '2026-09-29', 'NVDA', 210.5)
+];
+const mixedRows = [nvdaLegs[0], leg('t1', '2026-09-29', 'TSLA', 300), nvdaLegs[1], nvdaLegs[2]];
+const sessions = CSV.groupEntries(mixedRows);
+
+eq('grouping: one session per ticker + date', sessions.length, 2);
+eq('grouping: a session holds its legs in the order given', sessions[0].ids, ['n1', 'n2', 'n3']);
+eq('grouping: a lone row is a session of one', sessions[1].count, 1);
+eq('grouping: first-seen order is kept', sessions.map(g => g.ticker), ['NVDA', 'TSLA']);
+eq('grouping: the label reads as ticker · date', sessions[0].label, 'NVDA · 2026-09-29');
+check('grouping: the legs are the very rows passed in', sessions[0].legs[2] === nvdaLegs[2]);
+eq('grouping: an empty list makes no sessions', CSV.groupEntries([]).length, 0);
+
+const roll = sessions[0].rollup;
+eq('rollup: legs counted', roll.count, 3);
+eq('rollup: wins and losses', [roll.wins, roll.losses], [2, 1]);
+eq('rollup: net P&L is the sum of the legs', roll.netPnl, 290);
+eq('rollup: gross win / gross loss', [roll.grossWin, roll.grossLoss], [330.5, 40.5]);
+close('rollup: win rate', roll.winRate, 66.6667, 0.001);
+close('rollup: average R across the legs', roll.avgR, 2.9 / 3, 0.0001);
+eq('rollup: best and worst leg', [roll.bestPnl, roll.worstPnl], [210.5, -40.5]);
+eq('rollup: shares and fees summed', [roll.totalShares, roll.totalFees], [30, 3]);
+eq('rollup: time in trade summed', roll.totalDurationMin, 15);
+eq('rollup: the advice tally starts empty', [roll.adviceTotal, roll.adviceApplied], [0, 0]);
+noBadTokens('rollup: no undefined/NaN', roll);
+
+// No price path is stored anywhere, so a session must never claim one
+check('rollup: never claims MAE/MFE or a drawdown',
+  ['mae', 'mfe', 'maxAdverse', 'maxFavourable', 'drawdown'].every(k => !(k in roll)));
+
+// A session with no numbers at all still rolls up honestly
+const blankRoll = CSV.rollup([
+  leg('x', '2026-09-29', 'NVDA', null), leg('y', '2026-09-29', 'NVDA', null)
+]);
+eq('rollup: no numbers → no net P&L', blankRoll.netPnl, null);
+eq('rollup: no numbers → win rate unknown, not 0%', blankRoll.winRate, null);
+eq('rollup: the untraded legs are still counted', blankRoll.untraded, 2);
+noBadTokens('rollup: a numberless session has no bad tokens', blankRoll);
+
+// A stored id holds a session together across the ticker and the date
+const overnightGroup = CSV.groupEntries([
+  leg('o1', '2026-09-29', 'NVDA', 50, { groupId: 'grp_night' }),
+  leg('o2', '2026-09-30', 'NVDA', -20, { groupId: 'grp_night' })
+]);
+eq('grouping: a stored id survives midnight', overnightGroup.length, 1);
+eq('grouping: the date span is spelled out', overnightGroup[0].date, '2026-09-29 → 2026-09-30');
+eq('grouping: the overnight net', overnightGroup[0].rollup.netPnl, 30);
+
+// A session that mixes categories counts them, it never guesses one
+const multiCat = CSV.groupEntries([
+  leg('m1', '2026-09-29', 'NVDA', 10, { category: 'Poor entry', timeframe: '5-min' }),
+  leg('m2', '2026-09-29', 'NVDA', 10, { category: 'FOMO / Chasing', timeframe: '1-min' })
+]);
+eq('grouping: distinct categories counted', multiCat[0].categories.length, 2);
+eq('grouping: distinct timeframes listed', multiCat[0].timeframes, ['5-min', '1-min']);
+
+// ---- stats + the one-line description -------------------------------------
+const groupStats = CSV.groupStats(sessions);
+eq('stats: sessions / multi-leg / single-leg / rows',
+  [groupStats.sessions, groupStats.multiLeg, groupStats.singleLeg, groupStats.legs], [2, 1, 1, 4]);
+eq('describeRollup: legs, W/L, money and R', CSV.describeRollup(roll),
+  '3 legs · 2W / 1L · +$290.00 · +0.97R');
+eq('describeRollup: without the count it is the story alone',
+  CSV.describeRollup(roll, { noCount: true }), '2W / 1L · +$290.00 · +0.97R');
+// A session of one: exactly what the table prints next to "1 trade"
+const soloRoll = CSV.rollup([{ tradeData: { pnl: -1.6, realisedR: -0.16 } }]);
+eq('describeRollup: a one-trade session still counts its leg by default',
+  CSV.describeRollup(soloRoll), '1 leg · 0W / 1L · -$1.60 · -0.16R');
+eq('describeRollup: a one-trade session reads as its own result',
+  CSV.describeRollup(soloRoll, { noCount: true }), '0W / 1L · -$1.60 · -0.16R');
+eq('describeRollup: nothing to describe says nothing', CSV.describeRollup(null), '');
+
+// ---- writing group ids (exactly what the Import dialog does) --------------
+const batch = CSV.toEntries([
+  'A,B,D,O,P,Q,S,T,U,V',
+  '2026-09-29,NVDA,Poor entry,2026-09-29,09:41,178.40,09:47,177.55,100,2',
+  '2026-09-29,NVDA,FOMO / Chasing,2026-09-29,10:15,178.90,10:30,179.10,100,2',
+  '2026-09-29,TSLA,Poor entry,2026-09-29,11:00,254.00,11:05,254.50,50,1'
+].join('\n'), { defaultDate: '2026-09-29' });
+eq('assign: three rows read', batch.entries.length, 3);
+eq('assign: nothing is grouped before the import runs',
+  batch.entries.map(e => e.groupId), [null, null, null]);
+
+const assigned = CSV.assignGroupIds(batch.entries, { makeId: () => 'grp_test' });
+eq('assign: the two NVDA rows share one id',
+  [batch.entries[0].groupId, batch.entries[1].groupId], ['grp_test', 'grp_test']);
+eq('assign: the lone TSLA row stays ungrouped', batch.entries[2].groupId, null);
+eq('assign: one group out of two sessions', [assigned.groups, assigned.sessions], [1, 2]);
+eq('assign: the batch now reads as two sessions', CSV.groupEntries(batch.entries).length, 2);
+eq('assign: one of them has both legs', CSV.groupEntries(batch.entries)[0].count, 2);
+eq('assign: a fresh id is opaque, not derived', /^grp_/.test(CSV.newGroupId()), true);
+
+// ---- the Group column: matched by name, never by letter -------------------
+const groupCsv = [
+  'A,B,D,Group',
+  '2026-09-29,NVDA,Poor entry,grp_keep',
+  '2026-09-29,NVDA,FOMO / Chasing,grp_keep'
+].join('\n');
+const withGroup = CSV.toEntries(groupCsv, { defaultDate: '2026-09-29' });
+eq('Group column: read by name', withGroup.header.columns.map(c => c.key),
+  ['date', 'ticker', 'category', 'groupId']);
+eq('Group column: the header row is consumed', withGroup.header.headerRows, 1);
+eq('Group column: both rows carry the id', withGroup.entries.map(e => e.groupId),
+  ['grp_keep', 'grp_keep']);
+eq('Group column: so the file is one session', CSV.groupEntries(withGroup.entries).length, 1);
+eq('Group column: the summary names it instead of a letter',
+  CSV.summary(withGroup), '2 entries · separator "," · columns A,B,D,Group');
+check('Group column: blank means no group id',
+  CSV.toEntries('Date,Ticker,Group\n2026-09-29,NVDA,', {}).entries[0].groupId === null);
+check('Group column: the name is matched loosely',
+  CSV.toEntries('date,ticker,group id\n2026-09-29,NVDA,g1', {}).header.columns.length === 3);
+
+// Writing an entry back out is symmetric: the id round-trips through a file
+const reexport = CSV.toEntries([
+  CSV.lettersLine(['date', 'ticker', 'groupId']),
+  CSV.dataLine({ date: '2026-09-29', ticker: 'NVDA', groupId: 'grp_keep' }, ['date', 'ticker', 'groupId'])
+].join('\n'), { defaultDate: '2026-09-29' });
+eq('round trip: a written group id comes back', reexport.entries[0].groupId, 'grp_keep');
+
+// The example CSV stays exactly A–Z: no Group column is advertised
+check('the example CSV carries no Group column',
+  exampleLines[1].indexOf('Group') === -1 && exampleLines[0].indexOf('groupId') === -1);
 
 // ============================================================================
 // Summary

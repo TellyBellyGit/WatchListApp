@@ -13,7 +13,8 @@
 //   _fillForm()      a stored document → the form (including old rows that only
 //                    have a combined entryTime string)
 //   _updatePnl()     the visible P&L strip
-//   _rowHtml()       the table row, with the timing line under the date
+//   _rowHtml()       the table row, with the timing line under the date and the
+//                    session column that tells a leg from a session of one
 //   _draftInput()    what the offline draft helper is handed
 // ============================================================================
 
@@ -355,6 +356,269 @@ legacyNoSize._fillForm({
 });
 eq('fill: a stored row with no size gets one share', legacyNoSize._fields.shares.value, '1');
 eq('fill: and its strip fills in', legacyNoSize.pnlTotal.textContent, Utils.formatCurrency(-0.85));
+
+// ============================================================================
+// 9. Sessions — the group id a row saves with, and who it groups with
+// ============================================================================
+// The two methods under test reach for a toast and nothing else; the toast is
+// stubbed so the checks can read what was said.
+const toasts = [];
+Utils.showToast = (msg) => { toasts.push(msg); };
+
+const sess = appWith({ date: '2026-09-29', ticker: 'nvda' });
+sess._quill = null;
+sess._tags = [];
+eq('session: the strip knows the ticker and the date', sess._formSessionKey(), 'NVDA@2026-09-29');
+eq('session: a fresh row saves ungrouped', sess._resolveGroupId(), null);
+eq('session: so the document carries no group id', sess._collectForm().groupId, null);
+
+sess._currentId = 'e9';
+sess._currentGroupId = 'grp_abc';
+eq('session: a stored id is saved back unchanged', sess._collectForm().groupId, 'grp_abc');
+
+// Split out: the solo id is built from the row's own entry id, so two split rows
+// can never share one
+sess._groupIntent = 'solo';
+sess._currentGroupId = null;
+eq('session: split out builds a solo id from the entry id',
+  sess._collectForm().groupId, 'solo_e9');
+check('session: and that id is recognised as a split',
+  CSV.isSoloGroupId(sess._collectForm().groupId));
+
+// A brand new row has no id until it is saved, so the solo id is resolved then
+const brandNew = appWith({ date: '2026-09-29', ticker: 'NVDA' });
+brandNew._quill = null;
+brandNew._tags = [];
+brandNew._currentId = 'fresh_id';
+brandNew._groupIntent = 'solo';
+eq('session: an unsaved row splits under the id it will be stored with',
+  brandNew._resolveGroupId(), 'solo_fresh_id');
+
+// ---- Who the open row would be grouped with --------------------------------
+const sib = appWith({ date: '2026-09-29', ticker: 'NVDA' });
+sib._quill = null;
+sib._tags = [];
+sib._currentId = 'e2';
+sib._entries = [
+  { id: 'e1', date: '2026-09-29', ticker: 'NVDA', groupId: null },       // a sibling
+  { id: 'e2', date: '2026-09-29', ticker: 'NVDA', groupId: null },       // the open row
+  { id: 'e3', date: '2026-09-29', ticker: 'TSLA', groupId: null },       // another ticker
+  { id: 'e4', date: '2026-09-30', ticker: 'NVDA', groupId: null },       // another day
+  { id: 'e5', date: '2026-09-29', ticker: 'NVDA', groupId: 'grp_x' },    // already explicit
+  { id: 'e6', date: '2026-09-29', ticker: 'NVDA', groupId: 'solo_e6' }   // split out
+];
+eq('session: siblings are the same ticker on the same day, nobody else',
+  sib._sessionSiblings().map(e => e.id), ['e1']);
+
+// ---- The strip says what saving will do ------------------------------------
+const strip = appWith({ date: '2026-09-29', ticker: 'NVDA' });
+strip._quill = null;
+strip._tags = [];
+strip._currentId = 'e2';
+strip._entries = sib._entries;
+strip.sessionStrip = { style: {} };
+strip.sessionStripText = { innerHTML: '' };
+strip.groupSessionBtn = { textContent: '', title: '' };
+strip.splitSessionBtn = { textContent: '', title: '', disabled: false };
+
+strip._renderSessionStrip();
+const stripText = () => strip.sessionStripText.innerHTML;
+check('strip: names the session', /NVDA · 2026-09-29/.test(stripText()), stripText());
+check('strip: says who else is in it', /1 other row share/.test(stripText()), stripText());
+eq('strip: is visible', strip.sessionStrip.style.display, 'flex');
+check('strip: offers to store the group id', /Store the group id/.test(strip.groupSessionBtn.textContent));
+eq('strip: splitting is available', strip.splitSessionBtn.disabled, false);
+
+strip._splitCurrentSession();
+eq('strip: split is remembered as an intent', strip._groupIntent, 'solo');
+check('strip: says the row is on its own now', /this row only/.test(stripText()), stripText());
+check('strip: offers the way back', /Join the session/.test(strip.groupSessionBtn.textContent));
+eq('strip: splitting is no longer offered', strip.splitSessionBtn.disabled, true);
+check('strip: the split was explained', /Split out/.test(toasts[toasts.length - 1]), toasts[toasts.length - 1]);
+eq('strip: a split row saves under its solo id', strip._resolveGroupId(), 'solo_e2');
+
+// A row with neither a ticker nor a date has no session to show
+const orphan = appWith({ date: '', ticker: '' });
+orphan._quill = null;
+orphan._tags = [];
+orphan.sessionStrip = { style: { display: 'flex' } };
+orphan.sessionStripText = { innerHTML: 'stale' };
+orphan.groupSessionBtn = { textContent: '', title: '' };
+orphan.splitSessionBtn = { textContent: '', title: '', disabled: false };
+orphan._renderSessionStrip();
+eq('strip: hidden when there is nothing to pair on', orphan.sessionStrip.style.display, 'none');
+eq('strip: and the open row saves ungrouped', orphan._resolveGroupId(), null);
+
+// ============================================================================
+// 10. Sessions — the table row above its legs
+// ============================================================================
+const tableApp = appWith(formFields());
+tableApp._quill = null;
+tableApp._tags = [];
+
+const sessCols = tableApp._tableColumns(true);
+eq('columns: the session column comes first', sessCols[0].key, 'session');
+eq('columns: it is not sortable', sessCols[0].sortable, false);
+eq('columns: the flat table is untouched', tableApp._tableColumns().length, 16);
+eq('columns: grouped adds exactly one column', sessCols.length, 17);
+
+const legRows = [
+  { id: 'l1', date: '2026-09-29', ticker: 'NVDA', category: 'Poor entry',
+    tradeData: { pnl: 120, realisedR: 1.2, entryPrice: 10, exitPrice: 11 }, mentor: {}, tags: [] },
+  { id: 'l2', date: '2026-09-29', ticker: 'NVDA', category: 'FOMO / Chasing',
+    tradeData: { pnl: -40.5, realisedR: -0.405, entryPrice: 10, exitPrice: 9.9 }, mentor: {}, tags: [] }
+];
+const session = CSV.groupEntries(legRows)[0];
+
+const closedHead = tableApp._sessionRowHtml(session, sessCols, false);
+check('session row: the caret carries the session key',
+  closedHead.indexOf('data-toggle-group="auto:NVDA@2026-09-29"') !== -1, closedHead.substring(0, 300));
+check('session row: closed shows the closed caret', closedHead.indexOf('▸') !== -1);
+check('session row: says how many legs', /2 trades/.test(closedHead));
+check('session row: carries the rollup line',
+  /1W \/ 1L/.test(closedHead) && closedHead.indexOf('+$79.50') !== -1, closedHead);
+check('session row: the net P&L cell is the session total',
+  closedHead.indexOf(Utils.formatCurrency(79.5)) !== -1);
+check('session row: the date and ticker are the session\'s own',
+  closedHead.indexOf('2026-09-29') !== -1 && closedHead.indexOf('NVDA') !== -1);
+check('session row: the prose columns are left empty', closedHead.indexOf('tj-session-blank') !== -1);
+check('session row: offers to store the group id',
+  closedHead.indexOf('data-stamp-group="auto:NVDA@2026-09-29"') !== -1);
+check('session row: several categories are counted', /2 categories/.test(closedHead));
+check('session row: and their names sit on the title',
+  closedHead.indexOf('title="Poor entry, FOMO / Chasing"') !== -1, closedHead);
+
+// The prose lives on the legs. A session row must never repeat — or invent — any
+// of it, which is why its prose cells are empty rather than filled with dashes.
+const proseSession = CSV.groupEntries([
+  Object.assign({}, legRows[0], {
+    entryTrigger: 'SECRET-1', whyEntered: 'SECRET-2', whatWentWrong: 'SECRET-3',
+    whyItWentWrong: 'SECRET-4', advice: 'SECRET-5', keyLesson: 'SECRET-6',
+    outcome: 'SECRET-7', review: 'SECRET-8', setup: 'Opening range break'
+  }),
+  Object.assign({}, legRows[1], { whyEntered: 'SECRET-9' })
+])[0];
+const proseHead = tableApp._sessionRowHtml(proseSession, sessCols, false);
+check('session row: never repeats a leg\'s prose', proseHead.indexOf('SECRET-') === -1, proseHead);
+eq('session row: one setup is shown as it stands', (proseHead.match(/Opening range break/) || []).length, 1);
+
+const openHead = tableApp._sessionRowHtml(session, sessCols, true);
+check('session row: open shows the open caret', openHead.indexOf('▾') !== -1);
+check('session row: open is announced', openHead.indexOf('aria-expanded="true"') !== -1);
+
+const legHtml = tableApp._rowHtml(legRows[0], sessCols, session);
+check('leg row: marked as a leg', legHtml.indexOf('tj-leg-row') !== -1);
+check('leg row: marked with a line that runs into it and ends in an arrow',
+  /tj-leg-mark[^>]*>└[─]+[→▶]</.test(legHtml), legHtml.substring(0, 280));
+check('leg row: the mark is decoration, never something to read out',
+  /tj-leg-mark[^>]*aria-hidden="true"/.test(legHtml), legHtml.substring(0, 280));
+check('leg row: the mark opens nothing — only a session row is a toggle',
+  legHtml.indexOf('data-toggle-group') === -1, legHtml.substring(0, 280));
+check('leg row: still opens its own entry', legHtml.indexOf('data-id="l1"') !== -1);
+check('leg row: keeps its own edit and delete buttons',
+  legHtml.indexOf('data-edit="l1"') !== -1 && legHtml.indexOf('data-del="l1"') !== -1);
+check('plain row (no session): not marked as a leg',
+  tableApp._rowHtml(legRows[0], sessCols).indexOf('tj-leg-row') === -1);
+
+// ---- When the table groups at all ------------------------------------------
+const groupMode = appWith(formFields());
+groupMode._quill = null;
+groupMode._tags = [];
+groupMode._filtered = legRows;
+eq('groups: two legs of one session make one session', groupMode._buildGroups().length, 1);
+
+groupMode._filtered = [legRows[0]];
+eq('groups: a view of one-leg sessions stays flat', groupMode._buildGroups(), null);
+
+groupMode._filtered = legRows;
+groupMode._groupBy = 'none';
+eq('groups: turned off, the view is flat', groupMode._buildGroups(), null);
+
+// A stored group keeps two legs together even on different days
+groupMode._groupBy = 'session';
+groupMode._filtered = [
+  { id: 'g1', date: '2026-09-29', ticker: 'NVDA', groupId: 'grp_night', tradeData: { pnl: 5 }, mentor: {}, tags: [] },
+  { id: 'g2', date: '2026-09-30', ticker: 'NVDA', groupId: 'grp_night', tradeData: { pnl: -1 }, mentor: {}, tags: [] }
+];
+const nightGroup = groupMode._buildGroups()[0];
+eq('groups: a stored id holds one session over midnight', nightGroup.count, 2);
+eq('groups: the stored session knows it is explicit', nightGroup.stored, true);
+check('groups: and its session row offers no stamp button',
+  groupMode._sessionRowHtml(nightGroup, sessCols, false).indexOf('data-stamp-group') === -1);
+
+// A "group" of one is not a session summary: it is a whole entry of its own, so
+// it stays the real trade row and is marked with the right-pointing arrow. That
+// marker is what stops it being read as a leg of the session above it.
+const soloRow = groupMode._groupHtml(CSV.groupEntries([legRows[0]])[0], sessCols);
+eq('one trade: no session row and nothing to expand', soloRow.indexOf('tj-session-row'), -1);
+check('one trade: marked with a right-pointing arrow that is not a control',
+  soloRow.indexOf('tj-single-arrow') !== -1 && soloRow.indexOf('▶') !== -1 &&
+  soloRow.indexOf('aria-hidden="true"') !== -1, soloRow.substring(0, 220));
+check('one trade: says how many trades it is', />1 trade</.test(soloRow), soloRow.substring(0, 220));
+check('one trade: carries its own one-line story',
+  /1W \/ 0L/.test(soloRow) && soloRow.indexOf('+$120.00') !== -1 &&
+  soloRow.indexOf('+1.20R') !== -1, soloRow);
+check('one trade: opens a block of its own', soloRow.indexOf('tj-group-start') !== -1, soloRow);
+check('one trade: is not a leg', soloRow.indexOf('tj-leg-row') === -1);
+check('one trade: never offers a toggle', soloRow.indexOf('data-toggle-group') === -1);
+check('one trade: stays the real trade row, buttons and all',
+  soloRow.indexOf('data-id="l1"') !== -1 && soloRow.indexOf('data-edit="l1"') !== -1 &&
+  soloRow.indexOf('data-del="l1"') !== -1, soloRow);
+
+// ---- The rendered table: collapsed, expanded, then turned off --------------
+const renderApp = appWith(formFields());
+renderApp._quill = null;
+renderApp._tags = [];
+renderApp._entries = legRows.concat([
+  { id: 'l3', date: '2026-09-30', ticker: 'TSLA', tradeData: { pnl: 10 }, mentor: {}, tags: [] }
+]);
+renderApp._filtered = renderApp._entries.slice();
+renderApp.tableHead = { innerHTML: '' };
+renderApp.tableBody = { innerHTML: '' };
+renderApp.emptyState = { style: {}, innerHTML: '' };
+renderApp.resultCount = { textContent: '' };
+renderApp.groupActionBar = { style: {} };
+renderApp._openGroups = new Set();
+
+const body = () => renderApp.tableBody.innerHTML;
+
+renderApp._renderTable();
+eq('table: one session row for the two NVDA legs',
+  (body().match(/tj-session-row/g) || []).length, 1);
+check('table: the legs stay hidden while the session is closed',
+  body().indexOf('tj-leg-row') === -1, body().substring(0, 300));
+check('table: the lone TSLA row is drawn as a plain row, with its buttons',
+  body().indexOf('data-id="l3"') !== -1 && body().indexOf('data-edit="l3"') !== -1);
+check('table: and it opens a block of its own instead of hanging off the session',
+  body().indexOf('tj-group-start') !== -1 && body().indexOf('tj-single-arrow') !== -1,
+  body().substring(0, 400));
+eq('table: only the lone row is marked as a session of one',
+  (body().match(/tj-single-arrow/g) || []).length, 1);
+check('table: the header carries the session column',
+  renderApp.tableHead.innerHTML.indexOf('Session') !== -1);
+check('table: the session column is not sortable',
+  renderApp.tableHead.innerHTML.indexOf('data-sort="session"') === -1);
+eq('table: the counter counts rows and sessions', renderApp.resultCount.textContent, '3 entries · 2 sessions');
+eq('table: expand all is offered', renderApp.groupActionBar.style.display, 'inline-flex');
+
+renderApp._toggleGroup('auto:NVDA@2026-09-29');
+eq('table: opening the session shows both legs',
+  (body().match(/tj-leg-row/g) || []).length, 2);
+check('table: the legs keep their own row ids',
+  body().indexOf('data-id="l1"') !== -1 && body().indexOf('data-id="l2"') !== -1);
+check('table: the session row is still above them',
+  body().indexOf('tj-session-row') < body().indexOf('tj-leg-row'));
+
+renderApp._groupBy = 'none';
+renderApp._renderTable();
+check('table: one row per trade when grouping is off',
+  body().indexOf('tj-session-row') === -1 && (body().match(/data-id="/g) || []).length === 3, body());
+eq('table: no session markers left behind either', body().indexOf('tj-single-arrow'), -1);
+eq('table: and no block separators', body().indexOf('tj-group-start'), -1);
+eq('table: the counter is flat again', renderApp.resultCount.textContent, '3 entries');
+eq('table: expand all is hidden again', renderApp.groupActionBar.style.display, 'none');
+check('table: the session column goes with it',
+  renderApp.tableHead.innerHTML.indexOf('Session') === -1);
 
 // ============================================================================
 // Summary

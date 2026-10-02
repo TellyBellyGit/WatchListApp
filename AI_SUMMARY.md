@@ -105,6 +105,11 @@ with the sheet header behind them (`A · Date,…`), plain names (`Date,Ticker,O
 headerless 13-column file (read positionally as A–M). The separator (`,` `;` or tab) is detected, as are
 Excel-shaped dates, times and serial numbers, and rough category names (`FOMO` → `FOMO / Chasing`).
 
+One column has **no letter**: `Group` (field `groupId`) carries the session id. All 26 letters belong to
+the sheet, so it is matched **by name only** (`A,B,D,Group` and `Date,Ticker,Group` both work) — a file
+without the column simply says nothing about grouping. `JournalCSV.csvKeys()` is the A–Z subset, which is
+why the downloadable example stays exactly A–Z.
+
 - **Timing & prices** are always visible (columns N–T). The collapsed *Numbers* panel only holds size,
   costs and the planned 1R; it opens itself the first time the 1-share default lands in the size box.
   Column A follows the entry date until the user types their own.
@@ -126,3 +131,35 @@ Excel-shaped dates, times and serial numbers, and rough category names (`FOMO` �
   `_confirm()` before dropping unsaved changes) and `📥 Import` (`#tj-editor-import` → `openImport()`; the import
   dialog sits at `z-index: 10500`, above the editor, so it opens on top). The header buttons stay the primary
   entry point everywhere else, and `.tj-editor-head-right` wraps so six head buttons never overflow.
+- **Sessions, not single trades**: one ticker on one day is ONE session however many legs it took (1–10 a
+  day). The table lists **one row per session** by default — collapsed, with the legs nested underneath and
+  opened by the caret — and `🧩 Group by session` / `▤ One row per trade` (`#tj-group-by`, remembered per
+  browser) switches back to the flat list. A session row is a summary: the leg count, W/L, net P&L, average
+  R, the distinct categories/timeframes, the summed size, fees and time in trade and the average process
+  score, all derived by `JournalCSV.groupEntries()` / `rollup()` from the legs on every render (nothing is
+  stored on it), and it deliberately claims **no MAE/MFE** — a leg stores no price path. Its prose columns
+  are left empty: what was written about a trade stays on the leg that traded it.
+- **How a session is decided**: rows carrying the same **stored `groupId`** belong together; otherwise rows
+  that share a ticker and a date do — so entries stored long before groups existed group correctly with no
+  migration and no extra index. A `solo_…` id is the exception that proves the rule: the row was
+  deliberately split out and is never merged again. Import writes one `groupId` per ticker+date
+  (`JournalCSV.assignGroupIds()` + `newGroupId()` → `grp_…`; tick box *Store a group id on rows that share a
+  ticker and a date*, on by default, with a live "5 rows → 3 sessions" note), a lone row keeps
+  `groupId: null` ("never grouped"). Unticking the box only stops the ids being written — the table still
+  reads a ticker on a date as one session, because that is a view, not a stored fact.
+  The editor's session strip says which session the open row will save into and offers the only two ways to
+  change it: store the group id on the whole session in one click (a field-level merge, the only back-fill
+  in the app) or **split out** a single row.
+- **Filtering stays trade-level and comes first**: the grouped table is built from `this._filtered`, so a
+  session only ever shows the legs the filters kept and the counter reads `2 of 5 entries · 1 session`.
+  Stats and the Review-by-category pivot are unchanged (still per trade); the Entries card adds the session
+  count beside the row count so the two numbers never look like a contradiction.
+- **A session of one is still a whole entry**: it is drawn as its own row, never as a summary above a copy of
+  itself. It keeps its prose, its numbers and its buttons, and the Session column marks it with `▶ 1 trade`
+  plus its one-line result (`1W / 0L · +$120.00 · +1.20R`) with a rule drawn above the row. The marks are the
+  whole grammar: `└───→` runs out of the session above into a leg, `▶` opens a block of its own — and since
+  there is nothing underneath it to open, it carries no toggle and is `aria-hidden`. Flat mode (*One row per
+  trade*)
+  draws neither, so a journal with nothing to group looks exactly the way it always did.
+- `JournalCSV.describeRollup(roll, { noCount: true })` leaves the leading leg count off, for the callers that
+  already print it next to the line: the Session column says `3 trades` over `3 legs · …` otherwise.

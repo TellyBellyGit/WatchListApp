@@ -5199,6 +5199,79 @@ body.overlay-open {
   border-color: var(--accent);
 }
 
+/* ---- Session rows (one ticker on one day, however many legs) ---- */
+/* The session row is a summary: it is derived from its legs on every render and
+   opens them with the caret. Nothing about it is stored. */
+.tj-session-row { cursor: pointer; }
+
+.tj-session-row td {
+  background: var(--bg-tertiary);
+  border-top: 1px solid var(--border-color);
+  font-weight: 600;
+}
+
+.tj-session-row:hover td { background: var(--accent-light); }
+
+.tj-session-cell { white-space: nowrap; }
+
+.tj-group-toggle {
+  margin-right: 4px;
+  padding: 0 5px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.7rem;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.tj-group-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+.tj-session-count { font-weight: 700; }
+
+.tj-session-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.68rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The prose columns of a session row belong to the legs, so they are left empty
+   and quietly shaded rather than filled with dashes */
+.tj-session-row td.tj-session-blank { background: var(--bg-secondary); }
+
+/* A leg sits under its session, indented in the session column */
+.tj-leg-row .tj-session-cell {
+  padding-left: 22px;
+  color: var(--text-muted);
+}
+
+/* The mark is a line that runs out of the session above and ends in a point
+   (└───→). Box-drawing and arrow characters are tiles of one em, so the run is
+   only solid where the font lets the tiles meet: the hair of negative
+   letter-spacing closes the seams between them without ever showing, because
+   what it overlaps is the same colour, weight and line. */
+.tj-leg-mark {
+  font-size: 0.72rem;
+  letter-spacing: -0.5px;
+}
+
+/* A session of one is still a whole entry, so it opens a block of its own: the
+   same line a session row carries, which is what stops it being read as a leg of
+   the session above it. Its arrow points right and is not a control — there is
+   nothing underneath it to open. */
+.tj-group-start td { border-top: 1px solid var(--border-color); }
+
+.tj-single-arrow {
+  margin-right: 4px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  cursor: default;
+}
+
 /* ---- Pivot table (Review by category) ---- */
 .tj-pivot tbody tr {
   cursor: pointer;
@@ -5670,6 +5743,89 @@ body.overlay-open {
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* ============================================================================
+   SESSIONS — the group strip in the editor, and the tick box in Import
+   ============================================================================
+   A session is one ticker on one day, however many legs it took. The rows keep
+   their own groupId; everything else here is written by js/journal.js. */
+.tj-session-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.tj-session-strip-text {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.tj-session-strip-actions {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tj-session-flag {
+  padding: 1px 6px;
+  border: 1px solid var(--warning);
+  border-radius: 999px;
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.tj-session-flag-ok {
+  border-color: var(--positive);
+  background: var(--positive-bg);
+  color: var(--positive);
+}
+
+/* Expand all / Collapse all — only shown while the view really is grouped */
+.tj-group-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Import: read the rows as sessions (one group id per ticker + date) */
+.tj-import-groups {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+}
+
+.tj-import-groups-tick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.tj-import-groups-tick input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
 }
 
 /* ============================================================================

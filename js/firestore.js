@@ -797,6 +797,17 @@ class DataStore {
     return 'local_journal_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   }
 
+  // ---- Generate a group id for a journal session ---------------------------
+  // A session is one ticker on one day, however many legs it took; the id is
+  // opaque (nothing ever reads its shape) and shared by every leg, which is what
+  // holds the session together after an edit to the ticker or the date.
+  // JournalCSV owns the shape so the Node tests can pin it; this is only the
+  // "ask the store for an id" entry point, like generateJournalId() above.
+  generateGroupId() {
+    if (typeof JournalCSV !== 'undefined' && JournalCSV.newGroupId) return JournalCSV.newGroupId();
+    return 'grp_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
+  }
+
   // ---- Count journal entries linked to a trade review ----
   async getJournalEntryCountForReview(reviewId) {
     if (!reviewId) return 0;

@@ -36,6 +36,14 @@ class TradeJournalApp {
     this._importResult = null;     // last CSV read (preview + parsed entries)
     this._draftResult = null;      // last generated write-up skeleton
     this._draftTab = 'skeleton';   // draft dialog tab: 'skeleton' | 'prompt'
+
+    // Sessions — several legs of one ticker on one day are ONE row
+    this._groupBy = 'session';     // 'session' = one row per session | 'none'
+    this._groupByLoaded = false;   // read from localStorage on first use
+    this._openGroups = new Set();  // session keys the user has expanded
+    this._lastGroups = null;       // sessions of the last render (Expand all)
+    this._currentGroupId = null;   // stored groupId of the entry in the editor
+    this._groupIntent = null;      // 'solo' once Split out has been pressed
   }
 
   // ==========================================================================
@@ -103,6 +111,12 @@ class TradeJournalApp {
     this.btnClearFilters = $('tj-btn-clear-filters');
     this.resultCount     = $('tj-result-count');
 
+    // Sessions (the grouped table)
+    this.groupBySelect     = $('tj-group-by');
+    this.groupActionBar    = $('tj-group-actions');
+    this.btnExpandGroups   = $('tj-btn-expand-groups');
+    this.btnCollapseGroups = $('tj-btn-collapse-groups');
+
     // Table
     this.tableHead       = $('tj-table-head');
     this.tableBody       = $('tj-table-body');
@@ -144,6 +158,12 @@ class TradeJournalApp {
     this.sourceReviewBody= $('tj-source-review-body');
     this.linkBadge       = $('tj-link-badge');
 
+    // Session strip (the group id the open entry saves with)
+    this.sessionStrip     = $('tj-session-strip');
+    this.sessionStripText = $('tj-session-strip-text');
+    this.groupSessionBtn  = $('tj-btn-group-session');
+    this.splitSessionBtn  = $('tj-btn-split-session');
+
     // Confirm dialog
     this.confirmOverlay  = $('tj-confirm-overlay');
     this.confirmText     = $('tj-confirm-text');
@@ -161,6 +181,8 @@ class TradeJournalApp {
     this.importPreviewBody = $('tj-import-preview-body');
     this.importLoadFormBtn = $('tj-import-load-form');
     this.importRunBtn    = $('tj-import-run');
+    this.importGroupCheck= $('tj-import-group-session');
+    this.importGroupNote = $('tj-import-group-note');
 
     // Draft dialog (offline write-up helper)
     this.draftOverlay    = $('tj-draft-overlay');
@@ -186,6 +208,10 @@ class TradeJournalApp {
     this.editorOverlay.querySelectorAll('[data-field]').forEach(el => {
       this._fields[el.dataset.field] = el;
     });
+
+    // The grouping choice is a per-browser preference, restored before the
+    // first render so the table never flashes the other shape
+    if (this.groupBySelect) this.groupBySelect.value = this._groupMode();
   }
 
   // ---- Theme (shares the main app's key: stockwatchlist_theme) ----
@@ -355,12 +381,40 @@ class TradeJournalApp {
       .forEach(el => el.addEventListener('change', () => this._applyFilters()));
     this.btnClearFilters.addEventListener('click', () => this._clearFilters());
 
+    // How the table is listed: one row per session (the default) or one row per
+    // trade. Remembered per browser, because it is a reading preference.
+    if (this.groupBySelect) {
+      this.groupBySelect.addEventListener('change', () => {
+        this._groupBy = this.groupBySelect.value === 'none' ? 'none' : 'session';
+        this._groupByLoaded = true;
+        this._openGroups.clear();
+        try { localStorage.setItem('stockwatchlist_journal_group_by', this._groupBy); }
+        catch (e) { /* private mode — the choice simply is not remembered */ }
+        this._renderTable();
+        this._renderStats();
+      });
+    }
+    if (this.btnExpandGroups) this.btnExpandGroups.addEventListener('click', () => this._setAllGroups(true));
+    if (this.btnCollapseGroups) this.btnCollapseGroups.addEventListener('click', () => this._setAllGroups(false));
+
     // Table: sortable headers + row actions
     this.tableHead.addEventListener('click', (e) => {
       const th = e.target.closest('th[data-sort]');
       if (th) this._toggleSort(th.dataset.sort);
     });
     this.tableBody.addEventListener('click', (e) => {
+      // The session branches come FIRST. A session row carries data-group and
+      // its legs carry data-id, so an edit/delete branch tested earlier would
+      // swallow the toggle click and open an editor instead.
+      const toggle = e.target.closest('[data-toggle-group]');
+      if (toggle) { this._toggleGroup(toggle.dataset.toggleGroup); return; }
+      const stamp = e.target.closest('[data-stamp-group]');
+      if (stamp) { this._stampSession(stamp.dataset.stampGroup); return; }
+      const sessionRow = e.target.closest('tr.tj-session-row');
+      if (sessionRow && !e.target.closest('button, a')) {
+        this._toggleGroup(sessionRow.dataset.group);
+        return;
+      }
       const editBtn = e.target.closest('[data-edit]');
       if (editBtn) { this.openEditor(editBtn.dataset.edit); return; }
       const delBtn = e.target.closest('[data-del]');
@@ -400,6 +454,17 @@ class TradeJournalApp {
     // its own copies so a second entry or an import never needs a detour.
     if (this.editorNewBtn) this.editorNewBtn.addEventListener('click', () => this._startAnotherEntry());
     if (this.editorImportBtn) this.editorImportBtn.addEventListener('click', () => this.openImport());
+
+    // Session strip — the group id the open entry saves with. The strip reads
+    // this._currentGroupId, never the DOM, because _clearForm() wipes every
+    // [data-field] input on the way in.
+    if (this.groupSessionBtn) this.groupSessionBtn.addEventListener('click', () => this._groupCurrentSession());
+    if (this.splitSessionBtn) this.splitSessionBtn.addEventListener('click', () => this._splitCurrentSession());
+    // The strip follows the two fields the session key is made of
+    ['ticker', 'date'].forEach(key => {
+      const el = this._fields[key];
+      if (el) el.addEventListener('change', () => this._renderSessionStrip());
+    });
 
     // Numbers section toggle
     const btnToggleTrade = document.getElementById('tj-btn-toggle-trade');
@@ -847,6 +912,10 @@ class TradeJournalApp {
     this._updateCategoryHint();
     this.editorOverlay.style.display = 'flex';
 
+    // The session strip is rendered with the ticker and the date already in
+    // place, so it can say how many stored rows share this ticker and date
+    this._renderSessionStrip();
+
     // Load the linked review panel after the form is populated
     this._renderSourceReview(entry ? entry.reviewId : null);
 
@@ -905,10 +974,21 @@ class TradeJournalApp {
     }
     this._clearPnl();
 
+    // The session strip reads this._currentGroupId, never the DOM: _clearForm
+    // wipes every [data-field] input, so the group state has to go with them.
+    this._currentGroupId = null;
+    this._groupIntent = null;
+    this._renderSessionStrip();
+
     if (this._quill) this._quill.setContents([{ insert: '\n' }], 'silent');
   }
 
   _fillForm(entry) {
+    // The stored session id is carried into the form untouched — the strip's two
+    // buttons are the only things that ever change it
+    this._currentGroupId = entry.groupId ? String(entry.groupId) : null;
+    this._groupIntent = null;
+
     // 1) The 13 columns — verbatim spreadsheet fields
     JOURNAL_COLUMNS.forEach(col => {
       const el = this._fields[col.key];
@@ -1031,6 +1111,12 @@ class TradeJournalApp {
     doc.reviewId = this._sourceReview ? this._sourceReview.id : (this._linkedReviewId || null);
     doc.sourcePage = 'TradeJournal.html';
 
+    // 6) The session this row belongs to:
+    //      null      never grouped — the ticker+date key decides at render time
+    //      'grp_…'   an explicit session, shared with the rows it was imported with
+    //      'solo_…'  deliberately split out of its session: never merged again
+    doc.groupId = this._resolveGroupId();
+
     return doc;
   }
 
@@ -1096,6 +1182,11 @@ class TradeJournalApp {
   // Save
   // ==========================================================================
   async _doSave(silent = false) {
+    // The entry id is allocated before the form is read, because a row that was
+    // split out stores a solo id built from its own id (see _resolveGroupId),
+    // and because pasted images and the document share one folder.
+    if (!this._currentId) this._currentId = dataStore.generateJournalId();
+
     const doc = this._collectForm();
 
     // An entry needs at least a ticker or a category to be worth storing
@@ -1105,8 +1196,6 @@ class TradeJournalApp {
     }
     if (!doc.date) doc.date = Utils.todayLocal();
 
-    // Allocate the ID up-front so pasted images and the doc share one folder
-    if (!this._currentId) this._currentId = dataStore.generateJournalId();
     if (this._isNewEntry) doc.createdAt = new Date().toISOString();
 
     try {
@@ -1252,6 +1341,10 @@ class TradeJournalApp {
     e.tradeData = raw.tradeData || {};
     e.mentor = raw.mentor || {};
     e.tags = Array.isArray(raw.tags) ? raw.tags : [];
+    // `groupId` is null on every row stored before sessions existed, which is
+    // exactly what "never grouped" means — no migration, the ticker+date key
+    // groups those rows instead.
+    e.groupId = raw.groupId ? String(raw.groupId) : null;
     return e;
   }
 
@@ -1481,8 +1574,8 @@ class TradeJournalApp {
   // ==========================================================================
   // Column order mirrors the Day_Trading_Journal sheet, left to right, with the
   // derived numbers pinned to the right so the spreadsheet stays recognisable.
-  _tableColumns() {
-    return [
+  _tableColumns(showSession = false) {
+    const cols = [
       { key: 'date',           label: 'Date',              sortable: true },
       { key: 'ticker',         label: 'Ticker',            sortable: true },
       { key: 'timeframe',      label: 'Timeframe',         sortable: true },
@@ -1500,6 +1593,13 @@ class TradeJournalApp {
       { key: 'star',           label: 'Process',           sortable: false },
       { key: 'actions',        label: '',                  sortable: false }
     ];
+
+    // Grouped views gain one column on the left: the disclosure triangle that
+    // opens a session's legs, and the line-and-arrow mark that keeps the legs
+    // readable. It is not sortable — a session has no single date or ticker to
+    // sort by.
+    if (showSession) cols.unshift({ key: 'session', label: 'Session', sortable: false });
+    return cols;
   }
 
   _adviceBadge(status) {
@@ -1515,7 +1615,12 @@ class TradeJournalApp {
   }
 
   _renderTable() {
-    const cols = this._tableColumns();
+    // Sessions are grouped AFTER filtering and sorting, on the rows the current
+    // filters kept: a session can therefore show a subset of its legs, which is
+    // what makes a category filter honest about what it is hiding.
+    const groups = this._buildGroups();
+    this._lastGroups = groups;
+    const cols = this._tableColumns(!!groups);
 
     // Sortable header row
     this.tableHead.innerHTML = '<tr>' + cols.map(c => {
@@ -1526,13 +1631,21 @@ class TradeJournalApp {
         `title="Sort by ${JournalText.esc(c.label)}">${JournalText.esc(c.label)}${arrow}</th>`;
     }).join('') + '</tr>';
 
-    // Result counter
+    // Expand / collapse all only means anything while there is a session to open
+    if (this.groupActionBar) this.groupActionBar.style.display = groups ? 'inline-flex' : 'none';
+
+    // Result counter — rows first, then how many sessions those rows make up
     if (this.resultCount) {
       const total = this._entries.length;
       const shown = this._filtered.length;
-      this.resultCount.textContent = shown === total
+      let text = shown === total
         ? `${total} ${total === 1 ? 'entry' : 'entries'}`
         : `${shown} of ${total} entries`;
+      if (groups) {
+        const stats = JournalCSV.groupStats(groups);
+        text += ` · ${stats.sessions} ${stats.sessions === 1 ? 'session' : 'sessions'}`;
+      }
+      this.resultCount.textContent = text;
     }
 
     // Body — or the empty state
@@ -1567,15 +1680,48 @@ class TradeJournalApp {
     }
 
     this.emptyState.style.display = 'none';
-    this.tableBody.innerHTML = this._filtered.map(e => this._rowHtml(e, cols)).join('');
+    this.tableBody.innerHTML = groups
+      ? groups.map(g => this._groupHtml(g, cols)).join('')
+      : this._filtered.map(e => this._rowHtml(e, cols)).join('');
   }
 
-  _rowHtml(entry, cols) {
+  // One trade row.
+  //   group  set when the row is a leg drawn under a session row: it gains a
+  //          line-and-arrow mark in the session column and a class, so it never
+  //          looks like a session of its own.
+  //   solo   set when the row IS its own session — one trade that repeats itself
+  //          nowhere. It stays the real trade row, with its prose, its numbers
+  //          and its buttons, and is marked with a right-pointing arrow and its
+  //          one-line story so it can never be read as a leg of the session
+  //          above it. There is nothing underneath it to open, so the arrow is
+  //          not a button and carries no toggle.
+  _rowHtml(entry, cols, group = null, solo = null) {
     const td = entry.tradeData || {};
     const meta = JournalCategories.byName(entry.category);
 
     const cells = cols.map(c => {
       switch (c.key) {
+        case 'session':
+          if (group) {
+            // The mark is the grammar in one glyph run: `└───→` is a line that
+            // leaves the session above and points into this leg. A bare corner
+            // reads as a stray character, and a long dash run without a head
+            // reads as a rule — the arrow is what says "child of the row above".
+            return `<td class="tj-session-cell">` +
+              `<span class="tj-leg-mark" aria-hidden="true" title="One leg of the session above">└───→</span>` +
+              `</td>`;
+          }
+          if (solo) {
+            const story = JournalCSV.describeRollup(solo.rollup, { noCount: true });
+            return `<td class="tj-session-cell" ` +
+              `title="A session of one trade — this row is the whole entry, there is nothing to open">` +
+              `<span class="tj-single-arrow" aria-hidden="true">▶</span>` +
+              `<span class="tj-session-count">${solo.count} ${solo.count === 1 ? 'trade' : 'trades'}</span>` +
+              (story ? `<span class="tj-session-sub">${JournalText.esc(story)}</span>` : '') +
+              `</td>`;
+          }
+          return `<td class="tj-session-cell"></td>`;
+
         case 'date': {
           // The trade date, with the timing and the time in trade under it
           const numbers = JournalCSV.computeTradeNumbers({
@@ -1631,7 +1777,356 @@ class TradeJournalApp {
       }
     }).join('');
 
-    return `<tr data-id="${JournalText.esc(entry.id)}">${cells}</tr>`;
+    // A leg hangs under its session; a session of one opens a block of its own,
+    // which the CSS marks with the line above it.
+    const rowClass = group ? 'tj-leg-row' : (solo ? 'tj-group-start' : '');
+    const classAttr = rowClass ? ' class="' + rowClass + '"' : '';
+    return `<tr data-id="${JournalText.esc(entry.id)}"${classAttr}>${cells}</tr>`;
+  }
+
+  // ==========================================================================
+  // Sessions — several legs of one ticker on one day, as one row
+  // ==========================================================================
+  // The store keeps one document per TRADE, so a session is a VIEW: the legs are
+  // the rows, and the session row above them is derived on every render. Two
+  // rows are in the same session when they carry the same stored groupId, or —
+  // when neither says anything — when they share a ticker and a date, which is
+  // what makes grouping work on entries stored before groups existed.
+  // js/journal-csv.js owns that logic; this section draws it and writes the ids.
+  // No session figure is ever stored, so a session can never disagree with the
+  // legs it is made of.
+  // ==========================================================================
+
+  // 'session' (the default) or 'none'. Read lazily: the controller is built in
+  // the Node tests with no localStorage in sight.
+  _groupMode() {
+    if (!this._groupByLoaded) {
+      this._groupByLoaded = true;
+      try {
+        const saved = localStorage.getItem('stockwatchlist_journal_group_by');
+        if (saved === 'none' || saved === 'session') this._groupBy = saved;
+      } catch (e) { /* private mode — the default stands */ }
+    }
+    return this._groupBy === 'none' ? 'none' : 'session';
+  }
+
+  // The sessions to draw, or null when the view stays flat. Flat means either the
+  // reader turned grouping off or there is nothing to group: a journal where
+  // every session has one leg looks exactly as it always did.
+  _buildGroups() {
+    if (this._groupMode() === 'none') return null;
+    const groups = JournalCSV.groupEntries(this._filtered);
+    return groups.some(g => g.count > 1) ? groups : null;
+  }
+
+  _groupHtml(group, cols) {
+    // A session of one is still a whole entry, so it is drawn as its own row —
+    // the real trade row, marked with the right-pointing arrow — rather than
+    // turned into a summary above a copy of itself. No session row, nothing to
+    // open: that is what keeps a journal with nothing to group looking exactly
+    // the way it always did.
+    if (group.single) return this._rowHtml(group.legs[0], cols, null, group);
+
+    const open = this._isGroupOpen(group.key);
+    const head = this._sessionRowHtml(group, cols, open);
+    if (!open) return head;
+    return head + group.legs.map(e => this._rowHtml(e, cols, group)).join('');
+  }
+
+  _isGroupOpen(key) {
+    return this._openGroups.has(key);
+  }
+
+  _toggleGroup(key) {
+    if (!key) return;
+    if (this._openGroups.has(key)) this._openGroups.delete(key);
+    else this._openGroups.add(key);
+    this._renderTable();
+  }
+
+  _setAllGroups(open) {
+    if (!open) this._openGroups.clear();
+    else (this._lastGroups || []).forEach(g => this._openGroups.add(g.key));
+    this._renderTable();
+  }
+
+  // A column of the session row: one value is shown as it stands, several are
+  // counted. Never a guess at which one "matters".
+  _distinctCell(values, noun) {
+    if (!values || !values.length) return `<td class="tj-muted">—</td>`;
+    if (values.length === 1) return `<td>${JournalText.esc(values[0])}</td>`;
+    return `<td class="tj-muted" title="${JournalText.esc(values.join(', '))}">` +
+      `${values.length} ${noun}</td>`;
+  }
+
+  // The session row: the caret, the leg count and the session's own figures. The
+  // prose columns are deliberately left empty — what was written about a trade
+  // lives on the leg that traded it, and a session row must never repeat or
+  // invent any of it.
+  _sessionRowHtml(group, cols, open) {
+    const roll = group.rollup || {};
+    const esc = (v) => JournalText.esc(v);
+
+    const cells = cols.map(c => {
+      switch (c.key) {
+        case 'session': {
+          const title = (open ? 'Collapse' : 'Expand') + ' the ' + group.count + ' legs of this session';
+          return `<td class="tj-session-cell">` +
+            `<button type="button" class="tj-group-toggle" data-toggle-group="${esc(group.key)}" ` +
+            `aria-expanded="${open ? 'true' : 'false'}" title="${esc(title)}">${open ? '▾' : '▸'}</button>` +
+            `<span class="tj-session-count">${group.count} ${group.count === 1 ? 'trade' : 'trades'}</span>` +
+            `<span class="tj-session-sub">${esc(JournalCSV.describeRollup(roll, { noCount: true }))}</span>` +
+            `</td>`;
+        }
+
+        case 'date':
+          return `<td class="tj-session-main">${esc(group.date || '—')}</td>`;
+
+        case 'ticker':
+          return `<td class="tj-session-main">${esc(group.ticker || '—')}</td>`;
+
+        case 'timeframe': return this._distinctCell(group.timeframes, 'timeframes');
+        case 'category':  return this._distinctCell(group.categories, 'categories');
+        case 'setup':     return this._distinctCell(group.setups, 'setups');
+
+        case 'outcome':
+          return roll.netPnl == null
+            ? `<td class="tj-muted">—</td>`
+            : `<td>${esc(JournalCSV.moneyText(roll.netPnl))}</td>`;
+
+        case 'adviceStatus':
+          if (!roll.adviceTotal) return `<td class="tj-muted">—</td>`;
+          return `<td class="tj-muted">${roll.adviceApplied} of ${roll.adviceTotal} applied</td>`;
+
+        case 'pnl': {
+          if (roll.netPnl == null) return `<td class="tj-num tj-muted">—</td>`;
+          const cls = roll.netPnl >= 0 ? 'positive' : 'negative';
+          return `<td class="tj-num ${cls}">${esc(Utils.formatCurrency(roll.netPnl))}</td>`;
+        }
+
+        case 'star':
+          if (roll.avgProcessScore == null) return `<td class="tj-num tj-muted">—</td>`;
+          return `<td class="tj-num" title="Average process score of the legs">` +
+            `${esc(roll.avgProcessScore.toFixed(1))}/5</td>`;
+
+        case 'actions':
+          // A session keyed by ticker+date is implicit: nothing is stored yet, so
+          // offer to make it explicit. A stored one needs no button — its id is
+          // already the statement.
+          if (group.stored) return `<td class="tj-actions"></td>`;
+          return `<td class="tj-actions">` +
+            `<button type="button" class="tj-icon-btn" data-stamp-group="${esc(group.key)}" ` +
+            `title="Store one group id on all ${group.count} rows, so this session survives an edit to the ticker or the date">🔗</button>` +
+            `</td>`;
+
+        default:
+          return `<td class="tj-session-blank"></td>`;
+      }
+    }).join('');
+
+    return `<tr class="tj-session-row" data-group="${esc(group.key)}" ` +
+      `title="${esc('Session ' + group.label + ' — ' + JournalCSV.describeRollup(roll))}">${cells}</tr>`;
+  }
+
+  // ---- The session of the row in the editor ---------------------------------
+  // null when the form has neither a ticker nor a date to pair on
+  _formSessionKey() {
+    return JournalCSV.sessionKey({
+      ticker: this._fields.ticker ? this._fields.ticker.value : '',
+      date: this._fields.date ? this._fields.date.value : ''
+    });
+  }
+
+  // The stored rows the computed ticker+date key would put with the open one.
+  // Rows that already carry an id of their own — a real group or a solo split —
+  // are left out: that id is an explicit statement about where they belong.
+  _sessionSiblings() {
+    const session = this._formSessionKey();
+    if (!session) return [];
+    const key = 'auto:' + session;
+    return this._entries.filter(e => e.id !== this._currentId && JournalCSV.groupKeyFor(e) === key);
+  }
+
+  // The groupId the open row is saved with:
+  //   null       never grouped — the ticker+date key does the work
+  //   'grp_…'    an explicit session, shared with the rows around it
+  //   'solo_…'   split out on purpose: never merged with anything again
+  _resolveGroupId() {
+    if (this._groupIntent === 'solo') {
+      return JournalCSV.soloGroupId(this._currentId || dataStore.generateJournalId());
+    }
+    return this._currentGroupId || null;
+  }
+
+  // The strip above the form: which session this row will save into, and the two
+  // ways to change that. It reads this._currentGroupId, never the DOM — see
+  // _clearForm().
+  _renderSessionStrip() {
+    if (!this.sessionStrip) return;
+
+    const session = this._formSessionKey();
+    if (!session) {
+      // Nothing to pair on: a row with no ticker and no date is its own session
+      this.sessionStrip.style.display = 'none';
+      return;
+    }
+
+    const ticker = (this._fields.ticker ? this._fields.ticker.value : '').trim().toUpperCase();
+    const date = (this._fields.date ? this._fields.date.value : '').trim();
+    const siblings = this._sessionSiblings();
+    const count = siblings.length;
+    const plural = count === 1 ? 'row' : 'rows';
+    const solo = this._groupIntent === 'solo' || JournalCSV.isSoloGroupId(this._currentGroupId);
+    const stored = !solo && JournalCSV.isGrouped({ groupId: this._currentGroupId });
+
+    const bits = [`Session <b>${JournalText.esc((ticker || '—') + ' · ' + (date || 'no date'))}</b>`];
+    if (solo) {
+      bits.push('<span class="tj-session-flag">this row only</span>');
+      bits.push(`<span class="tj-muted">split out — it saves on its own, never with the ${count} other ${plural} on this ticker and date</span>`);
+    } else if (stored) {
+      bits.push('<span class="tj-session-flag tj-session-flag-ok">stored group</span>');
+      bits.push(count
+        ? `<span class="tj-muted">${count} other ${plural} share this ticker and date and join it</span>`
+        : `<span class="tj-muted">no other row shares this ticker and date yet</span>`);
+    } else if (count) {
+      bits.push(`<span class="tj-muted">${count} other ${plural} share this ticker and date — they read as one session</span>`);
+    } else {
+      bits.push('<span class="tj-muted">no other row shares this ticker and date</span>');
+    }
+
+    this.sessionStripText.innerHTML = bits.join(' · ');
+    this.sessionStrip.style.display = 'flex';
+
+    if (this.groupSessionBtn) {
+      this.groupSessionBtn.textContent = solo ? '↩ Join the session' : '🔗 Store the group id';
+      this.groupSessionBtn.title = solo
+        ? 'Drop the split: this row joins its ticker and date again'
+        : 'Write one group id onto this row and every stored row on this ticker and date, so the session no longer depends on both fields staying put';
+    }
+    if (this.splitSessionBtn) {
+      this.splitSessionBtn.disabled = solo;
+      this.splitSessionBtn.title = 'Keep this row out of the session it would otherwise join';
+    }
+  }
+
+  // ---- Writing the group id -------------------------------------------------
+  // One id generator, so a session id is created in exactly one place
+  _newGroupId() {
+    return (dataStore && typeof dataStore.generateGroupId === 'function')
+      ? dataStore.generateGroupId()
+      : JournalCSV.newGroupId();
+  }
+
+  // "🔗 Store the group id" — and "↩ Join the session" once the row is split out.
+  // Joining is local (dropping the id is enough, the row groups by ticker+date
+  // again). Storing writes ONE new id onto this row and onto every stored row
+  // that shares its ticker and date: that back-fill is the only thing in the app
+  // that touches an existing row's grouping, it only ever moves the id field,
+  // and it only happens because the reader asked for it.
+  async _groupCurrentSession() {
+    const session = this._formSessionKey();
+    if (!session) {
+      Utils.showToast('Add a ticker and a date before grouping a session');
+      return;
+    }
+
+    if (this._groupIntent === 'solo') {
+      this._groupIntent = null;
+      this._currentGroupId = null;
+      this._markDirty();
+      this._renderSessionStrip();
+      Utils.showToast('Rejoined — this row saves back into its session');
+      return;
+    }
+
+    const id = this._newGroupId();
+    const siblings = this._sessionSiblings();
+
+    this._currentGroupId = id;
+    this._markDirty();
+    this._renderSessionStrip();
+
+    let stamped = 0;
+    for (const sibling of siblings) {
+      try {
+        // A field-level merge, never a re-write: only the id moves
+        await dataStore.saveJournalEntry({ groupId: id }, sibling.id);
+        sibling.groupId = id;
+        stamped++;
+      } catch (e) {
+        console.warn('[TradeJournal] Could not stamp ' + sibling.id + ' with the group id:', e);
+      }
+    }
+
+    Utils.showToast(stamped
+      ? `Session grouped — ${stamped} stored ${stamped === 1 ? 'row' : 'rows'} stamped, save this one to join them`
+      : 'Session grouped — save this row to keep it');
+    this._applyFilters();
+  }
+
+  // "✂️ Split out" — the row saves with a solo id built from its own entry id, so
+  // it stays out of the session even after a reload. It is not a delete: the row
+  // keeps every other field exactly as it is.
+  _splitCurrentSession() {
+    const session = this._formSessionKey();
+    if (!session) {
+      Utils.showToast('Add a ticker and a date before splitting a row out');
+      return;
+    }
+    const siblings = this._sessionSiblings();
+
+    this._groupIntent = 'solo';
+    this._currentGroupId = null;
+    this._markDirty();
+    this._renderSessionStrip();
+
+    Utils.showToast(siblings.length
+      ? `Split out — this row saves on its own, the other ${siblings.length} stay together`
+      : 'Split out — this row saves on its own');
+  }
+
+  // "🔗" on a session row in the table — the same job as the strip's button, for
+  // a session the reader picked out of the list instead of opening a leg in the
+  // editor.
+  async _stampSession(autoKey) {
+    const session = String(autoKey || '').replace(/^auto:/, '');
+    if (!session) return;
+
+    const legs = this._entries.filter(e => JournalCSV.groupKeyFor(e) === 'auto:' + session);
+    if (legs.length < 2) {
+      Utils.showToast('This session has one row — nothing to group');
+      return;
+    }
+
+    const ok = await this._confirm(
+      `Store one group id on the <b>${legs.length}</b> rows of ` +
+      `<b>${JournalText.esc(session.replace('@', ' · '))}</b>?<br>` +
+      `The session then keeps holding together even if the ticker or the date of a row is edited later.`,
+      { okLabel: '🔗 Group them', danger: false }
+    );
+    if (!ok) return;
+
+    const id = this._newGroupId();
+    let stamped = 0;
+    for (const leg of legs) {
+      try {
+        await dataStore.saveJournalEntry({ groupId: id }, leg.id);
+        leg.groupId = id;
+        stamped++;
+      } catch (e) {
+        console.warn('[TradeJournal] Could not stamp ' + leg.id + ' with the group id:', e);
+      }
+    }
+
+    if (!stamped) {
+      Utils.showToast('Nothing could be stored — the session still groups by ticker and date');
+      return;
+    }
+
+    // The reader just asked for this session, so open it as they find it
+    this._openGroups.add('g:' + id);
+    await this.loadEntries(false);
+    Utils.showToast(`Session grouped — ${stamped} ${stamped === 1 ? 'row' : 'rows'} now share one group id`);
   }
 
   // ==========================================================================
@@ -1681,8 +2176,20 @@ class TradeJournalApp {
 
     const cards = [];
 
+    // The Entries card counts ROWS, because that is what the table's rows are
+    // backed by — but when the view is grouped it also says how many sessions
+    // those rows make up, so the two numbers never look like a contradiction.
+    const viewGroups = this._buildGroups();
+    const subBits = [];
+    if (viewGroups) {
+      const stats = JournalCSV.groupStats(viewGroups);
+      subBits.push(`${stats.sessions} ${stats.sessions === 1 ? 'session' : 'sessions'}`);
+      if (stats.multiLeg) subBits.push(`${stats.multiLeg} with several legs`);
+    }
+    if (this._filtered.length !== this._entries.length) subBits.push('filtered view');
+
     cards.push(card('Entries', JournalText.esc(String(entries.length)),
-      null, this._filtered.length === this._entries.length ? null : 'filtered view'));
+      null, subBits.length ? subBits.join(' · ') : null));
 
     cards.push(card('Net P&L',
       withPnl.length ? JournalText.esc(Utils.formatCurrency(netPnl)) : '—',
@@ -2074,6 +2581,13 @@ class TradeJournalApp {
 
     this.importRunBtn.addEventListener('click', () => this._importEntries());
     this.importLoadFormBtn.addEventListener('click', () => this._loadImportRowIntoForm());
+
+    // Sessions: one stored group id per ticker+date in the file (see
+    // _importEntries). Ticking or unticking re-reads the note, so the count on
+    // screen always matches what Import will do.
+    if (this.importGroupCheck) {
+      this.importGroupCheck.addEventListener('change', () => this._renderImportGroups(this._importResult));
+    }
   }
 
   openImport(prefillText) {
@@ -2137,6 +2651,7 @@ class TradeJournalApp {
       this.importSummary.textContent = JournalCSV.summary(result) +
         ' — ' + (n ? 'ready to import' : 'nothing importable');
     }
+    this._renderImportGroups(result);
 
     // Notes: they never block an import, they explain what was read
     const warnings = result.warnings || [];
@@ -2184,9 +2699,36 @@ class TradeJournalApp {
     if (this.importLoadFormBtn) this.importLoadFormBtn.disabled = n === 0;
   }
 
+  // Is the file about to be read as sessions (one stored group id per ticker+date)?
+  // The checkbox is the reader's call and is on by default.
+  _importGroupsOn() {
+    return !this.importGroupCheck || this.importGroupCheck.checked !== false;
+  }
+
+  // "5 rows → 3 sessions · 1 with more than one leg" under the tick box. Always
+  // derived from the parsed rows, so the note and the import cannot disagree.
+  _renderImportGroups(result) {
+    if (!this.importGroupNote) return;
+    if (!result || !result.entries.length || !this._importGroupsOn()) {
+      this.importGroupNote.textContent = '';
+      return;
+    }
+
+    const groups = JournalCSV.groupEntries(result.entries);
+    const stats = JournalCSV.groupStats(groups);
+    const sessionWord = stats.sessions === 1 ? 'session' : 'sessions';
+    const sameAsRows = stats.multiLeg === 0;
+    this.importGroupNote.textContent = sameAsRows
+      ? `${stats.legs} ${stats.legs === 1 ? 'row' : 'rows'} → ${stats.sessions} ${sessionWord} · ` +
+        `no ticker and date repeats, so each row stays on its own`
+      : `${stats.legs} ${stats.legs === 1 ? 'row' : 'rows'} → ${stats.sessions} ${sessionWord} · ` +
+        `${stats.multiLeg} ${stats.multiLeg === 1 ? 'session shares' : 'sessions share'} a ticker and a date`;
+  }
+
   _resetImportPreview() {
     this._importResult = null;
     if (this.importSummary) this.importSummary.textContent = '';
+    if (this.importGroupNote) this.importGroupNote.textContent = '';
     if (this.importWarnings) {
       this.importWarnings.style.display = 'none';
       this.importWarnings.innerHTML = '';
@@ -2209,9 +2751,23 @@ class TradeJournalApp {
     }
 
     const n = result.entries.length;
+
+    // Rows that share a ticker and a date are one session, and get one stored
+    // group id between them (see JournalCSV.assignGroupIds). A row that repeats
+    // nothing keeps `null`, i.e. "never grouped": it is not a session of one.
+    const groupOn = this._importGroupsOn();
+    const batch = groupOn
+      ? JournalCSV.assignGroupIds(result.entries, { makeId: () => this._newGroupId() })
+      : { entries: result.entries, groups: 0, sessions: n };
+    const groupNote = (groupOn && batch.groups)
+      ? `<br>The rows read as <b>${batch.sessions === 1 ? 'one session' : batch.sessions + ' sessions'}</b>, ` +
+        `${batch.groups === 1 ? 'one of them' : batch.groups + ' of them'} sharing a ticker and a date.`
+      : '';
+
     const ok = await this._confirm(
       'Import <b>' + n + '</b> ' + (n === 1 ? 'entry' : 'entries') + ' into the journal?<br>' +
-      'Each row becomes its own entry, with the P&amp;L, the duration and the R-multiple computed from its own numbers.',
+      'Each row becomes its own entry, with the P&amp;L, the duration and the R-multiple computed from its own numbers.' +
+      groupNote,
       { okLabel: '📥 Import ' + n, danger: false }
     );
     if (!ok) return;
@@ -2222,8 +2778,8 @@ class TradeJournalApp {
     let saved = 0;
     let failed = 0;
 
-    for (let i = 0; i < result.entries.length; i++) {
-      const doc = Object.assign({}, result.entries[i], { createdAt: stamp });
+    for (let i = 0; i < batch.entries.length; i++) {
+      const doc = Object.assign({}, batch.entries[i], { createdAt: stamp });
       try {
         const id = await dataStore.saveJournalEntry(doc, null);
         if (id) saved++; else failed++;

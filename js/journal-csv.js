@@ -12,6 +12,9 @@
 //      R-multiple. `computeTradeNumbers()` is called by the live Numbers strip,
 //      by _collectForm() and by the import, so the form, an imported row and the
 //      summary table can never disagree.
+//   3. Own the session maths — several legs of one ticker on one day are ONE
+//      session, never one row. See the GROUPS section at the bottom: it rolls a
+//      session up from the rows and stamps the group id the import writes.
 //
 // Accepted CSV shapes (all detected automatically, in this order):
 //   A,B,C,…                      letters on their own row (what buildExample writes)
@@ -30,6 +33,11 @@
 //   N direction    O entryDate    P entryTime   Q entryPrice  R exitDate
 //   S exitTime     T exitPrice    U shares      V fees        W plannedRiskR
 //   X strategy     Y tags         Z processScore
+//
+// One field has NO letter: `groupId` (label "Group") carries the opaque id of
+// the session a row belongs to. All 26 letters are spoken for by the sheet (and
+// the positional fallback counts on that), so it is only ever matched by name —
+// a file without the column simply says nothing about grouping.
 // ============================================================================
 
 const JOURNAL_CSV_FIELDS = [
@@ -94,6 +102,16 @@ JOURNAL_CSV_FIELDS.push(
     hint: 'how clean the execution was, 1–5' }
 );
 
+// One field has NO letter, and it is the only one: A–Z are all spoken for by the
+// sheet's 26 columns (the positional fallback counts on that, and the tests pin
+// it). The session's group id therefore travels as an extra column named
+// "Group", matched by name only — a file that does not carry it has nothing to
+// say about grouping, which is exactly right for a hand-made sheet.
+JOURNAL_CSV_FIELDS.push(
+  { letter: null, key: 'groupId', label: 'Group', group: 'meta', type: 'text',
+    hint: 'opaque session id written by the app — rows sharing it are one session' }
+);
+
 // Hand-written names that mean the same thing as one of the letters above.
 // Keys are normalised (lowercase, punctuation removed) by `_norm()`.
 const JOURNAL_CSV_ALIASES = {
@@ -121,7 +139,10 @@ const JOURNAL_CSV_ALIASES = {
   risk: 'plannedRiskR', plannedrisk: 'plannedRiskR', plannedrisk1r: 'plannedRiskR', r1: 'plannedRiskR',
   strategy: 'strategy', playbook: 'strategy',
   tags: 'tags', tag: 'tags', labels: 'tags',
-  score: 'processScore', processscore: 'processScore', process: 'processScore'
+  score: 'processScore', processscore: 'processScore', process: 'processScore',
+  // The letterless Group column (see JOURNAL_CSV_FIELDS) — reachable by name only
+  group: 'groupId', groupid: 'groupId', session: 'groupId', sessionid: 'groupId',
+  groupkey: 'groupId'
 };
 
 // Canonical example rows. Row 1 is the long NVDA trade the app already shows as
@@ -174,8 +195,14 @@ const JOURNAL_CSV_MINIMAL_KEYS = [
 const JournalCSV = {
   // ---- Field map access -------------------------------------------------
   fields()  { return JOURNAL_CSV_FIELDS.slice(); },
-  letters() { return JOURNAL_CSV_FIELDS.map(f => f.letter); },
+  // A–Z only: the letterless Group column cannot be addressed by a letter, so it
+  // is left out of every letter-shaped answer (lettersLine, the example CSV, …).
+  letters() { return JOURNAL_CSV_FIELDS.filter(f => f.letter).map(f => f.letter); },
   keys()    { return JOURNAL_CSV_FIELDS.map(f => f.key); },
+  // The keys that own a real column, in sheet order: everything A–Z
+  csvKeys() { return JOURNAL_CSV_FIELDS.filter(f => f.letter).map(f => f.key); },
+  // The keys that only exist as a named column (matched by name, never letter)
+  namedKeys() { return JOURNAL_CSV_FIELDS.filter(f => !f.letter).map(f => f.key); },
 
   fieldByLetter(letter) {
     const l = String(letter == null ? '' : letter).trim().toUpperCase();
@@ -459,6 +486,17 @@ const JournalCSV = {
     if (['long', 'l', 'buy', 'b', 'bull', 'bullish', 'longentry'].indexOf(n) !== -1) return 'long';
     if (['short', 's', 'sell', 'bear', 'bearish', 'shortentry'].indexOf(n) !== -1) return 'short';
     return null;
+  },
+
+  // The Group cell is opaque: the app writes it, the CSV carries it, nothing
+  // reads its shape. Blank means "this row never said which session it is in",
+  // which is the normal case for a hand-made file. Capped so a pasted novel
+  // cannot become a document field.
+  normaliseGroupId(value) {
+    if (value == null) return null;
+    const raw = String(value).trim();
+    if (!raw) return null;
+    return raw.substring(0, 120);
   },
 
   // ---- Fuzzy matching against the sheet's own vocabularies --------------
@@ -774,6 +812,13 @@ const JournalCSV = {
     return hits >= 2;
   },
 
+  // A cell that names one of the letterless columns (only the Group column
+  // exists in that shape). Everything else has to be addressed by a letter.
+  _namedKeyFromCell(cell) {
+    const key = this._keyFromLabel(cell);
+    return key && this.namedKeys().indexOf(key) !== -1 ? key : null;
+  },
+
   // Work out which column letters/keys a file is addressed by.
   // Returns { kind, columns: [{ index, letter, key, label }], headerRows, warnings }
   detectColumns(rows) {
@@ -796,16 +841,29 @@ const JournalCSV = {
     const cells = first.cells.map(c => String(c).trim());
     const filled = cells.filter(c => c !== '');
 
-    // 1) Letters on their own row: A,B,C,…
+    // 1) Letters on their own row: A,B,C,… — plus any column that has no letter
+    //    to write and was therefore named by hand ("…,Z,Group"). Widening this
+    //    only ever ADDS a column that the letters could not address: the A–Z
+    //    detection itself is unchanged.
     const bare = cells.map(c => this._letterFromCell(c));
-    const allBareLetters = filled.length >= 2 && filled.every(c => !!this._letterFromCell(c));
+    const namedHere = cells.map(c => this._namedKeyFromCell(c));
+    const allBareLetters = filled.length >= 2 &&
+      filled.every(c => !!this._letterFromCell(c) || !!this._namedKeyFromCell(c));
     if (allBareLetters) {
       const columns = [];
+      let namedOnly = 0;
       cells.forEach((c, i) => {
         const letter = bare[i];
-        if (!letter) return;
-        const col = build(i, letter, null, 'letters');
-        if (col) columns.push(col);
+        if (letter) {
+          const col = build(i, letter, null, 'letters');
+          if (col) columns.push(col);
+          return;
+        }
+        const key = namedHere[i];
+        if (!key) return;
+        const field = this.fieldByKey(key);
+        columns.push({ index: i, letter: null, key, label: field.label, kind: 'named' });
+        namedOnly++;
       });
       let headerRows = 1;
       if (this._looksLikeLabelRow(informative[1])) {
@@ -816,7 +874,10 @@ const JournalCSV = {
         });
       }
       if (columns.length) {
-        warnings.push('Column letters found in the first row (A–Z).');
+        warnings.push(namedOnly
+          ? 'Column letters found in the first row (A–Z), plus ' + namedOnly +
+            ' column' + (namedOnly === 1 ? '' : 's') + ' named by hand — no letter to address them by.'
+          : 'Column letters found in the first row (A–Z).');
         return { kind: 'letters', columns, headerRows, warnings };
       }
     }
@@ -972,6 +1033,7 @@ const JournalCSV = {
     // 6) Build the document
     const tags = this.parseTags(text('tags'));
     const outcomeText = text('outcome') || this.outcomeText(numbers);
+    const groupId = this.normaliseGroupId(text('groupId'));
 
     const entry = {
       date,
@@ -996,7 +1058,10 @@ const JournalCSV = {
       symbol: ticker ? ticker.toUpperCase() : null,
       companyName: null,
       reviewId: null,
-      sourcePage: 'TradeJournal.html'
+      sourcePage: 'TradeJournal.html',
+      // Carried through when the file has a Group column, else null: null means
+      // "never grouped", so the ticker+date key decides at render time.
+      groupId
     };
 
     const preview = {
@@ -1011,6 +1076,9 @@ const JournalCSV = {
       exitPrice: numbers.exitPrice,
       pnl: numbers.pnl,
       pnlText: this.moneyText(numbers.pnl),
+      // Which session the row claims, so the preview can count sessions before
+      // a single document is written
+      groupId,
       warnCount: 0
     };
 
@@ -1071,27 +1139,36 @@ const JournalCSV = {
     return /[",\r\n;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   },
 
+  // The letters row of a file — but a column with no letter writes its label
+  // instead ("…,Z,Group"), which the reader accepts straight back: the
+  // letterless columns are matched by name, exactly as they are written here.
   lettersLine(keys) {
-    return (keys || this.keys()).map(k => this.letterByKey(k)).join(',');
+    return (keys || this.csvKeys()).map(k => {
+      const f = this.fieldByKey(k);
+      if (!f) return '';
+      return f.letter || f.label;
+    }).join(',');
   },
 
   labelsLine(keys) {
-    return (keys || this.keys()).map(k => {
+    return (keys || this.csvKeys()).map(k => {
       const f = this.fieldByKey(k);
       return this._csvCell(f ? f.label : k);
     }).join(',');
   },
 
   dataLine(values, keys) {
-    return (keys || this.keys())
+    return (keys || this.csvKeys())
       .map(k => this._csvCell(values[k] == null ? '' : values[k]))
       .join(',');
   },
 
   // The canonical example: the letter row, the label row, then two trades. Row 2
   // of the data is a short position that crosses midnight on purpose.
+  // The letterless Group column is deliberately absent — A–Z is the format the
+  // sheet uses, and a row that has no group id has nothing to say in it.
   buildExample(options = {}) {
-    const keys = options.keys || this.keys();
+    const keys = options.keys || this.csvKeys();
     const rows = [this.lettersLine(keys), this.labelsLine(keys)];
     JOURNAL_CSV_EXAMPLES.forEach(sample => rows.push(this.dataLine(sample, keys)));
     return rows.join('\r\n') + '\r\n';
@@ -1106,7 +1183,7 @@ const JournalCSV = {
   letterTable() {
     const width = this.keys().reduce((max, k) => Math.max(max, k.length), 0);
     return JOURNAL_CSV_FIELDS.map(f =>
-      f.letter + '  ' + f.key.padEnd(width) + '  ' + f.label + ' — ' + f.hint
+      (f.letter || '(name)') + '  ' + f.key.padEnd(width) + '  ' + f.label + ' — ' + f.hint
     ).join('\n');
   },
 
@@ -1137,7 +1214,7 @@ const JournalCSV = {
   summary(result) {
     if (!result) return '';
     const letters = (result.header && result.header.columns)
-      ? result.header.columns.map(c => c.letter).join(',')
+      ? result.header.columns.map(c => c.letter || c.label || '?').join(',')
       : '';
     const parts = [
       result.entries.length + (result.entries.length === 1 ? ' entry' : ' entries'),
@@ -1146,6 +1223,241 @@ const JournalCSV = {
     if (letters) parts.push('columns ' + letters);
     if (result.skipped) parts.push(result.skipped + ' skipped');
     return parts.join(' · ');
+  },
+
+  // ========================================================================
+  // GROUPS — one ticker on one day is ONE session, however many legs it took
+  // ========================================================================
+  // The store holds one document per TRADE (that is what the sheet's 13 columns
+  // are), so a session is a view over several documents, never a document of its
+  // own. Two rows belong together when:
+  //
+  //   • both carry the same stored `groupId` — explicit, and what the import
+  //     writes; it survives an edit to the ticker or the date, and
+  //   • otherwise both carry the same ticker on the same date — computed, which
+  //     is why grouping works on entries stored long before groups existed.
+  //
+  // A stored id beginning `solo_` is the exception that proves the rule: the row
+  // was deliberately split out and must never be merged with anything.
+  // ========================================================================
+
+  // null when the row has neither a ticker nor a date to pair on
+  sessionKey(entry) {
+    const ticker = String((entry && entry.ticker) || '').trim().toUpperCase();
+    const date = String((entry && entry.date) || '').trim();
+    if (!ticker && !date) return null;
+    return (ticker || '—') + '@' + (date || '—');
+  },
+
+  // The id a deliberately split row carries. Built from the entry's own id, so
+  // two split rows can never collide.
+  soloGroupId(entryId) {
+    return 'solo_' + String(entryId == null ? '' : entryId).trim();
+  },
+
+  isSoloGroupId(value) {
+    return /^solo_/.test(String(value == null ? '' : value).trim());
+  },
+
+  // A row that carries a real, explicitly stored group id
+  isGrouped(entry) {
+    return !!(entry && entry.groupId && !this.isSoloGroupId(entry.groupId));
+  },
+
+  // The key the table groups on. Prefixed so a stored id can never collide with
+  // a computed one, and so a row that pairs with nothing still gets a key of its
+  // own rather than being merged with the next orphan.
+  groupKeyFor(entry) {
+    if (!entry) return 'g:row:';
+    const stored = entry.groupId == null ? '' : String(entry.groupId).trim();
+    if (stored) {
+      return this.isSoloGroupId(stored)
+        ? 'g:' + stored + ':' + (entry.id || '')
+        : 'g:' + stored;
+    }
+    const session = this.sessionKey(entry);
+    if (!session) return 'g:row:' + (entry.id || '');
+    return 'auto:' + session;
+  },
+
+  // A fresh opaque id for one session. Nothing reads its shape — it only has to
+  // be unique — and `grp_` keeps it greppable in the console while debugging.
+  newGroupId() {
+    return 'grp_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
+  },
+
+  // entries (already filtered and sorted) → the sessions to draw, in the order
+  // their first leg appears. Legs keep the order they arrived in, so whatever
+  // the table is sorted by also orders the legs inside each session.
+  groupEntries(entries) {
+    const order = [];
+    const bucket = new Map();
+
+    (entries || []).forEach(entry => {
+      const key = this.groupKeyFor(entry);
+      if (!bucket.has(key)) { bucket.set(key, []); order.push(key); }
+      bucket.get(key).push(entry);
+    });
+
+    return order.map(key => this.describeGroup(key, bucket.get(key)));
+  },
+
+  // Everything the table needs about one session, all of it derived from the
+  // legs: nothing is stored on the row, so a session can never disagree with the
+  // rows it is made of.
+  describeGroup(key, legs) {
+    const dates = this._distinct(legs, 'date').sort();
+    let date = '';
+    if (dates.length === 1) date = dates[0];
+    else if (dates.length > 1) date = dates[0] + ' → ' + dates[dates.length - 1];
+
+    const tickers = this._distinct(legs, 'ticker');
+    const group = {
+      key,
+      legs,
+      ids: legs.map(e => e.id),
+      count: legs.length,
+      single: legs.length === 1,
+      stored: this.isGrouped(legs[0]),
+      ticker: tickers[0] || '',
+      tickers,
+      date,
+      dates,
+      categories: this._distinct(legs, 'category'),
+      timeframes: this._distinct(legs, 'timeframe'),
+      setups: this._distinct(legs, 'setup')
+    };
+    group.rollup = this.rollup(legs);
+    group.label = group.ticker || '—';
+    if (group.date) group.label += ' · ' + group.date;
+    return group;
+  },
+
+  _distinct(legs, key) {
+    const seen = [];
+    (legs || []).forEach(e => {
+      const value = e[key] == null ? '' : String(e[key]).trim();
+      if (value && seen.indexOf(value) === -1) seen.push(value);
+    });
+    return seen;
+  },
+
+  // ========================================================================
+  // The session arithmetic
+  // ========================================================================
+  // Session arithmetic is computed OVER the legs. It deliberately reports
+  // NOTHING that needs a price series — there is no MAE, no MFE and no equity
+  // curve here, because a leg only ever stored its entry, its exit and its
+  // result. Everything below is a sum or a ratio of figures the legs already
+  // computed, so a session can never contradict them.
+  rollup(entries) {
+    const legs = entries || [];
+
+    const withPnl = legs.filter(e => e.tradeData && e.tradeData.pnl != null);
+    const pnls = withPnl.map(e => e.tradeData.pnl);
+    const wins = pnls.filter(p => p > 0);
+    const losses = pnls.filter(p => p < 0);
+    const grossWin = wins.reduce((s, p) => s + p, 0);
+    const grossLoss = Math.abs(losses.reduce((s, p) => s + p, 0));
+    const net = pnls.reduce((s, p) => s + p, 0);
+
+    const withR = legs.filter(e => e.tradeData && e.tradeData.realisedR != null);
+    const avgR = withR.length
+      ? withR.reduce((s, e) => s + e.tradeData.realisedR, 0) / withR.length
+      : null;
+
+    const all = (key) => legs
+      .map(e => (e.tradeData ? e.tradeData[key] : null))
+      .filter(v => v != null && !isNaN(v));
+
+    const durations = all('durationMin');
+    const shareCounts = all('shares');
+    const feeAmounts = all('fees');
+    const scores = legs.map(e => (e.processScore == null ? null : e.processScore)).filter(v => v != null);
+
+    const withAdvice = legs.filter(e =>
+      (e.mentor && e.mentor.raw && e.mentor.raw.trim()) || (e.advice && e.advice.trim()));
+
+    return {
+      count: legs.length,
+      traded: withPnl.length,
+      untraded: legs.length - withPnl.length,
+      wins: wins.length,
+      losses: losses.length,
+      flat: pnls.filter(p => p === 0).length,
+      netPnl: withPnl.length ? Math.round(net * 100) / 100 : null,
+      grossWin: Math.round(grossWin * 100) / 100,
+      grossLoss: Math.round(grossLoss * 100) / 100,
+      winRate: withPnl.length ? (wins.length / withPnl.length) * 100 : null,
+      avgR,
+      bestPnl: pnls.length ? Math.max.apply(null, pnls) : null,
+      worstPnl: pnls.length ? Math.min.apply(null, pnls) : null,
+      totalShares: shareCounts.length ? shareCounts.reduce((a, b) => a + b, 0) : null,
+      totalFees: feeAmounts.length
+        ? Math.round(feeAmounts.reduce((a, b) => a + b, 0) * 100) / 100 : null,
+      totalDurationMin: durations.length ? durations.reduce((a, b) => a + b, 0) : null,
+      avgProcessScore: scores.length
+        ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10 : null,
+      adviceTotal: withAdvice.length,
+      adviceApplied: withAdvice.filter(e => e.mentor && e.mentor.status === 'applied').length
+    };
+  },
+
+  // "5 legs · 3W / 2L · +$412.30 · +0.42R" — the one-line story of a session.
+  // `opts.noCount` leaves the leading leg count off, for the callers that print
+  // it right next to this line already: "3 trades" over "3 legs · …" said the
+  // same thing twice.
+  describeRollup(roll, opts = {}) {
+    if (!roll) return '';
+    const bits = [];
+    if (!opts.noCount) bits.push(roll.count + (roll.count === 1 ? ' leg' : ' legs'));
+    if (roll.traded) bits.push(roll.wins + 'W / ' + roll.losses + 'L');
+    if (roll.netPnl != null) bits.push(this.moneyText(roll.netPnl));
+    if (roll.avgR != null) bits.push((roll.avgR >= 0 ? '+' : '') + roll.avgR.toFixed(2) + 'R');
+    return bits.join(' · ');
+  },
+
+  // How many sessions a filtered view holds. `legs` is the row count, so a
+  // caller can say "5 of 5 entries · 1 session" without doing the arithmetic.
+  groupStats(groups) {
+    const list = groups || [];
+    const multiLeg = list.filter(g => g.count > 1).length;
+    return {
+      sessions: list.length,
+      multiLeg,
+      singleLeg: list.length - multiLeg,
+      legs: list.reduce((n, g) => n + g.count, 0)
+    };
+  },
+
+  // ========================================================================
+  // Writing group ids (the Import dialog and the editor's session strip)
+  // ========================================================================
+  // Rows that share a ticker and a date get ONE id, so a session is explicit
+  // from the moment it exists and keeps holding together if either field is
+  // edited later. A row that is on its own keeps `null`: it is not a session of
+  // one, it is simply a row, and the computed key groups it with nothing.
+  assignGroupIds(entries, options = {}) {
+    const makeId = options.makeId || (() => this.newGroupId());
+    const list = entries || [];
+    const buckets = new Map();
+
+    list.forEach(entry => {
+      const session = this.sessionKey(entry);
+      if (!session) return;
+      if (!buckets.has(session)) buckets.set(session, []);
+      buckets.get(session).push(entry);
+    });
+
+    let groups = 0;
+    buckets.forEach(legs => {
+      if (legs.length < 2) return;
+      const id = makeId();
+      legs.forEach(leg => { leg.groupId = id; });
+      groups++;
+    });
+
+    return { entries: list, groups, sessions: buckets.size };
   }
 };
 
