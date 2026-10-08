@@ -74,10 +74,10 @@ console.log('\n=== Journal CSV + Draft round-trip test ===\n');
 // ============================================================================
 const fields = CSV.fields();
 eq('A–Z: 26 lettered columns', CSV.letters().length, 26);
-eq('field map: the 26 letters plus the letterless Group column', fields.length, 27);
+eq('field map: the 26 letters plus the 3 letterless columns', fields.length, 29);
 eq('A–Z: letters in order', CSV.letters().join(','),
   'A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z');
-check('field map: keys are unique', new Set(CSV.keys()).size === 27);
+check('field map: keys are unique', new Set(CSV.keys()).size === 29);
 eq('A–M match the sheet columns (letter + key)',
   CSV.verifyColumns(), []);
 eq('A–M keys equal JOURNAL_COLUMNS', CSV.letters().slice(0, 13).map(l => CSV.keyByLetter(l)),
@@ -87,11 +87,21 @@ eq('N–Z are the timing/price/meta letters',
   fields.slice(13, 26).map(f => f.key),
   ['direction', 'entryDate', 'entryTime', 'entryPrice', 'exitDate', 'exitTime',
    'exitPrice', 'shares', 'fees', 'plannedRiskR', 'strategy', 'tags', 'processScore']);
-eq('the one letterless field is the session group', CSV.namedKeys(), ['groupId']);
-check('a letterless field is not addressable by letter',
-  CSV.fieldByLetter(null) === null && CSV.letterByKey('groupId') === null);
-check('the named field is still reachable by name',
-  CSV.fieldByKey('groupId') !== null && CSV.fieldByKey('groupId').label === 'Group');
+eq('the letterless fields are matched by name, never by letter', CSV.namedKeys(),
+  ['groupId', 'holdMinutes', 'pnlPercent']);
+check('no letterless field is addressable by letter',
+  CSV.fieldByLetter(null) === null && CSV.letterByKey('groupId') === null &&
+  CSV.letterByKey('holdMinutes') === null && CSV.letterByKey('pnlPercent') === null);
+check('the named fields are still reachable by name',
+  CSV.fieldByKey('groupId') !== null && CSV.fieldByKey('groupId').label === 'Group' &&
+  CSV.fieldByKey('holdMinutes').label === 'Hold (min)' &&
+  CSV.fieldByKey('pnlPercent').label === 'P&L percent');
+// The label check runs BEFORE the alias table (see _keyFromLabel), so a label that
+// normalises onto "pnl" would quietly steal the sheet's Outcome / P&L column
+check('the P&L% label does not collide with "PnL"', CSV._norm('P&L percent') !== 'pnl');
+eq('"PnL" still means the Outcome column', CSV._keyFromLabel('PnL'), 'outcome');
+eq('a broker\'s "PnLPct" is the P&L percentage', CSV._keyFromLabel('PnLPct'), 'pnlPercent');
+eq('a broker\'s "HoldMinut" is the hold time', CSV._keyFromLabel('HoldMinut'), 'holdMinutes');
 eq('csvKeys() is the A–Z subset (the example CSV is unchanged)', CSV.csvKeys().length, 26);
 check('csvKeys() keeps sheet order', CSV.csvKeys().join(',') === CSV.keys().slice(0, 26).join(','));
 
@@ -192,7 +202,12 @@ eq('named header: kind', named.header.kind, 'names');
 eq('named header: keys mapped', named.header.columns.map(c => c.key),
   ['ticker', 'category', 'date', 'entryPrice', 'exitPrice', 'shares', 'entryTime', 'exitTime', 'fees', 'outcome']);
 eq('named header: category matched from one word', named.entries[0].category, 'Management error');
-close('named header: P&L computed from the numbers', named.entries[0].tradeData.pnl, -26, 0.005);
+// The price fell (200 → 199.5) while the file's own Net P&L column says +24, and
+// both can only be true of a SHORT. Deriving the direction turns that +24 winner
+// back into +24; reading the row as a long would report it as a -26 loser.
+eq('named header: direction derived from the price move and the P&L',
+  named.entries[0].tradeData.direction, 'short');
+close('named header: P&L computed from the numbers', named.entries[0].tradeData.pnl, 24, 0.005);
 eq('named header: outcome text kept as written', named.entries[0].outcome, '24');
 
 // Semicolon separator, with the tags cell quoted
@@ -235,6 +250,16 @@ eq('date: written month, day first', CSV.normaliseDate('29 Sep 2026'), '2026-09-
 eq('date: written month, month first', CSV.normaliseDate('Sep 29, 2026'), '2026-09-29');
 eq('date: unformatted Excel serial', CSV.normaliseDate('45000'), '2023-03-15');
 eq('date: rubbish is null', CSV.normaliseDate('not a date'), null);
+
+// Display is day-first while storage stays ISO: sorting, the date-range filter and
+// session grouping all compare the stored string, so only the print changes
+eq('display: an ISO date prints as dd/mm/yyyy', CSV.displayDate('2026-10-07'), '07/10/2026');
+eq('display: the first of the month', CSV.displayDate('2026-01-01'), '01/01/2026');
+eq('display: an ISO moment keeps only the date', CSV.displayDate('2026-10-07T09:41:33Z'), '07/10/2026');
+eq('display: a hand-written month-first date reads month-first', CSV.displayDate('10/07/2026'), '07/10/2026');
+eq('display: empty is empty', CSV.displayDate(''), '');
+eq('display: null is empty', CSV.displayDate(null), '');
+eq('display: rubbish is empty', CSV.displayDate('not a date'), '');
 
 eq('time: HH:MM', CSV.normaliseTime('09:41'), '09:41');
 eq('time: inside a full moment', CSV.normaliseTime('2026-09-29T09:41:33'), '09:41');
@@ -648,6 +673,92 @@ eq('round trip: a written group id comes back', reexport.entries[0].groupId, 'gr
 // The example CSV stays exactly A–Z: no Group column is advertised
 check('the example CSV carries no Group column',
   exampleLines[1].indexOf('Group') === -1 && exampleLines[0].indexOf('groupId') === -1);
+
+// ============================================================================
+// 9. A broker export: nine columns, no letters, none of the prose
+// ============================================================================
+// This is the shape a broker hands over — Symbol, Qty, the two moments as
+// "mm/dd/yyyy hh:mm", the two prices, and its own HoldMinut / PnL / PnLPct. The
+// journal's prose columns (C–K, M, N, R, V–Z) do not exist in the file at all,
+// so every one of them has to come out EMPTY: not guessed at, and not left
+// holding whatever the previous row put there.
+const brokerCsv = [
+  'Symbol,Qty,EntryTime,EntryPrice,ExitTime,ExitPrice,HoldMinut,PnL,PnLPct',
+  'NVDA,100,10/07/2026 09:41,150.25,10/07/2026 09:47,150.55,6,30.00,0.20',
+  'TSLA,80,10/07/2026 23:58,254.10,10/08/2026 00:05,252.90,7,-96.00,-0.47',
+  'AMD,50,10/07/2026 11:20,80.10,,79.85,9,12.50,0.31'
+].join('\n');
+const broker = CSV.toEntries(brokerCsv, { defaultDate: '2026-01-01' });
+eq('broker: header matched by name', broker.header.kind, 'names');
+eq('broker: nine columns mapped', broker.header.columns.map(c => c.key),
+  ['ticker', 'shares', 'entryTime', 'entryPrice', 'exitTime', 'exitPrice',
+   'holdMinutes', 'outcome', 'pnlPercent']);
+eq('broker: three entries', broker.entries.length, 3);
+eq('broker: nothing skipped', broker.skipped, 0);
+noBadTokens('broker: no undefined/NaN', broker.entries);
+
+const [b1, b2, b3] = broker.entries;
+// There is no date column: the date is read out of the entry moment itself
+eq('broker: the date comes from the entry moment', b1.date, '2026-10-07');
+eq('broker: and prints day-first', CSV.displayDate(b1.date), '07/10/2026');
+eq('broker: ticker', b1.ticker, 'NVDA');
+eq('broker: size', b1.tradeData.shares, 100);
+eq('broker: entry price', b1.tradeData.entryPrice, 150.25);
+eq('broker: entry moment', b1.tradeData.entryTime, '2026-10-07T09:41');
+eq('broker: exit moment', b1.tradeData.exitTime, '2026-10-07T09:47');
+eq('broker: duration from the two times', b1.tradeData.durationMin, 6);
+close('broker: net P&L', b1.tradeData.pnl, 30, 0.005);
+close('broker: P&L %', b1.tradeData.pnlPercent, 0.1997, 0.0001);
+
+// Everything the file does not carry stays empty
+check('broker: every prose column is left empty',
+  [b1.timeframe, b1.category, b1.setup, b1.entryTrigger, b1.whyEntered, b1.whatWentWrong,
+   b1.whyItWentWrong, b1.advice, b1.keyLesson, b1.review].every(v => v === null),
+  JSON.stringify([b1.timeframe, b1.category, b1.setup, b1.entryTrigger, b1.whyEntered]));
+eq('broker: no tags invented', b1.tags, []);
+eq('broker: no process score invented', b1.processScore, null);
+eq('broker: no mentor review invented', b1.mentor.source, null);
+eq('broker: no group id', b1.groupId, null);
+eq('broker: no fees column, so no fees', b1.tradeData.fees, null);
+eq('broker: no planned risk, so no R-multiple', b1.tradeData.realisedR, null);
+eq('broker: no strategy column', b1.tradeData.strategy, null);
+// HoldMinut and PnLPct are a second opinion on the arithmetic, not extra columns:
+// what the journal stores is still durationMin / pnlPercent, computed itself
+check('broker: the check columns are not written onto the document',
+  !('holdMinutes' in b1) && !('pnlPercent' in b1));
+
+// No direction column: the two prices and the file's own P&L have to decide, or
+// every imported row would be booked as a long and a short would be squandered
+eq('broker: a rising price with a positive P&L is a long', b1.tradeData.direction, 'long');
+check('broker: the row says the direction was inferred',
+  broker.warnings.some(w => /No direction column/.test(w)));
+eq('broker: a falling price with a negative P&L is a long loser', b2.tradeData.direction, 'long');
+eq('broker: a falling price with a positive P&L can only be a short', b3.tradeData.direction, 'short');
+close('broker: the short P&L is the profit the file reports', b3.tradeData.pnl, 12.5, 0.005);
+eq('broker: a trade past midnight keeps both dates',
+  b2.tradeData.entryDate + '→' + b2.tradeData.exitDate, '2026-10-07→2026-10-08');
+eq('broker: the midnight trade still has a duration', b2.tradeData.durationMin, 7);
+
+// The one case the times cannot answer: no exit time at all. The file's HoldMinut
+// fills it, and says so, rather than the trade showing no duration
+eq('broker: a blank exit time leaves the duration to the file', b3.tradeData.durationMin, 9);
+check('broker: and says where that duration came from',
+  broker.warnings.some(w => /Duration read from Hold/.test(w)));
+check('broker: none of it is reported as a disagreement',
+  !broker.warnings.some(w => /disagrees/.test(w)));
+
+// A file whose own arithmetic does not agree is reported, never adopted: the
+// prices and the size are the journal's source of truth, so the view, the form
+// and the P&L strip can never disagree with one another
+const mismatch = CSV.toEntries([
+  'Symbol,Qty,EntryTime,EntryPrice,ExitTime,ExitPrice,PnL,PnLPct',
+  'NVDA,100,10/07/2026 09:41,150.25,10/07/2026 09:47,150.55,300.00,5.00'
+].join('\n'), { defaultDate: '2026-10-07' });
+close('broker: the computed P&L wins', mismatch.entries[0].tradeData.pnl, 30, 0.005);
+check('broker: the file\'s own P&L is reported, not adopted',
+  mismatch.warnings.some(w => /P&L "300\.00" disagrees/.test(w)));
+check('broker: the file\'s own P&L % is reported too',
+  mismatch.warnings.some(w => /P&L percent "5\.00" disagrees/.test(w)));
 
 // ============================================================================
 // Summary

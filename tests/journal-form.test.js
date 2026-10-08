@@ -225,7 +225,11 @@ const rowHtml = rowApp._rowHtml({
   },
   mentor: { status: 'applied' }, tags: [], processScore: 3
 }, rowApp._tableColumns());
-check('row: date cell shows the date', rowHtml.indexOf('2026-09-29') !== -1);
+check('row: date cell shows the date day-first', rowHtml.indexOf('29/09/2026') !== -1, rowHtml);
+// Storage stays ISO (sorting, the date filter, session grouping all compare the
+// stored string) — only the print is day-first, and only in the date cell
+check('row: the date cell is no longer ISO',
+  !/<div class="tj-cell-main">\d{4}-\d{2}-\d{2}<\/div>/.test(rowHtml), rowHtml);
 check('row: date cell has the timing line', rowHtml.indexOf('09:41 → 09:47 · 6m') !== -1, rowHtml);
 check('row: timing line is a sub-line', rowHtml.indexOf('tj-cell-sub') !== -1);
 check('row: net P&L cell', rowHtml.indexOf('$-104.10') !== -1, rowHtml);

@@ -102,14 +102,23 @@ JOURNAL_CSV_FIELDS.push(
     hint: 'how clean the execution was, 1–5' }
 );
 
-// One field has NO letter, and it is the only one: A–Z are all spoken for by the
-// sheet's 26 columns (the positional fallback counts on that, and the tests pin
-// it). The session's group id therefore travels as an extra column named
-// "Group", matched by name only — a file that does not carry it has nothing to
-// say about grouping, which is exactly right for a hand-made sheet.
+// A–Z are all spoken for by the sheet's 26 columns (the positional fallback
+// counts on that, and the tests pin it), so every other column travels without a
+// letter and is matched by NAME only. There are three:
+//
+//   • Group        the session id written by the app. A file that does not carry
+//                  it says nothing about grouping, which is right for a hand sheet.
+//   • Hold (min)   ┐ what a broker export carries and the journal works out for
+//   • P&L percent  ┘ itself from the times and the prices. They are read as a
+//                    second opinion on that arithmetic, never as its source (see
+//                    buildEntry), and they are not columns of the sheet.
 JOURNAL_CSV_FIELDS.push(
   { letter: null, key: 'groupId', label: 'Group', group: 'meta', type: 'text',
-    hint: 'opaque session id written by the app — rows sharing it are one session' }
+    hint: 'opaque session id written by the app — rows sharing it are one session' },
+  { letter: null, key: 'holdMinutes', label: 'Hold (min)', group: 'meta', type: 'number',
+    hint: 'minutes in the trade, as some exports write it — the entry and exit times decide it' },
+  { letter: null, key: 'pnlPercent', label: 'P&L percent', group: 'meta', type: 'number',
+    hint: 'P&L as a percentage, as some exports write it — the prices decide it' }
 );
 
 // Hand-written names that mean the same thing as one of the letters above.
@@ -140,9 +149,18 @@ const JOURNAL_CSV_ALIASES = {
   strategy: 'strategy', playbook: 'strategy',
   tags: 'tags', tag: 'tags', labels: 'tags',
   score: 'processScore', processscore: 'processScore', process: 'processScore',
-  // The letterless Group column (see JOURNAL_CSV_FIELDS) — reachable by name only
+  // The letterless columns (see JOURNAL_CSV_FIELDS) — reachable by name only.
+  // Never write a key containing "%": _norm() strips it, so "pnl%" would collapse
+  // onto the "pnl" key above and quietly steal the Outcome / P&L column.
   group: 'groupId', groupid: 'groupId', session: 'groupId', sessionid: 'groupId',
-  groupkey: 'groupId'
+  groupkey: 'groupId',
+  // Minutes in the trade — "HoldMinut" is how one broker truncates the header
+  holdminut: 'holdMinutes', holdminutes: 'holdMinutes', holdmin: 'holdMinutes',
+  holdmins: 'holdMinutes', holdtime: 'holdMinutes', hold: 'holdMinutes',
+  duration: 'holdMinutes', durationmin: 'holdMinutes', timeinmarket: 'holdMinutes',
+  // P&L as a percentage, on the same scale the journal stores (0.20 = 0.20%)
+  pnlpct: 'pnlPercent', pnlpercent: 'pnlPercent', pnlpercentage: 'pnlPercent',
+  returnpct: 'pnlPercent', pctpnl: 'pnlPercent', profitpct: 'pnlPercent'
 };
 
 // Canonical example rows. Row 1 is the long NVDA trade the app already shows as
@@ -325,6 +343,25 @@ const JournalCSV = {
       return this._iso(parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate());
     }
     return null;
+  },
+
+  // The way round the journal WRITES a date for a human: "2026-10-07" →
+  // "07/10/2026". Storage stays ISO (sorting, grouping and the date-range filter
+  // all compare the stored string), so this is a print, not a conversion.
+  displayDate(value) {
+    const raw = String(value == null ? '' : value).trim();
+    if (!raw) return '';
+    // The app's own storage form, possibly with a time behind it: split it by hand
+    // so no engine date-parsing can ever print something other than what is stored
+    const m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ].*)?$/);
+    if (m) {
+      const iso = this._iso(m[1], m[2], m[3]);
+      return iso ? iso.split('-').reverse().join('/') : '';
+    }
+    // Anything else — a hand-edited cell, a legacy value — normalised first, and
+    // read as nothing at all if it is not a date
+    const iso = this.normaliseDate(raw);
+    return iso ? iso.split('-').reverse().join('/') : '';
   },
 
   // Split "2026-09-29 09:41" / "09:41" / "2026-09-29T09:41:00" into its halves
@@ -812,8 +849,8 @@ const JournalCSV = {
     return hits >= 2;
   },
 
-  // A cell that names one of the letterless columns (only the Group column
-  // exists in that shape). Everything else has to be addressed by a letter.
+  // A cell that names one of the letterless columns (the Group / Hold / P&L%
+  // shape — see JOURNAL_CSV_FIELDS). Everything else has to be addressed by letter.
   _namedKeyFromCell(cell) {
     const key = this._keyFromLabel(cell);
     return key && this.namedKeys().indexOf(key) !== -1 ? key : null;
@@ -862,7 +899,9 @@ const JournalCSV = {
         const key = namedHere[i];
         if (!key) return;
         const field = this.fieldByKey(key);
-        columns.push({ index: i, letter: null, key, label: field.label, kind: 'named' });
+        // An alias could name a column the field map no longer carries: fall back
+        // to the header text rather than reading a property of null
+        columns.push({ index: i, letter: null, key, label: (field ? field.label : cells[i]) || key, kind: 'named' });
         namedOnly++;
       });
       let headerRows = 1;
@@ -905,7 +944,10 @@ const JournalCSV = {
       named.forEach((key, i) => {
         if (!key) return;
         const field = this.fieldByKey(key);
-        columns.push({ index: i, letter: field.letter, key, label: cells[i] || field.label, kind: 'names' });
+        columns.push({
+          index: i, letter: field ? field.letter : null, key,
+          label: cells[i] || (field ? field.label : key), kind: 'names'
+        });
       });
       if (columns.length) {
         warnings.push('Header row matched by column name.');
@@ -913,8 +955,12 @@ const JournalCSV = {
       }
     }
 
-    // 4) Nothing recognisable, but the file is exactly as wide as the sheet
-    if (cells.length === JOURNAL_CSV_FIELDS.length || cells.length === 13) {
+    // 4) Nothing recognisable, but the file is exactly as wide as the sheet:
+    //    A–Z plus the letterless Group column, or the 13-column sheet on its own.
+    //    Counted from the LETTERS, not the field map: the Hold / P&L% columns are
+    //    names a file may carry, never columns of the sheet.
+    const sheetWidth = this.csvKeys().length + 1;
+    if (cells.length === sheetWidth || cells.length === 13) {
       const columns = cells.map((c, i) => {
         const field = JOURNAL_CSV_FIELDS[i];
         return { index: i, letter: field.letter, key: field.key, label: field.label, kind: 'positional' };
@@ -971,7 +1017,25 @@ const JournalCSV = {
     // 2) Numbers, timing and everything derived from them
     //    Column A may carry a time as well ("2026-09-29 09:41"), which is the entry
     const aCell = this.parseMoment(text('date'));
-    const direction = this.normaliseDirection(text('direction'));
+    let direction = this.normaliseDirection(text('direction'));
+
+    // A broker export normally has no direction column — the sheet's column N is
+    // the only place one lives, and the broker has never heard of the sheet. The
+    // two prices together with the file's own P&L give it away: price up while the
+    // P&L is down can only be a short. Deriving it HERE, before the arithmetic,
+    // keeps the stored direction and the recomputed P&L in agreement instead of
+    // silently booking every imported trade as a long and getting the sign wrong.
+    // Without a P&L to read there is nothing to break the tie, so it stays long.
+    let assumedDirection = false;
+    if (!direction) {
+      const dirIn = this.parseNumber(text('entryPrice'));
+      const dirOut = this.parseNumber(text('exitPrice'));
+      const dirPnl = this.parseNumber(text('outcome'));
+      if (dirIn != null && dirOut != null && dirIn !== dirOut && dirPnl) {
+        direction = (dirOut - dirIn) * dirPnl < 0 ? 'short' : 'long';
+        assumedDirection = true;
+      }
+    }
 
     const numbers = this.computeTradeNumbers({
       direction: direction || 'long',
@@ -986,6 +1050,18 @@ const JournalCSV = {
       plannedRiskR: text('plannedRiskR'),
       defaultDate: options.defaultDate || null
     });
+
+    // The file's own "Hold" column is the fallback for a duration the entry and
+    // exit times could not produce. That happens for real: a broker export has no
+    // separate exit DATE, so a trade that crossed midnight reads as running
+    // backwards and yields no duration at all. It is never an override — the times
+    // are the journal's arithmetic and win whenever they can answer.
+    const fileHold = this.parseNumber(text('holdMinutes'));
+    let holdFromFile = false;
+    if (numbers.durationMin == null && fileHold != null && fileHold > 0) {
+      numbers.durationMin = Math.round(fileHold);
+      holdFromFile = true;
+    }
 
     // 3) A value that was there but unreadable is worth a warning, not silence
     const expectNumber = (key, label) => {
@@ -1005,11 +1081,34 @@ const JournalCSV = {
     if (text('direction') && !direction) {
       warnings.push(at(`Direction "${text('direction')}" not understood — read as long.`));
     }
+    if (assumedDirection) {
+      warnings.push(at(`No direction column — read as ${direction} from the two prices and the P&L.`));
+    }
     if (numbers.entryTime && numbers.exitTime && numbers.durationMin == null) {
       warnings.push(at('The exit time is before the entry time — check columns O–S.'));
     }
     if (numbers.rolledExitDate) {
       warnings.push(at(`Trade runs past midnight — exit read as ${numbers.exitDate}.`));
+    }
+    if (holdFromFile) {
+      warnings.push(at(`Duration read from Hold "${text('holdMinutes')}" — the entry and exit times give none.`));
+    } else if (fileHold != null && numbers.durationMin != null &&
+               Math.abs(Math.round(fileHold) - numbers.durationMin) > 1) {
+      warnings.push(at(`Hold "${text('holdMinutes')}" disagrees with the entry and exit times (${numbers.durationMin} min) — the times win.`));
+    }
+
+    // The file's own arithmetic columns are a second opinion on numbers the journal
+    // works out for itself. They are never preferred to it — one arithmetic path is
+    // what keeps the strip, the form and the import from disagreeing — but a
+    // disagreement is worth saying out loud: it usually means fees, a typo, or a row
+    // someone reversed by hand.
+    const filePnl = this.parseNumber(text('outcome'));
+    if (filePnl != null && numbers.pnl != null && Math.abs(filePnl - numbers.pnl) > 0.01) {
+      warnings.push(at(`P&L "${text('outcome')}" disagrees with the entry, exit and size (${this.moneyText(numbers.pnl)}) — the prices win.`));
+    }
+    const filePct = this.parseNumber(text('pnlPercent'));
+    if (filePct != null && numbers.pnlPercent != null && Math.abs(filePct - numbers.pnlPercent) > 0.01) {
+      warnings.push(at(`P&L percent "${text('pnlPercent')}" disagrees with the prices (${Math.round(numbers.pnlPercent * 100) / 100}%) — the prices win.`));
     }
 
     let processScore = this.parseInt10(text('processScore'));

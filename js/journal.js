@@ -1732,7 +1732,7 @@ class TradeJournalApp {
           });
           const timing = JournalCSV.describeTiming(numbers);
           if (!entry.date && !timing) return `<td class="tj-muted">—</td>`;
-          const main = entry.date ? `<div class="tj-cell-main">${JournalText.esc(entry.date)}</div>` : '';
+          const main = entry.date ? `<div class="tj-cell-main">${JournalText.esc(JournalCSV.displayDate(entry.date))}</div>` : '';
           const sub = timing
             ? `<div class="tj-cell-sub" title="Entry time → exit time and time in trade">${JournalText.esc(timing)}</div>`
             : '';
@@ -1880,7 +1880,7 @@ class TradeJournalApp {
         }
 
         case 'date':
-          return `<td class="tj-session-main">${esc(group.date || '—')}</td>`;
+          return `<td class="tj-session-main">${esc(JournalCSV.displayDate(group.date) || '—')}</td>`;
 
         case 'ticker':
           return `<td class="tj-session-main">${esc(group.ticker || '—')}</td>`;
@@ -2393,7 +2393,7 @@ class TradeJournalApp {
         ? `<span class="tj-muted">—</span>`
         : `<span class="${td.pnl >= 0 ? 'positive' : 'negative'}">${JournalText.esc(Utils.formatCurrency(td.pnl))}</span>`;
       const star = e.processScore != null ? '  ⭐' + e.processScore : '';
-      const heading = `${e.date || 'no date'} · ${e.ticker || '—'}${star}`;
+      const heading = `${JournalCSV.displayDate(e.date) || 'no date'} · ${e.ticker || '—'}${star}`;
       const sub = JournalText.preview(e.outcome || e.keyLesson || e.whyEntered, 110) || 'No outcome recorded';
 
       return `<div class="tj-cat-item">
@@ -2677,7 +2677,7 @@ class TradeJournalApp {
         const price = (v) => (v == null ? '—' : String(v));
         return '<tr>' +
           '<td class="tj-muted">' + JournalText.esc(p.line == null ? '' : String(p.line)) + '</td>' +
-          '<td>' + JournalText.esc(p.date || '—') + '</td>' +
+          '<td>' + JournalText.esc(JournalCSV.displayDate(p.date) || '—') + '</td>' +
           '<td>' + JournalText.esc(p.ticker || '—') + '</td>' +
           '<td title="' + JournalText.esc(p.category || '') + '">' + JournalText.esc(cat) + '</td>' +
           '<td>' + JournalText.esc(p.direction) + '</td>' +
