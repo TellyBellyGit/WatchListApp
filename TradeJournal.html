@@ -474,6 +474,18 @@
             the ones a row does not need are simply left blank.
           </div>
 
+          <!-- A broker export is a list of FILLS, not journal rows: the converter
+               matches them first-in, first-out and writes the CSV this dialog
+               reads, so the order of the two steps matters. Trade Matcher opens
+               in its own tab (see _bindImportDialog) — this box keeps whatever
+               it already holds. -->
+          <div class="tj-dialog-hint">
+            <b>Coming from a broker?</b> Please make sure the file is already converted to the format
+            below. For a <b>Schwab / thinkorswim Activity</b> report, run the conversion file — it
+            matches your fills first-in, first-out and writes a CSV this dialog can read:
+            <button type="button" class="tj-link-btn" id="tj-import-matcher">🔀 Open Trade Matcher</button>
+          </div>
+
           <div class="tj-drop" id="tj-import-drop">
             <div class="tj-drop-icon">📄</div>
             <div class="tj-drop-text">
@@ -674,7 +686,7 @@
   <script src="js/journal-categories.js"></script>
   <script src="js/journal-csv.js?v=261008a"></script>
   <script src="js/journal-draft.js?v=260929b"></script>
-  <script src="js/journal.js?v=261008a"></script>
+  <script src="js/journal.js?v=261011a"></script>
 </body>
 </html>
 

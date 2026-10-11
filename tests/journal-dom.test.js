@@ -93,6 +93,14 @@ check('the P&L chips are outside the collapsed panel',
 ['tj-draft-panel-skeleton', 'tj-draft-panel-prompt', 'tj-import-paste'].forEach(id => {
   check('dialog element present: ' + id, idsInHtml.has(id));
 });
+
+// ---- The broker step: a Schwab/thinkorswim export is fills, not journal rows,
+// so the import dialog has to point at the converter before a file is dropped.
+// A mistyped id or filename here is silent in the browser.
+check('the import dialog offers the broker converter', idsInHtml.has('tj-import-matcher'));
+check('the converter page ships with the app', fs.existsSync(path.join(ROOT, 'trade-matcher.html')));
+check('the converter opens in its own tab',
+  /importMatcherBtn[\s\S]{0,240}window\.open\('trade-matcher\.html', '_blank'\)/.test(js));
 check('the draft dialog has exactly two tabs',
   (html.match(/data-draft-tab="/g) || []).length === 2);
 

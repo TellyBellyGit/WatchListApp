@@ -183,6 +183,7 @@ class TradeJournalApp {
     this.importRunBtn    = $('tj-import-run');
     this.importGroupCheck= $('tj-import-group-session');
     this.importGroupNote = $('tj-import-group-note');
+    this.importMatcherBtn= $('tj-import-matcher');
 
     // Draft dialog (offline write-up helper)
     this.draftOverlay    = $('tj-draft-overlay');
@@ -2556,6 +2557,16 @@ class TradeJournalApp {
       const file = this.importFile.files ? this.importFile.files[0] : null;
       if (file) this._readImportFile(file);
     });
+
+    // A broker export arrives as a list of FILLS, not journal rows. The converter
+    // in trade-matcher.html does the first-in, first-out matching and writes the
+    // CSV this dialog reads. It opens in its own tab so the paste box here — and
+    // anything already read into it — survives the trip.
+    if (this.importMatcherBtn) {
+      this.importMatcherBtn.addEventListener('click', () => {
+        window.open('trade-matcher.html', '_blank');
+      });
+    }
 
     // Pasted text is read on demand (and re-read when it changes)
     this.importPaste.addEventListener('input', () => this._resetImportPreview());
