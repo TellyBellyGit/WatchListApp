@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock strength guide</title>
+<style>
+.sg{--bg:#0e1218;--pn:#161c26;--ln:#2a3342;--tx:#d9dfea;--mu:#8995a8;--st:#3ddc97;--wk:#f2b84b;--dd:#ff5d73;--bl:#6ea8ff;
+background:var(--bg);color:var(--tx);font:15px/1.5 "Segoe UI",system-ui,sans-serif;padding:16px;min-height:100vh;box-sizing:border-box}
+.sg *{box-sizing:border-box}
+.sg h1{font-size:22px;margin:0 0 4px}
+.sg h2{font-size:16px;margin:0 0 8px}
+.sg .sub{color:var(--mu);margin:0 0 16px;max-width:70ch}
+.sg .wrap{max-width:1100px;margin:0 auto}
+.sg .cols{display:grid;gap:16px;grid-template-columns:1fr;margin-bottom:16px}
+@media(min-width:880px){.sg .cols{grid-template-columns:1.2fr 1fr;align-items:start}.sg .side{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow-y:auto}}
+.sg .card{background:var(--pn);border:1px solid var(--ln);border-radius:8px;padding:14px;margin-bottom:12px}
+.sg label.it{display:flex;gap:10px;align-items:flex-start;padding:6px 4px;border-radius:5px;cursor:pointer}
+.sg label.it:hover{background:#1d2532}
+.sg input[type=checkbox]{margin-top:4px;accent-color:var(--bl);width:16px;height:16px;flex:none}
+.sg .k-p{border-left:3px solid var(--st)}.sg .k-n{border-left:3px solid var(--dd)}.sg .k-b{border-left:3px solid var(--wk)}.sg .k-i{border-left:3px solid var(--mu)}
+.sg .it span{padding-left:2px}
+.sg .badge{border-radius:8px;padding:14px;border:2px solid var(--ln);margin-bottom:10px}
+.sg .badge b{font-size:26px;display:block;line-height:1.2}
+.sg .badge small{color:var(--mu)}
+.sg .strong{border-color:var(--st);background:#10261d}.sg .strong b{color:var(--st)}
+.sg .weak{border-color:var(--wk);background:#2a2211}.sg .weak b{color:var(--wk)}
+.sg .dead{border-color:var(--dd);background:#2c1118}.sg .dead b{color:var(--dd)}
+.sg .go{border-color:var(--st);background:#10261d}.sg .go b{color:var(--st)}
+.sg .wait{border-color:var(--wk);background:#2a2211}.sg .wait b{color:var(--wk)}
+.sg .avoid{border-color:var(--dd);background:#2c1118}.sg .avoid b{color:var(--dd)}
+.sg ul{margin:4px 0 10px;padding-left:20px}.sg li{margin:2px 0}
+.sg .cf li::marker{color:var(--wk)}.sg .ms li::marker{color:var(--bl)}
+.sg .row{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.sg .row label{display:block;color:var(--mu);font-size:13px}
+.sg input[type=number]{width:100%;background:var(--bg);color:var(--tx);border:1px solid var(--ln);border-radius:5px;padding:7px;font:inherit;font-variant-numeric:tabular-nums}
+.sg input:focus-visible,.sg button:focus-visible,.sg summary:focus-visible{outline:2px solid var(--bl);outline-offset:2px}
+.sg button{background:#1d2532;color:var(--tx);border:1px solid var(--ln);border-radius:5px;padding:7px 12px;font:inherit;cursor:pointer}
+.sg table{width:100%;border-collapse:collapse;font-size:14px}
+.sg th,.sg td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--ln);vertical-align:top}
+.sg .tbl{overflow-x:auto}
+.sg .note{color:var(--mu);font-size:13px}
+.sg .ex{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.sg .ex .card{margin:0}
+.sg .ex svg{width:100%;height:auto;display:block;background:var(--bg);border-radius:5px}
+.sg .up{fill:var(--st);stroke:var(--st)}.sg .dn{fill:var(--dd);stroke:var(--dd)}
+.sg .vb{opacity:.45;stroke:none}
+.sg .vw{fill:none;stroke:var(--bl);stroke-width:1.5;stroke-dasharray:4 3}
+.sg .lv{stroke:var(--mu);stroke-dasharray:2 3}
+.sg .an{fill:var(--tx);font-size:10px}
+.sg .tg-strong{color:var(--st)}.sg .tg-weak{color:var(--wk)}.sg .tg-dead{color:var(--dd)}
+.sg .ex p{margin:8px 0 0;font-size:14px}
+.sg summary{cursor:pointer;font-weight:600}
+@media(prefers-reduced-motion:no-preference){.sg .badge{transition:background .2s,border-color .2s}}
+</style>
+</head>
+<body style="margin:0;background:#0e1218">
+<div class="sg" id="sg">
+<div class="wrap">
+<header style="grid-column:1/-1">
+<h1>Stock strength guide</h1>
+<p class="sub">Tick what you can see on the chart. The guide answers two separate questions: what condition is the stock in, and is there a sensible trade right now.</p>
+</header>
+
+<div class="cols">
+<main>
+<div id="groups"></div>
+<div class="card">
+<h2>Trade inputs</h2>
+<div class="row">
+<div><label for="en">Entry price</label><input id="en" type="number" step="0.01" inputmode="decimal"></div>
+<div><label for="sp">Stop (invalidation)</label><input id="sp" type="number" step="0.01" inputmode="decimal"></div>
+<div><label for="rs">Nearest resistance</label><input id="rs" type="number" step="0.01" inputmode="decimal"></div>
+<div><label for="mr">Minimum reward to risk (R)</label><input id="mr" type="number" step="0.1" value="2" inputmode="decimal"></div>
+</div>
+<div style="margin-top:8px" id="tflags"></div>
+</div>
+<button id="reset" type="button">Clear everything</button>
+</main>
+
+<aside class="side">
+<div class="card">
+<h2>1. Condition</h2>
+<div id="cond"></div>
+<div id="why"></div>
+</div>
+<div class="card">
+<h2>2. Trade</h2>
+<div id="trade"></div>
+</div>
+<p class="note">A structured decision aid. It does not predict the next candle and is not a statistically proven system. Test the gates against past trades and adjust them to suit you.</p>
+</aside>
+</div>
+
+<section style="grid-column:1/-1">
+<h2>Illustrative examples</h2>
+<div class="ex" id="ex"></div>
+<p class="note">Schematics, not real charts, and real charts are messier. Bars below are volume. The dashed blue line is a running average of price, standing in for VWAP.</p>
+</section>
+
+<section style="grid-column:1/-1">
+<div class="card">
+<details open><summary>Price and volume reading</summary>
+<div class="tbl"><table>
+<tr><th>Price</th><th>Volume</th><th>Reading</th></tr>
+<tr><td>Rising</td><td>Expanding</td><td>Healthy advance, buyers participating</td></tr>
+<tr><td>Rising</td><td>Thin or falling</td><td>Unconfirmed, prone to fade</td></tr>
+<tr><td>Pulling back</td><td>Drying up</td><td>Normal pullback, supports Strong</td></tr>
+<tr><td>Falling</td><td>Heavy</td><td>Distribution, sellers in control</td></tr>
+<tr><td>Vertical run</td><td>Climactic, then shrinking</td><td>Blow-off risk, do not chase</td></tr>
+<tr><td>Bounce after a drop</td><td>Weak</td><td>Failed recovery, leans Dead</td></tr>
+<tr><td>Flat under resistance</td><td>Rising</td><td>Absorption, wait for a break on volume</td></tr>
+<tr><td>Flat under resistance</td><td>Falling</td><td>Likely rejection</td></tr>
+</table></div>
+<p class="note">Judge volume against recent bars and the time of day, not in absolute terms.</p>
+</details>
+</div>
+<div class="card">
+<details open><summary>Quick rules</summary>
+<ul>
+<li><b style="color:var(--st)">Strong:</b> above VWAP, 9/21 EMAs aligned and rising, higher highs and lows, volume on advances, no blow-off signs, 5-minute agrees.</li>
+<li><b style="color:var(--wk)">Weak:</b> unconfirmed (early, wait), deteriorating (was strong, avoid or exit), conflicted (signals disagree).</li>
+<li><b style="color:var(--dd)">Dead:</b> structure broken and the recovery attempt failed.</li>
+<li>Bullish signals are not votes. Gates cap the rating: below VWAP with lost EMAs, blow-off signs, or a 5-minute conflict cannot be Strong.</li>
+<li>A Strong stock can still be a poor trade: extended, resistance too close, or reward below your minimum.</li>
+<li>A level that has rejected price before is supply until it is cleared on volume.</li>
+<li>No stop that proves you wrong means no trade.</li>
+</ul>
+</details>
+</div>
+</section>
+</div>
+</div>
+
+<script>
+(function(){
+var G=[
+{t:'Price structure',i:[['hh','Higher highs and higher lows intact','p'],['bo','Breakout holding above its level','p'],['rec','Reclaimed support held on retest','p'],['held','Most of the day\'s gains still held','p'],['lh','Lower highs and lower lows','n'],['fbo','Failed breakout','n'],['given','Most of the move given back','n']]},
+{t:'Volume and participation',i:[['vadv','Volume expands on advances and breakouts','p'],['vpb','Volume dries up on pullbacks','p'],['vthin','Price rising on thin volume versus recent bars','n'],['vsell','Heavy selling volume','n'],['vfail','Recovery attempts on weak volume','n']]},
+{t:'Trend and VWAP',i:[['abv','Price above VWAP','p'],['vh','VWAP reclaimed and held','p'],['eup','9 EMA above 21 EMA, both rising','p'],['t5a','5-minute structure agrees','p'],['blw','Price below VWAP','n'],['vf','Failed VWAP reclaim','n'],['elost','9 EMA below 21 EMA or turning down','n'],['t5c','5-minute structure conflicts with 1-minute','n']]},
+{t:'Spike or grinder',i:[['steady','Steady grinder, no single vertical move','p'],['spike','Spike that gave its gains back quickly','n']]},
+{t:'Support and resistance',i:[['clr','Cleared an overhead level on volume (prior high, premarket high, whole dollar)','p'],['atr','Pressing into an overhead level now','i'],['rej','That level has rejected price before','i'],['sbk','Broke support and has not reclaimed it','n']]},
+{t:'Blow-off signs',i:[['vert','Vertical run, large candles, widening gap from 9 EMA and VWAP','b'],['clim','Climactic volume with a long upper wick or weak close','b'],['fred','First red candle on more volume than the greens','b'],['div','New high on lower volume','b']]}
+];
+var TF=[['ext','Extended well above VWAP and the 9 EMA'],['pbk','Pullback has held a support level'],['spr','Wide spread or thin liquidity'],['hlt','Halt risk or late in the session']];
+var kind={},S=new Set(),T=new Set();
+var root=document.getElementById('sg');
+function $(id){return document.getElementById(id)}
+function box(id,label,k,set){var l=document.createElement('label');l.className='it k-'+k;var c=document.createElement('input');c.type='checkbox';c.id='c_'+id;c.onchange=function(){c.checked?set.add(id):set.delete(id);run()};var s=document.createElement('span');s.textContent=label;l.appendChild(c);l.appendChild(s);return l}
+G.forEach(function(g){var d=document.createElement('div');d.className='card';var h=document.createElement('h2');h.textContent=g.t;d.appendChild(h);g.i.forEach(function(x){kind[x[0]]=x[2];d.appendChild(box(x[0],x[1],x[2],S))});$('groups').appendChild(d)});
+TF.forEach(function(x){$('tflags').appendChild(box(x[0],x[1],'i',T))});
+['en','sp','rs','mr'].forEach(function(i){$(i).oninput=run});
+$('reset').onclick=function(){S.clear();T.clear();root.querySelectorAll('input[type=checkbox]').forEach(function(c){c.checked=false});['en','sp','rs'].forEach(function(i){$(i).value=''});$('mr').value=2;run()};
+function s(i){return S.has(i)}
+function li(a){return a.length?'<ul>'+a.map(function(x){return'<li>'+x+'</li>'}).join('')+'</ul>':''}
+function run(){
+var pos=0,neg=0,bo=0;S.forEach(function(i){var k=kind[i];if(k==='p')pos++;else if(k==='n')neg++;else if(k==='b')bo++});
+var cls,name,sub,why=[],cond=null;
+if(!S.size){cond={c:'',n:'Nothing selected',s:'Tick the conditions visible on the chart.'}}
+else{
+var dead=((s('lh')||s('sbk')||s('given'))&&(s('vf')||s('vfail')||s('fbo')))||(s('spike')&&s('given')&&(s('blw')||s('vf')))||(bo>=3&&s('given'));
+var strong=(s('abv')||s('vh'))&&!s('blw')&&s('eup')&&(s('hh')||s('bo')||s('rec'))&&(s('vadv')||s('vpb'))&&!s('spike')&&bo<2&&neg<=1&&!s('t5c');
+if(dead){cond={c:'dead',n:'Dead',s:'Structure broken and the recovery attempt failed.'};cond.k='dead'}
+else if(strong){cond={c:'strong',n:'Strong',s:'Sustained upward progress with confirmation.'};cond.k='strong'}
+else{
+var sl;
+if(s('elost')||s('given')||s('vsell')||bo>=2||s('spike')||s('sbk'))sl='Deteriorating';
+else if(pos>=2&&neg>=1)sl='Conflicted';
+else sl='Unconfirmed';
+var d={Deteriorating:'Strength is fading. Avoid or exit.',Conflicted:'Signals disagree. Wait for one side to win.',Unconfirmed:'Not enough confirmation yet. Wait.'};
+cond={c:'weak',n:'Weak: '+sl,s:d[sl],k:'weak',sl:sl};
+if(s('blw')&&s('elost'))why.push('Below VWAP with the EMAs lost caps the rating at Weak.');
+if(bo>=2)why.push('Two or more blow-off signs cap the rating at Weak.');
+if(s('t5c'))why.push('A 5-minute conflict caps the rating at Weak.');
+if(s('spike'))why.push('A spike that gave back gains rules out Strong.');
+}
+}
+cond.k=cond.k||'';
+$('cond').innerHTML='<div class="badge '+cond.c+'"><b>'+cond.n+'</b><small>'+cond.s+'</small></div>';
+var cf=[];
+[[s('abv')&&s('vthin'),'Above VWAP but advancing on thin volume.'],[s('hh')&&s('elost'),'Higher highs and lows, but the EMAs have turned against it.'],[s('eup')&&s('vsell'),'EMAs aligned, but selling volume is heavy.'],[(s('hh')||s('bo'))&&s('spike'),'Bullish structure, but the move gave gains back quickly.'],[s('abv')&&s('blw'),'Above and below VWAP are both ticked. Check the chart.'],[s('vadv')&&s('vthin'),'Volume expanding and thin are both ticked. Check the chart.'],[s('clr')&&s('fbo'),'Level cleared, but a breakout also failed.'],[bo>=1&&(s('hh')||s('bo')||s('eup')),'Bullish structure with blow-off signs present.'],[s('atr')&&s('rej')&&(s('hh')||s('bo')),'Pressing into a level that has rejected price before.']].forEach(function(x){if(x[0])cf.push(x[1])});
+var ms=[];
+if(S.size&&cond.k!=='dead'){
+if(!(s('abv')||s('vh')))ms.push('Price not confirmed above VWAP.');
+if(!s('eup'))ms.push('9/21 EMA alignment not confirmed.');
+if(!(s('hh')||s('bo')||s('rec')))ms.push('No higher-high structure or held breakout.');
+if(!(s('vadv')||s('vpb')))ms.push('No volume confirmation.');
+if(!s('t5a')&&!s('t5c'))ms.push('5-minute chart not checked.');
+if(s('atr')&&!s('clr'))ms.push('Overhead level not yet cleared on volume.');
+}
+$('why').innerHTML=(why.length?li(why):'')+(cf.length?'<h2>Conflicting signals</h2><div class="cf">'+li(cf)+'</div>':'')+(ms.length&&cond.k!=='strong'?'<h2>Missing confirmation</h2><div class="ms">'+li(ms)+'</div>':'')+(ms.length&&cond.k==='strong'?'<h2>Still unchecked</h2><div class="ms">'+li(ms)+'</div>':'');
+trade(cond,bo);
+}
+function trade(cond,bo){
+var en=parseFloat($('en').value),sp=parseFloat($('sp').value),rs=parseFloat($('rs').value),mr=parseFloat($('mr').value)||2;
+var c='',n='',sb='',notes=[];
+var nums=!isNaN(en)&&!isNaN(sp)&&!isNaN(rs);
+var risk=en-sp,rew=rs-en,R=risk>0?rew/risk:NaN;
+if(!S.size){n='Waiting for inputs';sb='Select conditions and enter entry, stop and resistance.'}
+else if(cond.k==='dead'){c='avoid';n='Avoid';sb='The stock is Dead. Structure is broken and recovery failed.'}
+else if(bo>=2){c='avoid';n='Avoid';sb='Blow-off signs. Do not chase an exhausted move.'}
+else if(!nums){n='Waiting for inputs';sb='Enter entry, stop and nearest resistance to test the trade.'}
+else if(!(risk>0)){n='Check stop';sb='The stop must be below the entry. Without a stop that proves you wrong there is no trade.'}
+else if(!(rew>0)){c='avoid';n='Avoid';sb='Resistance is at or below the entry. No room to run.'}
+else if(R<mr){c='avoid';n='Avoid';sb='Reward is below your minimum. The overhead level is too close.'}
+else if(T.has('ext')){c='wait';n='Wait for a pullback';sb='Extended from VWAP and the 9 EMA. Wait for a pullback that holds support.'}
+else if(s('atr')&&!s('clr')){c='wait';n='Wait for confirmation';sb='Pressing into a level. Wait for it to clear on volume or for a pullback.'}
+else if(cond.k==='weak'){c='wait';n='Wait';sb='Condition is Weak ('+cond.sl+'). Wait for confirmation first.'}
+else{c='go';n='Entry setup';sb='Strong, not extended, and reward meets your minimum.'}
+if(nums&&risk>0&&rew>0)notes.push('Risk '+risk.toFixed(2)+', reward '+rew.toFixed(2)+', <b>'+R.toFixed(1)+'R</b> to resistance (minimum '+mr+'R).');
+if(T.has('spr'))notes.push('Wide spread: slippage can erase part of the reward.');
+if(T.has('hlt'))notes.push('Halt risk or late session: size down and expect faster fades.');
+if(s('rej')&&s('atr'))notes.push('The level ahead has rejected price before, so treat it as supply.');
+if(c==='go'&&!T.has('pbk'))notes.push('No held pullback ticked. Entry on a pullback usually gives a tighter stop.');
+$('trade').innerHTML='<div class="badge '+c+'"><b>'+n+'</b><small>'+sb+'</small></div>'+li(notes);
+}
+var EX=[
+{c:'strong',t:'Strong: steady grinder',d:'Higher lows, volume dries up on pullbacks and returns on advances, price holds above VWAP. No spectacular open needed.',p:[20,22,21,24,26,25,28,30,29,32,34,33,36,38,37,40,42,41,44,46,45,48,50,52],v:[5,6,5,7,7,4,6,7,4,7,8,5,7,8,4,7,8,5,8,8,5,8,9,9],a:[[5,'dry pullback'],[14,'higher low']]},
+{c:'strong',t:'Strong: breakout and held retest',d:'Prior high cleared on expanding volume, the retest holds the level on lighter volume, then the advance resumes.',p:[40,42,41,43,44,43,45,44,45,46,45,52,58,56,54,53,54,56,59,62,61,64,67,70],v:[4,4,3,4,4,3,4,3,4,4,3,12,13,8,6,5,5,7,8,9,7,8,9,10],l:46,a:[[11,'breakout, volume'],[15,'retest holds']]},
+{c:'weak',t:'Weak, unconfirmed: climbing on thin volume',d:'Price drifts up while volume fades. Nothing has failed, but nothing is confirmed. Wait for volume to return.',p:[30,32,31,34,36,35,38,40,39,42,44,43,46,48,47,50,52,51,54,55,54,56,57,58],v:[9,8,8,7,6,6,5,5,5,4,4,4,3,3,3,3,2,3,2,2,2,2,2,2],a:[[3,'volume fading'],[20,'thin']]},
+{c:'weak',t:'Weak, deteriorating: blow-off',d:'Vertical run, climactic volume, then the first red candle on more volume than the greens. The stock was strong; it is no longer a place to enter.',p:[30,31,33,34,36,40,46,54,62,70,78,84,88,87,80,72,66,62,58,55,52,50,48,47],v:[3,3,4,4,5,7,8,9,9,10,11,12,13,14,12,10,8,7,6,5,5,4,4,4],a:[[12,'climax'],[14,'first red, more volume']]},
+{c:'dead',t:'Dead: news spike and give-back',d:'A fast spike on heavy volume, then every gain surrendered and price stays below VWAP. Excitement without sustained buying.',p:[20,21,20,45,70,80,72,60,50,42,36,32,30,29,28,27,27,26,25,25,24,24,23,23],v:[2,2,2,12,14,10,8,7,6,5,4,4,3,3,3,2,2,2,2,2,2,2,2,2],a:[[5,'spike'],[17,'below VWAP']]},
+{c:'dead',t:'Dead: broken support, failed recovery',d:'Support breaks on heavy volume, the bounce comes on weak volume, and lower highs follow. Structure is gone and the recovery failed.',p:[60,62,64,63,65,66,60,52,45,40,38,42,46,48,47,44,43,41,40,39,38,37,36,35],v:[6,6,7,6,7,7,12,14,13,10,8,5,4,4,3,5,5,5,4,4,4,3,3,3],a:[[6,'support breaks'],[13,'weak bounce']]}
+];
+function draw(e){
+var n=e.p.length,W=360,st=W/(n+1),mn=Math.min.apply(null,e.p)-4,mx=Math.max.apply(null,e.p)+4,mv=Math.max.apply(null,e.v);
+function y(p){return 140-(p-mn)/(mx-mn)*125}
+var g='',sum=0,vw=[];
+if(e.l!=null)g+='<line x1="0" x2="'+W+'" y1="'+y(e.l)+'" y2="'+y(e.l)+'" class="lv"/>';
+e.p.forEach(function(c,i){
+var o=i?e.p[i-1]:c-1,x=st*(i+1),k=c>=o?'up':'dn',h=e.v[i]/mv*40;
+sum+=c;vw.push(x+','+y(sum/(i+1)));
+g+='<line x1="'+x+'" x2="'+x+'" y1="'+y(Math.max(o,c)+1.5)+'" y2="'+y(Math.min(o,c)-1.5)+'" class="'+k+'"/>';
+g+='<rect x="'+(x-4)+'" y="'+y(Math.max(o,c))+'" width="8" height="'+Math.max(1.5,Math.abs(y(o)-y(c)))+'" class="'+k+'"/>';
+g+='<rect x="'+(x-4)+'" y="'+(196-h)+'" width="8" height="'+h+'" class="'+k+' vb"/>';
+});
+g+='<polyline points="'+vw.join(' ')+'" class="vw"/>';
+e.a.forEach(function(a){var x=st*(a[0]+1),yy=Math.max(12,y(e.p[a[0]]+5)-4),an=x>W*0.65?'end':(x<W*0.3?'start':'middle');g+='<text x="'+x+'" y="'+yy+'" text-anchor="'+an+'" class="an">'+a[1]+'</text>'});
+return '<svg viewBox="0 0 '+W+' 200" role="img" aria-label="'+e.t+' schematic">'+g+'</svg>';
+}
+EX.forEach(function(e){var d=document.createElement('div');d.className='card';d.innerHTML='<h2 class="tg-'+e.c+'">'+e.t+'</h2>'+draw(e)+'<p>'+e.d+'</p>';$('ex').appendChild(d)});
+run();
+})();
+</script>
+</body>
+</html>

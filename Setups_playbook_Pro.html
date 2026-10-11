@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ApexTrade | Professional Setup Playbook & Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        bull: '#10b981',
+                        bear: '#ef4444',
+                        darkBg: '#090d16',
+                        cardBg: '#111827',
+                        borderCol: '#1f2937'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #090d16;
+            color: #f3f4f6;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom scrollbar for terminal look */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2937;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #374151;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-emerald-500 selection:text-white">
+
+    <header class="bg-cardBg border-b border-borderCol px-6 py-4 sticky top-0 z-50 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                    APEXTRADE <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">PRO PLAYBOOK</span>
+                </h1>
+                <p class="text-xs text-slate-400">Professional Price-Action Study Guide · US Equities Edition</p>
+            </div>
+        </div>
+
+        <!-- Setup Navigation Tabs -->
+        <nav class="flex items-center gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-borderCol">
+            <button onclick="switchSetup('pullback')" id="tab-pullback" class="px-4 py-2 text-xs font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 bg-emerald-500 text-slate-950 shadow-md">
+                <span class="w-2 h-2 rounded-full bg-slate-950"></span>
+                Uptrend Pullback
+            </button>
+            <button onclick="switchSetup('breakout')" id="tab-breakout" class="px-4 py-2 text-xs font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-800">
+                <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                Range Breakout
+            </button>
+            <button onclick="switchSetup('reversal')" id="tab-reversal" class="px-4 py-2 text-xs font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-800">
+                <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+                Bottom Reversal
+            </button>
+        </nav>
+
+        <!-- Market Status & Quick Actions -->
+        <div class="flex items-center gap-3">
+            <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-borderCol text-xs font-mono text-slate-300">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                DATA: ILLUSTRATIVE
+            </div>
+            <button onclick="openNotesModal()" class="px-3 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-borderCol transition-all flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                Master Journal
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-[1600px] w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column: Chart Visualizer & Toolbar (7 cols) -->
+        <section class="lg:col-span-7 flex flex-col gap-6">
+            <!-- Chart Container Card -->
+            <div class="bg-cardBg border border-borderCol rounded-2xl p-5 flex flex-col shadow-xl relative overflow-hidden">
+                
+                <!-- Chart Header & Meta -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-borderCol">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span id="chart-symbol" class="text-sm font-bold font-mono text-white bg-slate-900 px-2 py-0.5 rounded border border-slate-700">BTC/USD · 4H</span>
+                            <span id="chart-title-tag" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Setup #1: Uptrend Pullback</span>
+                        </div>
+                        <p id="chart-subtitle" class="text-xs text-slate-400 mt-1">Demonstrating 9/20 EMA test and low-volume compression entry</p>
+                    </div>
+
+                    <!-- OHLCV Hover Display Bar -->
+                    <div id="ohlcv-bar" class="flex items-center gap-3 text-xs font-mono bg-slate-900/90 px-3 py-1.5 rounded-lg border border-borderCol text-slate-300">
+                        <span>O: <strong id="val-o" class="text-white">--</strong></span>
+                        <span>H: <strong id="val-h" class="text-white">--</strong></span>
+                        <span>L: <strong id="val-l" class="text-white">--</strong></span>
+                        <span>C: <strong id="val-c" class="text-white">--</strong></span>
+                        <span>V: <strong id="val-v" class="text-white">--</strong></span>
+                    </div>
+                </div>
+
+                <!-- Interactive Canvas Area -->
+                <div class="relative w-full bg-slate-950 rounded-xl border border-borderCol overflow-hidden group" style="height: 440px;">
+                    <canvas id="tradeCanvas" class="w-full h-full cursor-crosshair block"></canvas>
+                    
+                    <!-- Overlay Watermark -->
+                    <div class="absolute top-4 left-4 pointer-events-none select-none opacity-20">
+                        <span class="text-4xl font-extrabold font-mono tracking-widest text-slate-300">APEX ENGINE</span>
+                    </div>
+
+                    <!-- Floating Tooltip on Hover -->
+                    <div id="chart-tooltip" class="absolute hidden pointer-events-none bg-slate-900/95 border border-slate-700 text-xs px-3 py-2 rounded-lg shadow-2xl backdrop-blur-md z-30 font-mono text-slate-200">
+                        <div class="font-bold text-emerald-400 mb-1" id="tip-title">Candle #12</div>
+                        <div class="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                            <div>Open: <span id="tip-open" class="text-white"></span></div>
+                            <div>High: <span id="tip-high" class="text-white"></span></div>
+                            <div>Low: <span id="tip-low" class="text-white"></span></div>
+                            <div>Close: <span id="tip-close" class="text-white"></span></div>
+                            <div class="col-span-2 pt-1 border-t border-slate-800">Vol: <span id="tip-vol" class="text-white"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart Interactive Controls Toolbar -->
+                <div class="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-borderCol">
+                    <!-- Playback Controls -->
+                    <div class="flex items-center gap-2">
+                        <button onclick="stepCanvas(-1)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-borderCol transition-all text-xs flex items-center gap-1 font-semibold" title="Previous Candle">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                            Prev
+                        </button>
+                        <button onclick="togglePlay()" id="play-btn" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-all text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/20">
+                            <svg id="play-icon" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            <span id="play-text">Auto Replay</span>
+                        </button>
+                        <button onclick="stepCanvas(1)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-borderCol transition-all text-xs flex items-center gap-1 font-semibold" title="Next Candle">
+                            Next
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </button>
+                        <button onclick="resetCanvas()" class="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-borderCol transition-all text-xs" title="Reset Chart">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        </button>
+                    </div>
+
+                    <!-- Indicator Toggles -->
+                    <div class="flex items-center gap-2">
+                        <label class="flex items-center gap-1.5 text-xs font-medium text-slate-300 cursor-pointer bg-slate-900 px-3 py-1.5 rounded-lg border border-borderCol hover:border-slate-700">
+                            <input type="checkbox" id="toggle-ema" checked onchange="redrawCanvas()" class="rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0">
+                            <span>EMA (9/20)</span>
+                        </label>
+                        <label class="flex items-center gap-1.5 text-xs font-medium text-slate-300 cursor-pointer bg-slate-900 px-3 py-1.5 rounded-lg border border-borderCol hover:border-slate-700">
+                            <input type="checkbox" id="toggle-vol" checked onchange="redrawCanvas()" class="rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0">
+                            <span>Volume</span>
+                        </label>
+                        <label class="flex items-center gap-1.5 text-xs font-medium text-slate-300 cursor-pointer bg-slate-900 px-3 py-1.5 rounded-lg border border-borderCol hover:border-slate-700">
+                            <input type="checkbox" id="toggle-ann" checked onchange="redrawCanvas()" class="rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-0">
+                            <span>Setup Zones</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Stats & Metrics Box -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div class="bg-cardBg border border-borderCol p-4 rounded-xl">
+                    <span class="text-xs text-slate-400 block mb-1">Verified Win Rate</span>
+                    <span id="stat-winrate" class="text-lg font-bold font-mono text-emerald-400">Not supplied</span>
+                </div>
+                <div class="bg-cardBg border border-borderCol p-4 rounded-xl">
+                    <span class="text-xs text-slate-400 block mb-1">Illustrative R Plan</span>
+                    <span id="stat-rr" class="text-lg font-bold font-mono text-cyan-400">1 : 2.8</span>
+                </div>
+                <div class="bg-cardBg border border-borderCol p-4 rounded-xl">
+                    <span class="text-xs text-slate-400 block mb-1">Optimal Timeframe</span>
+                    <span id="stat-tf" class="text-lg font-bold font-mono text-white">4H / Daily</span>
+                </div>
+                <div class="bg-cardBg border border-borderCol p-4 rounded-xl">
+                    <span class="text-xs text-slate-400 block mb-1">Market Regime</span>
+                    <span id="stat-regime" class="text-lg font-bold font-mono text-purple-400">Trending</span>
+                </div>
+            </div>
+            <div class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs leading-relaxed text-amber-100">
+                <strong class="text-amber-300">Evidence note:</strong> The original playbook showed precise win-rate figures without a reproducible test record. Those figures have been removed. No setup has a verified win rate here. The chart uses synthetic US-stock-like prices and share-volume figures for teaching, not live market data or proof of an edge.
+            </div>
+        </section>
+
+        <!-- Right Column: Setup Rules, Criteria, & Personal Notes (5 cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-6">
+            
+            <!-- Setup Details Card -->
+            <div class="bg-cardBg border border-borderCol rounded-2xl p-6 flex flex-col shadow-xl">
+                <div class="flex items-center justify-between pb-4 border-b border-borderCol mb-5">
+                    <div>
+                        <span class="text-xs font-mono uppercase tracking-widest text-emerald-400 font-semibold">Professional Setup Playbook</span>
+                        <h2 id="setup-name" class="text-xl font-bold text-white mt-0.5">1. Uptrend Pullback Setup</h2>
+                    </div>
+                    <span id="setup-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">High Probability</span>
+                </div>
+
+                <!-- Structured Criteria Accordion / Tabs -->
+                <div class="space-y-4">
+                    <!-- Entry Trigger -->
+                    <div class="bg-slate-900/60 border border-borderCol rounded-xl p-4 transition-all hover:border-slate-700">
+                        <div class="flex items-center gap-2 text-emerald-400 font-semibold text-sm mb-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Entry Trigger & Mechanics
+                        </div>
+                        <p id="rule-entry" class="text-xs text-slate-300 leading-relaxed">
+                            Price establishes a clear impulsive higher high, followed by a controlled low-volume pullback into the rising 9 or 20 Exponential Moving Average (EMA). Entry is executed on the close of a bullish reversal candlestick (e.g., hammer or bullish engulfing) right at the dynamic support zone.
+                        </p>
+                    </div>
+
+                    <!-- Stop Loss Placement -->
+                    <div class="bg-slate-900/60 border border-borderCol rounded-xl p-4 transition-all hover:border-slate-700">
+                        <div class="flex items-center gap-2 text-rose-400 font-semibold text-sm mb-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                            Stop Loss Placement
+                        </div>
+                        <p id="rule-sl" class="text-xs text-slate-300 leading-relaxed">
+                            Placed strictly below the swing low of the pullback candle or just under the recent structural swing low with an ATR buffer to avoid market noise and fakeouts.
+                        </p>
+                    </div>
+
+                    <!-- Profit Targets -->
+                    <div class="bg-slate-900/60 border border-borderCol rounded-xl p-4 transition-all hover:border-slate-700">
+                        <div class="flex items-center gap-2 text-cyan-400 font-semibold text-sm mb-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Profit Targets (TP1 & TP2)
+                        </div>
+                        <p id="rule-tp" class="text-xs text-slate-300 leading-relaxed">
+                            <strong>TP1:</strong> Scale out 50% at the previous swing high (1.5R).<br>
+                            <strong>TP2:</strong> Trail remainder along the 9 EMA or target the 1.618 Fibonacci extension of the pullback wave (2.5R - 3.5R).
+                        </p>
+                    </div>
+
+                    <!-- Volume & Psychology -->
+                    <div class="bg-slate-900/60 border border-borderCol rounded-xl p-4 transition-all hover:border-slate-700">
+                        <div class="flex items-center gap-2 text-purple-400 font-semibold text-sm mb-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                            Volume & Market Psychology
+                        </div>
+                        <p id="rule-psych" class="text-xs text-slate-300 leading-relaxed">
+                            Volume must systematically dry up (decline) during the pullback phase, indicating lack of aggressive selling pressure. A surge of volume on the trigger can show increased participation, but it does not identify the participants or guarantee continuation.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Personal Trade Journal & Notes Card -->
+            <div class="bg-cardBg border border-borderCol rounded-2xl p-6 flex flex-col shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M152.88 47.12a20 20 0 010 28.28l-9.19 9.19-28.28-28.28 9.19-9.19a20 20 0 0128.28 0zM110.12 69.88L35.25 144.75a4 4 0 00-1.07 1.83l-4 16a4 4 0 004.85 4.85l16-4a4 4 0 001.83-1.07l74.87-74.87-28.28-28.28z"></path></svg>
+                        Personal Notes & Observations
+                    </h3>
+                    <span class="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">Auto-saves to LocalStorage</span>
+                </div>
+                <textarea id="setup-notes" oninput="saveNotes()" rows="4" class="w-full bg-slate-950 border border-borderCol rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 transition-all font-mono resize-none" placeholder="Type personal trading plan adjustments, psychological reminders, or backtest notes for this setup here..."></textarea>
+                <div class="flex items-center justify-between mt-3 text-xs text-slate-400">
+                    <span id="notes-status" class="text-emerald-400 font-medium">Notes synchronized</span>
+                    <button onclick="clearNotes()" class="hover:text-rose-400 transition-colors">Clear Notes</button>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Expanded professional field guide -->
+    <section class="w-full max-w-[1600px] mx-auto px-4 md:px-6 pb-8">
+      <div class="rounded-2xl border border-borderCol bg-cardBg p-5 md:p-7 shadow-xl">
+        <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3 border-b border-borderCol pb-4 mb-5">
+          <div><p class="text-xs uppercase tracking-[.2em] text-cyan-300 font-mono">Desk-level execution notes</p><h2 class="text-2xl font-bold text-white mt-1">The professional field guide</h2><p class="text-sm text-slate-400 mt-2 max-w-3xl">Use the 5-minute chart to judge context and the 1-minute chart to plan execution. These are conditional playbooks, not signals: the trade is valid only when location, price behaviour, volume, liquidity and risk align.</p></div>
+          <div class="text-xs text-slate-400 bg-slate-900 border border-borderCol rounded-lg px-3 py-2">Long-only · cash-account aware · US listed stocks</div>
+        </div>
+        <div id="field-guide-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-5 mt-6">
+          <div class="rounded-xl border border-borderCol bg-slate-950/70 p-5">
+            <div class="flex items-center justify-between gap-3 mb-3"><h3 class="font-bold text-white">Pre-trade decision checklist</h3><span id="check-progress" class="text-xs font-mono text-cyan-300">0 / 8 checked</span></div>
+            <p class="text-xs text-slate-400 mb-4">Check each item before entry. A missing critical item is a reason to wait, not a reason to improvise.</p>
+            <div id="setup-checklist" class="space-y-3"></div>
+            <div class="mt-4 pt-3 border-t border-borderCol flex justify-between items-center gap-3"><span id="check-verdict" class="text-xs text-amber-300">Plan not yet verified.</span><button onclick="resetChecklist()" class="text-xs text-slate-400 hover:text-white underline">Reset checklist</button></div>
+          </div>
+          <div class="rounded-xl border border-borderCol bg-slate-950/70 p-5">
+            <p class="text-xs uppercase tracking-widest text-purple-300 font-mono mb-2">Active recall</p><h3 class="font-bold text-white mb-2" id="quiz-title">What would invalidate this setup?</h3>
+            <p class="text-sm text-slate-300 leading-relaxed" id="quiz-question"></p>
+            <button id="quiz-reveal-btn" onclick="toggleQuizAnswer()" class="mt-4 px-4 py-2 rounded-lg border border-purple-400/30 bg-purple-500/10 text-purple-200 text-xs font-semibold hover:bg-purple-500/20">Reveal expert answer</button>
+            <div id="quiz-answer" class="hidden mt-3 p-4 rounded-lg border border-purple-400/20 bg-purple-500/5 text-sm text-slate-200 leading-relaxed"></div>
+          </div>
+        </div>
+        <div class="mt-6 rounded-xl border border-rose-500/25 bg-rose-500/5 p-5">
+          <h3 class="font-bold text-rose-200 mb-2">Risk protocol — before every order</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs leading-relaxed text-slate-300">
+            <div><strong class="text-white block mb-1">1. Define the loss first</strong>Shares = floor((account equity × risk fraction) ÷ (entry price − stop price)). Reduce size further for spread, slippage, halts or unusually fast movement. The formula is a ceiling, not a promise that the stop will fill at its price.</div>
+            <div><strong class="text-white block mb-1">2. Check tradeability</strong>Inspect bid–ask spread, displayed liquidity, recent dollar volume, volatility and any news/halts. A technically attractive chart can still be a poor trade if the exit is difficult or costs consume the expected move.</div>
+            <div><strong class="text-white block mb-1">3. Honour invalidation</strong>Set the structural stop before entry; do not widen it to avoid taking a loss. If the setup fails, exit according to the plan. Never rely on a hoped-for bounce to rescue a broken thesis.</div>
+          </div>
+        </div>
+        <p class="text-[11px] text-slate-500 mt-4">Educational material only. Price/volume patterns describe observable behaviour; they do not prove that a particular institution is accumulating, absorbing, or defending a level. Validate rules with a written sample, realistic costs and out-of-sample testing before treating them as an edge.</p>
+      </div>
+    </section>
+
+    <div id="journal-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-cardBg border border-borderCol rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative">
+            <div class="flex items-center justify-between pb-4 border-b border-borderCol mb-4">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    Master Trading Journal & Overview
+                </h3>
+                <button onclick="closeNotesModal()" class="text-slate-400 hover:text-white p-1 rounded-lg bg-slate-900 border border-borderCol">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="space-y-4 text-xs text-slate-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
+                <p>Welcome to your professional trade documentation system. The examples are illustrative; no win rate or expectancy is verified. Use this playbook to study three common price-action patterns, then validate any rules with recorded trades and realistic costs:</p>
+                <ul class="list-disc pl-5 space-y-2">
+                    <li><strong>Uptrend Pullback:</strong> Capitalize on healthy corrections within established bull trends. Look for low volume and reaction at key moving averages.</li>
+                    <li><strong>Range Breakout:</strong> Study breaks from a clearly defined range, then look for price acceptance and participation rather than assuming institutional accumulation.</li>
+                    <li><strong>Bottom Reversal:</strong> Study flush-and-reclaim behaviour; a volume spike alone does not confirm exhaustion or a durable trend change.</li>
+                </ul>
+                <div class="bg-slate-900 p-4 rounded-xl border border-borderCol mt-4">
+                    <h4 class="font-bold text-white mb-2">Export & Backup All Notes</h4>
+                    <p class="text-slate-400 mb-3">You can export all your personal setup notes as a JSON backup file for safekeeping.</p>
+                    <button onclick="exportNotes()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-all shadow-md">Export All Notes (JSON)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Setup database containing candlestick datasets and playbook criteria
+        const setupsData = {
+            pullback: {
+                name: "1. Uptrend Pullback Setup",
+                tag: "Setup #1: Uptrend Pullback",
+                badge: "Conditional Setup",
+                badgeClass: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+                symbol: "ILLUSTRATION · 1m",
+                subtitle: "Illustrative sequence: orderly pullback toward a rising short-term EMA",
+                winrate: "Not supplied",
+                rr: "Plan by structure",
+                tf: "4H / Daily",
+                regime: "Trending",
+                entry: "Price establishes a clear impulsive higher high, followed by a controlled low-volume pullback into the rising 9 or 20 Exponential Moving Average (EMA). Entry is executed on the close of a bullish reversal candlestick right at the dynamic support zone.",
+                sl: "Placed strictly below the swing low of the pullback candle or just under the recent structural swing low with an ATR buffer to avoid market noise and fakeouts.",
+                tp: "TP1: Scale out 50% at previous swing high (1.5R).\nTP2: Trail remainder along 9 EMA or target 1.618 Fib extension (2.5R - 3.5R).",
+                psych: "Volume must systematically dry up during the pullback phase, indicating lack of aggressive selling pressure. A surge of volume on the trigger can show increased participation, but it does not identify the participants or guarantee continuation.",
+                annotationText: "Pullback Zone: Low volume test of 9 EMA",
+                guide: {
+                  context: "Best when the 5-minute chart is making higher highs and higher lows, the 9 EMA is above the 21 EMA and both are rising, and the stock is outperforming the broad market or its sector. Prefer a clean catalyst or meaningful relative volume, but do not assume every gainer is tradeable. Map premarket high/low, prior-day high, current-session high, VWAP and nearby whole-dollar levels before the open.",
+                  sequence: "1) Impulse leg makes a meaningful high. 2) Pullback retraces without repeatedly closing below the last higher low. 3) Pullback candles contract or overlap and volume generally cools relative to the impulse. 4) Price reaches a planned area (rising 9 EMA, 21 EMA, VWAP or prior breakout level). 5) A trigger candle reclaims the area and breaks a nearby micro-swing high. The EMA is context, not a magic support line.",
+                  volume: "Compare like-for-like bars and the pullback with the preceding impulse; a single low-volume bar proves little. A quiet pullback with small bodies and defended lows is constructive. Rising red volume, expanding down bars, repeated closes below the 21 EMA/VWAP, or a lower low on strong participation warn that this may be distribution or a trend failure. A breakout-volume surge is useful only if price holds the break; high volume can also be climactic selling.",
+                  execution: "Do not buy merely because price touches an EMA. Define the trigger in advance: e.g., buy-stop one cent above the trigger candle/micro-swing high after it closes, if spread and volatility permit. Alternatively wait for a reclaim then a small retest that holds. Avoid an entry several candles after the trigger or far above the 9 EMA; the stop distance and room to resistance must still justify the trade.",
+                  invalidation: "Primary invalidation is a break of the pullback's meaningful swing low or the higher low that supports the setup. If using an EMA/VWAP reclaim, a decisive close back below it followed by failed reclaim may be an early warning, but do not move the structural stop arbitrarily. A wick through a level that closes back above it is not automatically failure; repeated body closes below and no reclaim are more concerning.",
+                  management: "Mark the next real supply area before entry: prior 1-minute high, premarket high, opening-range high, session high, whole-dollar level or daily resistance. Calculate R from entry to planned stop. If the first obstacle is less than about 1R away, the trade may not offer enough room. A partial at a preplanned level can reduce exposure; trail the remainder only using a rule you can execute consistently (e.g., last higher low or a completed 9 EMA close), not every tick.",
+                  traps: "Avoid: buying after several large green candles (late FOMO); a pullback that is actually a sharp reversal; a stock already extended far from the 9 EMA; an overhead level immediately above entry; wide spreads or thin prints; low RVOL with no genuine demand; a market-wide selloff; or confusing one green candle with proof of renewed trend. If the stock keeps grinding but volume is light, treat the structure as a hypothesis and size for uncertain liquidity rather than declaring it safe.",
+                  example: "Hypothetical example: a stock rises from $5.80 to $6.20, then pulls back in overlapping candles toward $6.08 while volume contracts. A small bullish candle reclaims $6.10 and the next candle breaks its high at $6.12. If the structural low is $6.03, risk is $0.09/share before costs. If a clear resistance sits at $6.25, reward to that level is $0.13 (about 1.44R); the setup may be less attractive than it first appears. Do not force the trade if spread/slippage or a nearer barrier destroys the maths.",
+                  checklist: ["5-minute trend is clearly rising; not just one green 1-minute candle", "Stock has a reason to be active and adequate relative volume/liquidity", "Premarket, prior-day and session resistance are marked", "Pullback is controlled; selling pressure is not expanding", "Trigger and exact structural invalidation are defined", "Room to first resistance justifies the risk", "Spread, slippage and share size are acceptable", "I am entering on a rule, not because I fear missing the move"],
+                  question: "Price touches the rising 9 EMA, prints one green candle, but the 5-minute trend is flat and red volume is increasing. Is the EMA touch enough?",
+                  answer: "No. The EMA touch is only location. The broader trend and behaviour at the level do not support a high-quality continuation yet. Wait for selling to ease and a defined reclaim/trigger, or pass. A missed trade is preferable to inventing confirmation after the fact."
+                },
+                candles: [
+                    { o: 5.80, h: 5.89, l: 5.78, c: 5.87, v: 4200 },
+                    { o: 5.87, h: 5.99, l: 5.85, c: 5.96, v: 5100 },
+                    { o: 5.96, h: 6.11, l: 5.94, c: 6.08, v: 6200 },
+                    { o: 6.08, h: 6.12, l: 6.02, c: 6.05, v: 3800 },
+                    { o: 6.05, h: 6.07, l: 5.99, c: 6.01, v: 2900 },
+                    { o: 6.01, h: 6.03, l: 5.95, c: 5.97, v: 2400 },
+                    { o: 5.97, h: 6.01, l: 5.96, c: 6.00, v: 2100 },
+                    { o: 6.00, h: 6.15, l: 5.99, c: 6.13, v: 8900 }
+                ]
+            },
+            breakout: {
+                name: "2. Range Breakout Setup",
+                tag: "Setup #2: Range Breakout",
+                badge: "Momentum Pattern",
+                badgeClass: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+                symbol: "ILLUSTRATION · 1m",
+                subtitle: "Illustrative sequence: range ceiling break and participation expansion",
+                winrate: "Not supplied",
+                rr: "Plan by structure",
+                tf: "1H / 4H",
+                regime: "Consolidation",
+                entry: "Price oscillates between a well-defined support and resistance level for 15+ candles. Entry is triggered when a high-volume Marubozu candle closes cleanly outside the resistance barrier.",
+                sl: "Placed just below the midpoint of the breakout range or below the breakout candle's low.",
+                tp: "Measured Move Target: Equal to the total height of the accumulation range projected upward from the breakout point.",
+                psych: "A breakout can trigger orders and attract new participants, but a chart cannot prove who is buying. Avoid chasing if price is extended or resistance is close.",
+                annotationText: "Resistance Breakout: High volume expansion",
+                guide: {
+                  context: "The range should be obvious before the break: repeated reactions near a ceiling and a floor, with price compressing rather than drifting randomly. For US stocks, check whether the ceiling is premarket high, opening-range high, prior-day high or a clear intraday shelf. A stock can break a local range straight into a larger resistance level, so mark both. Prefer a liquid name with meaningful RVOL and relative strength; an overnight percentage gap alone is not confirmation.",
+                  sequence: "1) Identify a level tested more than once. 2) Note whether the range is tightening and lows are holding. 3) Watch how price behaves on approach to resistance. 4) Require a completed close above the level or a break-and-hold/retest; avoid deciding from an unfinished candle. 5) Check whether the break has participation and whether the next resistance leaves space. 6) If entering on a retest, require the old ceiling to act as support rather than assuming it must.",
+                  volume: "A rise in volume on the break can indicate increased participation, but does not identify who is trading or guarantee continuation. Relative volume is most useful against a comparable time-of-day baseline. Strong volume with a close near the candle high and follow-through is more constructive than a huge volume spike with a long upper wick and close back inside the range. Low-volume breakouts can work in some conditions, but need stronger price acceptance and careful sizing.",
+                  execution: "Two common plans: (A) momentum entry only after a candle closes above resistance and the next action holds above it; (B) patient retest entry after price returns to the breakout level and buyers defend it. A buy-stop above the trigger high can reduce premature entries but may fill on a brief spike. Do not chase if price is already far from the level or the first sensible stop makes the trade too large. A break above resistance that immediately closes back inside the box is a failed-break warning.",
+                  invalidation: "The cleanest invalidation is a failed breakout: price closes back inside the range and cannot reclaim the ceiling, or the retest breaks below the level and forms a lower high. The stop may sit below the retest low or other structure, depending on the entry model. A midpoint stop is not automatically logical; it can be inside ordinary range noise and may not correspond to thesis failure.",
+                  management: "Use the range height as a planning reference, not a promise: projected target = breakout level + range height. Then compare it with actual resistance, volatility and time of day. Consider partials near the next marked level and a rule-based trail if price holds above the breakout. If the move stalls, prints repeated upper wicks, or falls back into the range on heavy volume, reassess rather than waiting for a measured-move target at all costs.",
+                  traps: "Avoid: buying the first wick above resistance; treating every large candle as a breakout; ignoring a nearby premarket/session high; entering after the move has already travelled most of the range height; mistaking a news spike for stable price acceptance; using an arbitrary midpoint stop; and assuming range action proves institutional accumulation. It only shows that price has traded within a range so far.",
+                  example: "Hypothetical example: a stock ranges between $4.90 and $5.10. It closes at $5.14 on rising relative volume, then retests $5.10 and holds, triggering at $5.13 with a stop at $5.06 (7 cents risk). The range-height projection is $5.30, but a prior-day high at $5.22 is the nearer obstacle. Reward to $5.22 is 9 cents, only about 1.29R before costs; do not use the $5.30 projection to ignore the closer supply zone.",
+                  checklist: ["Resistance and range floor were marked before the breakout", "Break candle has closed; no decision based on a live wick", "Volume/relative volume supports participation, not just a one-tick print", "Price is holding above the level or retest has visibly held", "No major resistance immediately overhead", "Entry is not excessively extended from the breakout level", "Stop is beyond genuine failure structure, not an arbitrary midpoint", "Projected reward remains worthwhile after spread and slippage"],
+                  question: "A candle spikes above resistance on huge volume but closes back inside the range with a long upper wick. What is the professional read?",
+                  answer: "The breakout has not been accepted. The volume spike tells you activity was high, not that buyers won. A close back inside with an upper wick is a failed-break warning. Do not chase it; wait to see whether price reclaims and holds the level or abandons the setup."
+                },
+                candles: [
+                    { o: 4.98, h: 5.03, l: 4.94, c: 5.00, v: 3000 },
+                    { o: 5.00, h: 5.08, l: 4.99, c: 5.04, v: 2800 },
+                    { o: 5.04, h: 5.06, l: 4.96, c: 4.99, v: 2100 },
+                    { o: 4.99, h: 5.07, l: 4.98, c: 5.05, v: 2500 },
+                    { o: 5.05, h: 5.09, l: 5.01, c: 5.03, v: 1900 },
+                    { o: 5.03, h: 5.08, l: 5.00, c: 5.07, v: 2200 },
+                    { o: 5.07, h: 5.10, l: 5.02, c: 5.05, v: 1800 },
+                    { o: 5.05, h: 5.24, l: 5.04, c: 5.22, v: 11400 }
+                ]
+            },
+            reversal: {
+                name: "3. Bottom Reversal Setup",
+                tag: "Setup #3: Bottom Reversal",
+                badge: "Countertrend Pattern",
+                badgeClass: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+                symbol: "ILLUSTRATION · 1m",
+                subtitle: "Illustrative sequence: flush, failed continuation lower, then reclaim",
+                winrate: "Not supplied",
+                rr: "Plan by structure",
+                tf: "Daily / Weekly",
+                regime: "Mean Reversion",
+                entry: "Identified after a sustained macro downtrend. Price prints a capitulation flush with extreme volume, followed by a retest that fails to make a lower low (Double Bottom / Spring).",
+                sl: "Placed right beneath the absolute climatic swing low of the pattern.",
+                tp: "TP1: Midpoint resistance of previous macro range (2R).\nTP2: Origin of the macro breakdown wave (4.5R+).",
+                psych: "A high-volume flush can reflect urgent selling, news or two-sided activity; it does not prove accumulation. Require a reclaim and follow-through before treating it as a reversal.",
+                annotationText: "Climactic Exhaustion & Reversal Base",
+                guide: {
+                  context: "A bottom reversal is countertrend until proven otherwise. In an intraday stock, adapt this as a flush-and-reclaim rather than assuming a durable long-term bottom: a sharp selloff reaches a known low/level, selling fails to extend, price reclaims a broken level or VWAP, and a higher low forms. Check news, halts, dilution/offerings and the broad-market context. A falling stock is not automatically cheap or ready to reverse.",
+                  sequence: "1) Identify the downtrend and the level being tested. 2) Observe the flush: fast range expansion and possibly unusually high volume. 3) Do not buy solely because volume is climactic. 4) Look for failure to continue lower, a reclaim of the flush breakdown point, or a higher low. 5) Wait for a break of the small lower high / micro-base. 6) Enter only if the reclaim holds and there is room before overhead supply. The first bounce can be only short-covering or a pause.",
+                  volume: "A volume climax shows intense activity, not a confirmed bottom. A long lower wick and close off the low can suggest rejection, but confirmation comes from subsequent price behaviour: reduced downside progress, a defended retest, a reclaim, and ideally improved buying participation on the advance. Heavy volume on another breakdown and a close near the lows argues against the reversal. Quiet volume on a higher low can be constructive, but context matters.",
+                  execution: "For an intraday flush-reclaim, define the exact reclaim line before entry (e.g., a prior micro-shelf, premarket low reclaim, VWAP or a broken support). Let a candle close back above it, then use a break of the reclaim candle/high or a retest that holds. Do not buy the falling knife at the absolute low. Start smaller if volatility is unusually high, because the stop may need to be wider and slippage can be substantial.",
+                  invalidation: "Usually below the retest/higher-low structure, or below the flush low if the whole pattern depends on that extreme holding. If price loses the reclaimed level and cannot recover, the thesis is weakening. A new low on expanding red volume invalidates the immediate reversal thesis; do not average down simply because the price is lower than your entry.",
+                  management: "Overhead supply is often the main constraint: prior breakdown area, VWAP, 9/21 EMA, prior lower high, premarket level or previous-day low. Take the nearest real obstacle seriously; the reward may be limited even when the bounce looks dramatic. Scale only according to a written plan. If price reaches resistance and stalls, do not assume a multi-leg reversal. A sustainable trend change needs later higher highs/higher lows, not one green candle.",
+                  traps: "Avoid: buying just because RSI/price looks oversold; treating a volume spike as proof of accumulation; entering before the reclaim; placing a stop so tight that normal flush volatility hits it; ignoring bad news or a potential halt; assuming the absolute low is identifiable in real time; and confusing a bounce with a trend reversal. This is generally the most difficult of the three setups to judge in real time.",
+                  example: "Hypothetical example: a stock flushes to $5.00, rebounds to $5.18, then retests $5.06 without making a new low. It reclaims $5.12 and breaks a micro lower high at $5.15. A planned entry at $5.16 with a stop at $5.04 risks 12 cents/share. If VWAP and prior support cluster near $5.30, reward is 14 cents (about 1.17R) before costs. The reversal may be real, but the trade can still be unattractive because resistance is close.",
+                  checklist: ["A meaningful level or flush low is identified", "I am not buying solely because price has fallen sharply", "Price has reclaimed a named level on a completed candle", "Retest/higher low is visible or a micro lower high has broken", "The flush low/retest low defines a real invalidation point", "Overhead resistance and likely bounce distance are mapped", "News, halts, spread and volatility risk have been checked", "Position size reflects the wider/less certain stop"],
+                  question: "A stock drops sharply on very high volume, then prints one green candle. Has a bottom reversal been confirmed?",
+                  answer: "No. The volume spike and green candle are clues, not confirmation. Wait for downside progress to fail, a key level to be reclaimed, and preferably a retest/higher low or break of a nearby lower high. Even then, assess overhead resistance and stop distance before deciding whether the trade is worth taking."
+                },
+                candles: [
+                    { o: 5.48, h: 5.55, l: 5.32, c: 5.38, v: 7000 },
+                    { o: 5.38, h: 5.41, l: 5.15, c: 5.22, v: 9200 },
+                    { o: 5.22, h: 5.25, l: 4.98, c: 5.03, v: 14500 },
+                    { o: 5.03, h: 5.13, l: 4.99, c: 5.10, v: 8100 },
+                    { o: 5.10, h: 5.17, l: 5.04, c: 5.07, v: 4300 },
+                    { o: 5.07, h: 5.15, l: 5.01, c: 5.13, v: 5100 },
+                    { o: 5.13, h: 5.28, l: 5.12, c: 5.25, v: 9800 }
+                ]
+            }
+        };
+
+        let currentSetupKey = 'pullback';
+        let currentStep = 8; // Full candles displayed initially
+        let isPlaying = false;
+        let playInterval = null;
+        let canvasHoverIndex = null;
+
+        const canvas = document.getElementById('tradeCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Initialize App on Load
+        window.onload = function() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            loadNotes();
+            setupCanvasInteraction();
+            renderFieldGuide(setupsData[currentSetupKey].guide);
+            redrawCanvas();
+        };
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+            redrawCanvas();
+        }
+
+        function switchSetup(key) {
+            currentSetupKey = key;
+            currentStep = setupsData[key].candles.length;
+            stopPlay();
+
+            // Update tab styles
+            ['pullback', 'breakout', 'reversal'].forEach(k => {
+                const btn = document.getElementById(`tab-${k}`);
+                if (k === key) {
+                    btn.className = "px-4 py-2 text-xs font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 bg-emerald-500 text-slate-950 shadow-md";
+                } else {
+                    btn.className = "px-4 py-2 text-xs font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-800";
+                }
+            });
+
+            // Update UI text
+            const data = setupsData[key];
+            document.getElementById('chart-symbol').innerText = data.symbol;
+            document.getElementById('chart-title-tag').innerText = data.tag;
+            document.getElementById('chart-title-tag').className = `text-xs font-semibold px-2.5 py-0.5 rounded-full border ${data.badgeClass}`;
+            document.getElementById('chart-subtitle').innerText = data.subtitle;
+
+            document.getElementById('stat-winrate').innerText = data.winrate;
+            document.getElementById('stat-rr').innerText = data.rr;
+            document.getElementById('stat-tf').innerText = data.tf;
+            document.getElementById('stat-regime').innerText = data.regime;
+
+            document.getElementById('setup-name').innerText = data.name;
+            document.getElementById('setup-badge').innerText = data.badge;
+            document.getElementById('setup-badge').className = `px-3 py-1 rounded-full text-xs font-semibold border ${data.badgeClass}`;
+
+            document.getElementById('rule-entry').innerText = data.entry;
+            document.getElementById('rule-sl').innerText = data.sl;
+            document.getElementById('rule-tp').innerHTML = data.tp.replace(/\n/g, '<br>');
+            document.getElementById('rule-psych').innerText = data.psych;
+            renderFieldGuide(data.guide);
+
+            loadNotes();
+            redrawCanvas();
+        }
+
+        function redrawCanvas() {
+            const width = canvas.clientWidth;
+            const height = canvas.clientHeight;
+            ctx.clearRect(0, 0, width, height);
+
+            const data = setupsData[currentSetupKey];
+            const candlesToShow = data.candles.slice(0, currentStep);
+            if (candlesToShow.length === 0) return;
+
+            // Calculate price bounds
+            let minPrice = Infinity;
+            let maxPrice = -Infinity;
+            let maxVol = 0;
+
+            candlesToShow.forEach(c => {
+                if (c.l < minPrice) minPrice = c.l;
+                if (c.h > maxPrice) maxPrice = c.h;
+                if (c.v > maxVol) maxVol = c.v;
+            });
+
+            const paddingPrice = (maxPrice - minPrice) * 0.15;
+            minPrice -= paddingPrice;
+            maxPrice += paddingPrice;
+
+            const chartHeight = height * 0.75;
+            const volHeight = height * 0.20;
+            const topMargin = 20;
+
+            // Draw Background Grid
+            ctx.strokeStyle = '#1f2937';
+            ctx.lineWidth = 1;
+            const gridRows = 5;
+            for (let i = 0; i <= gridRows; i++) {
+                const y = topMargin + (chartHeight / gridRows) * i;
+                ctx.beginPath();
+                ctx.setLineDash([4, 4]);
+                ctx.moveTo(40, y);
+                ctx.lineTo(width - 40, y);
+                ctx.stroke();
+
+                // Price label
+                const priceVal = maxPrice - (i / gridRows) * (maxPrice - minPrice);
+                ctx.fillStyle = '#6b7280';
+                ctx.font = '10px JetBrains Mono';
+                ctx.fillText(priceVal < 100 ? priceVal.toFixed(2) : priceVal.toFixed(0), width - 38, y + 3);
+            }
+            ctx.setLineDash([]); // Reset
+
+            const candleWidth = Math.max(8, (width - 80) / data.candles.length - 10);
+            const startX = 50;
+
+            // Calculate EMAs if toggled
+            const showEMA = document.getElementById('toggle-ema').checked;
+            const showVol = document.getElementById('toggle-vol').checked;
+            const showAnn = document.getElementById('toggle-ann').checked;
+
+            if (showEMA && candlesToShow.length > 1) {
+                // Real close-based EMA calculations (not a line through candle midpoints).
+                // These tiny teaching samples are too short to treat the EMA20 as fully warmed up.
+                const closes = candlesToShow.map(c => c.c);
+                [
+                  { period: 9, color: '#60a5fa' },
+                  { period: 20, color: '#fbbf24' }
+                ].forEach(({period, color}) => {
+                    const alpha = 2 / (period + 1);
+                    const values = [];
+                    let ema = closes[0];
+                    closes.forEach((close, idx) => {
+                        ema = idx === 0 ? close : (close * alpha) + (ema * (1 - alpha));
+                        values.push(ema);
+                    });
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 1.7;
+                    ctx.beginPath();
+                    values.forEach((value, idx) => {
+                        const x = startX + idx * (candleWidth + 10) + candleWidth / 2;
+                        const y = topMargin + ((maxPrice - value) / (maxPrice - minPrice)) * chartHeight;
+                        if (idx === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                    });
+                    ctx.stroke();
+                });
+            }
+
+            // Draw Candlesticks & Volume
+            candlesToShow.forEach((c, idx) => {
+                const x = startX + idx * (candleWidth + 10);
+                const isBull = c.c >= c.o;
+                const color = isBull ? '#10b981' : '#ef4444';
+
+                // Wick
+                const yHigh = topMargin + ((maxPrice - c.h) / (maxPrice - minPrice)) * chartHeight;
+                const yLow = topMargin + ((maxPrice - c.l) / (maxPrice - minPrice)) * chartHeight;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(x + candleWidth / 2, yHigh);
+                ctx.lineTo(x + candleWidth / 2, yLow);
+                ctx.stroke();
+
+                // Body
+                const yOpen = topMargin + ((maxPrice - c.o) / (maxPrice - minPrice)) * chartHeight;
+                const yClose = topMargin + ((maxPrice - c.c) / (maxPrice - minPrice)) * chartHeight;
+                const bodyY = Math.min(yOpen, yClose);
+                const bodyHeight = Math.max(2, Math.abs(yClose - yOpen));
+
+                ctx.fillStyle = color;
+                ctx.fillRect(x, bodyY, candleWidth, bodyHeight);
+
+                // Volume Bar
+                if (showVol) {
+                    const vBarH = (c.v / maxVol) * volHeight;
+                    const vY = height - 10 - vBarH;
+                    ctx.fillStyle = isBull ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)';
+                    ctx.fillRect(x, vY, candleWidth, vBarH);
+                }
+
+                // Highlight hovered candle
+                if (canvasHoverIndex === idx) {
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x - 2, topMargin, candleWidth + 4, chartHeight);
+                }
+            });
+
+            // Draw Setup Annotations & Callouts
+            if (showAnn && candlesToShow.length >= 6) {
+                const annX = startX + 5 * (candleWidth + 10);
+                const annY = topMargin + chartHeight * 0.55;
+
+                ctx.strokeStyle = '#10b981';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(annX, annY, 18, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+                ctx.fill();
+
+                // Callout Box
+                ctx.fillStyle = '#111827';
+                ctx.strokeStyle = '#10b981';
+                ctx.lineWidth = 1;
+                ctx.fillRect(annX - 70, annY - 45, 140, 30);
+                ctx.strokeRect(annX - 70, annY - 45, 140, 30);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '10px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText(data.annotationText, annX, annY - 26);
+                ctx.textAlign = 'left'; // Reset
+            }
+
+            // Update top OHLCV bar with latest candle
+            const latest = candlesToShow[candlesToShow.length - 1];
+            document.getElementById('val-o').innerText = latest.o;
+            document.getElementById('val-h').innerText = latest.h;
+            document.getElementById('val-l').innerText = latest.l;
+            document.getElementById('val-c').innerText = latest.c;
+            document.getElementById('val-v').innerText = latest.v.toLocaleString();
+        }
+
+        // Render the expanded, setup-specific professional guide and active-recall quiz.
+        function renderFieldGuide(guide) {
+            const grid = document.getElementById('field-guide-grid');
+            const blocks = [
+              ['01 · Market context', guide.context, 'text-cyan-300'],
+              ['02 · Price-action sequence', guide.sequence, 'text-emerald-300'],
+              ['03 · Volume & participation', guide.volume, 'text-purple-300'],
+              ['04 · Entry mechanics', guide.execution, 'text-emerald-300'],
+              ['05 · Invalidation / stop logic', guide.invalidation, 'text-rose-300'],
+              ['06 · Targets & management', guide.management, 'text-cyan-300'],
+              ['07 · Failure modes to avoid', guide.traps, 'text-amber-300'],
+              ['08 · Worked example (hypothetical)', guide.example, 'text-slate-200']
+            ];
+            grid.innerHTML = blocks.map(([title, body, colour]) => `<article class="rounded-xl border border-borderCol bg-slate-950/60 p-4"><h3 class="text-sm font-bold ${colour} mb-2">${title}</h3><p class="text-xs text-slate-300 leading-relaxed">${body}</p></article>`).join('');
+            document.getElementById('setup-checklist').innerHTML = guide.checklist.map((item, i) => `<label class="flex items-start gap-3 text-xs text-slate-300 leading-relaxed cursor-pointer"><input type="checkbox" class="guide-check mt-0.5 rounded bg-slate-800 border-slate-600 text-cyan-400 focus:ring-0" data-index="${i}" onchange="updateChecklist()"><span>${item}</span></label>`).join('');
+            document.getElementById('quiz-question').innerText = guide.question;
+            document.getElementById('quiz-answer').innerText = guide.answer;
+            document.getElementById('quiz-answer').classList.add('hidden');
+            document.getElementById('quiz-reveal-btn').innerText = 'Reveal expert answer';
+            updateChecklist();
+        }
+
+        function updateChecklist() {
+            const checks = Array.from(document.querySelectorAll('.guide-check'));
+            const count = checks.filter(c => c.checked).length;
+            document.getElementById('check-progress').innerText = `${count} / ${checks.length} checked`;
+            const verdict = document.getElementById('check-verdict');
+            if (count === checks.length && checks.length > 0) {
+              verdict.innerText = 'Checklist complete — still verify the live chart and order risk.';
+              verdict.className = 'text-xs text-emerald-300';
+            } else {
+              verdict.innerText = `${checks.length - count} item(s) remain. Do not treat an incomplete plan as a signal.`;
+              verdict.className = 'text-xs text-amber-300';
+            }
+        }
+
+        function resetChecklist() {
+            document.querySelectorAll('.guide-check').forEach(c => c.checked = false);
+            updateChecklist();
+        }
+
+        function toggleQuizAnswer() {
+            const answer = document.getElementById('quiz-answer');
+            const hidden = answer.classList.toggle('hidden');
+            document.getElementById('quiz-reveal-btn').innerText = hidden ? 'Reveal expert answer' : 'Hide expert answer';
+        }
+
+        // Canvas Mouse Interaction for Tooltips
+        function setupCanvasInteraction() {
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const data = setupsData[currentSetupKey];
+                const candlesToShow = data.candles.slice(0, currentStep);
+                const width = canvas.clientWidth;
+                const candleWidth = Math.max(8, (width - 80) / data.candles.length - 10);
+                const startX = 50;
+
+                let hovered = null;
+                candlesToShow.forEach((c, idx) => {
+                    const x = startX + idx * (candleWidth + 10);
+                    if (mouseX >= x && mouseX <= x + candleWidth + 10) {
+                        hovered = idx;
+                    }
+                });
+
+                if (hovered !== null) {
+                    canvasHoverIndex = hovered;
+                    const c = candlesToShow[hovered];
+                    const tooltip = document.getElementById('chart-tooltip');
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = `${Math.min(e.clientX - rect.left + 15, rect.width - 150)}px`;
+                    tooltip.style.top = `${Math.max(10, e.clientY - rect.top - 80)}px`;
+
+                    document.getElementById('tip-title').innerText = `Candle #${hovered + 1}`;
+                    document.getElementById('tip-open').innerText = c.o;
+                    document.getElementById('tip-high').innerText = c.h;
+                    document.getElementById('tip-low').innerText = c.l;
+                    document.getElementById('tip-close').innerText = c.c;
+                    document.getElementById('tip-vol').innerText = c.v.toLocaleString();
+
+                    redrawCanvas();
+                } else {
+                    canvasHoverIndex = null;
+                    document.getElementById('chart-tooltip').style.display = 'none';
+                    redrawCanvas();
+                }
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                canvasHoverIndex = null;
+                document.getElementById('chart-tooltip').style.display = 'none';
+                redrawCanvas();
+            });
+        }
+
+        // Playback Controls
+        function togglePlay() {
+            if (isPlaying) {
+                stopPlay();
+            } else {
+                startPlay();
+            }
+        }
+
+        function startPlay() {
+            isPlaying = true;
+            const btnText = document.getElementById('play-text');
+            const playIcon = document.getElementById('play-icon');
+            btnText.innerText = 'Pause Replay';
+            playIcon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+
+            playInterval = setInterval(() => {
+                const maxLen = setupsData[currentSetupKey].candles.length;
+                if (currentStep < maxLen) {
+                    currentStep++;
+                } else {
+                    currentStep = 3; // Loop back
+                }
+                redrawCanvas();
+            }, 800);
+        }
+
+        function stopPlay() {
+            isPlaying = false;
+            clearInterval(playInterval);
+            const btnText = document.getElementById('play-text');
+            const playIcon = document.getElementById('play-icon');
+            if (btnText && playIcon) {
+                btnText.innerText = 'Auto Replay';
+                playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+            }
+        }
+
+        function stepCanvas(dir) {
+            stopPlay();
+            const maxLen = setupsData[currentSetupKey].candles.length;
+            currentStep += dir;
+            if (currentStep > maxLen) currentStep = maxLen;
+            if (currentStep < 3) currentStep = 3;
+            redrawCanvas();
+        }
+
+        function resetCanvas() {
+            stopPlay();
+            currentStep = setupsData[currentSetupKey].candles.length;
+            redrawCanvas();
+        }
+
+        // LocalStorage Notes Management
+        function saveNotes() {
+            const notes = document.getElementById('setup-notes').value;
+            localStorage.setItem(`apextrade_notes_${currentSetupKey}`, notes);
+            const status = document.getElementById('notes-status');
+            status.innerText = "Notes saved ✓";
+            setTimeout(() => { status.innerText = "Notes synchronized"; }, 2000);
+        }
+
+        function loadNotes() {
+            const saved = localStorage.getItem(`apextrade_notes_${currentSetupKey}`);
+            const textarea = document.getElementById('setup-notes');
+            if (saved !== null) {
+                textarea.value = saved;
+            } else {
+                textarea.value = `My personal notes for ${setupsData[currentSetupKey].name}:\n- Key risk parameters verified.\n- Watch volume profile on retest.`;
+            }
+        }
+
+        function clearNotes() {
+            document.getElementById('setup-notes').value = "";
+            localStorage.removeItem(`apextrade_notes_${currentSetupKey}`);
+            document.getElementById('notes-status').innerText = "Notes cleared";
+        }
+
+        function openNotesModal() {
+            document.getElementById('journal-modal').style.display = 'flex';
+        }
+
+        function closeNotesModal() {
+            document.getElementById('journal-modal').style.display = 'none';
+        }
+
+        function exportNotes() {
+            const allNotes = {
+                pullback: localStorage.getItem('apextrade_notes_pullback'),
+                breakout: localStorage.getItem('apextrade_notes_breakout'),
+                reversal: localStorage.getItem('apextrade_notes_reversal'),
+                exportedAt: new Date().toISOString()
+            };
+            const blob = new Blob([JSON.stringify(allNotes, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'ApexTrade_Playbook_Notes.json';
+            a.click();
+        }
+    </script>
+</body>
+</html>

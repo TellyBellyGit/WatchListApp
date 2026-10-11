@@ -77,8 +77,8 @@ class StockWatchApp {
     // Price Action education dropdown refs
     this.priceActionBtn = document.getElementById('price-action-btn');
     this.priceActionDropdown = document.getElementById('price-action-dropdown');
-    this.wisdomBtn = document.getElementById('wisdom-btn');
-    this.wisdomDropdown = document.getElementById('wisdom-dropdown');
+    this.setupsBtn = document.getElementById('setups-btn');
+    this.setupsDropdown = document.getElementById('setups-dropdown');
     this.rulesBtn = document.getElementById('rules-btn');
     this.rulesDropdown = document.getElementById('rules-dropdown');
     this.learningBtn = document.getElementById('learning-btn');
@@ -3275,11 +3275,33 @@ const isTemp = (entry.list || 'main') === 'temp';
       });
     }
 
-    // Wisdom dropdown toggle
-    if (this.wisdomBtn && this.wisdomDropdown) {
-      this.wisdomBtn.addEventListener('click', (e) => {
+    // Setups dropdown toggle
+    if (this.setupsBtn && this.setupsDropdown) {
+      this.setupsBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this._toggleWisdomDropdown();
+        this._toggleSetupsDropdown();
+      });
+    }
+
+    // Setups dropdown items - open the matching page in a new tab / window
+    if (this.setupsDropdown && this.setupsBtn) {
+      this.setupsDropdown.querySelectorAll('.price-action-dropdown-item:not(.placeholder)').forEach((item) => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const action = item.dataset.action;
+          this.setupsDropdown.classList.remove('visible');
+          this.setupsBtn.classList.remove('active');
+          if (action === 'setups-reference') {
+            window.open('active_trading_reference.html', '_blank');
+          } else if (action === 'setups-playbook') {
+            // Feature string forces a separate browser window (not a tab)
+            window.open('Setups_playbook_Pro.html', '_blank', 'noopener,width=1400,height=1000');
+          } else if (action === 'setups-stock-strength') {
+            window.open('Intraday_Stock_Strength_Detail.html', '_blank');
+          } else if (action === 'setups-strength-validator') {
+            window.open('stock-strength-guide.html', '_blank');
+          }
+        });
       });
     }
 
@@ -3356,10 +3378,10 @@ const isTemp = (entry.list || 'main') === 'temp';
           this.priceActionBtn.classList.remove('active');
         }
       }
-      if (this.wisdomDropdown && this.wisdomDropdown.classList.contains('visible')) {
-        if (!this.wisdomBtn.contains(e.target) && !this.wisdomDropdown.contains(e.target)) {
-          this.wisdomDropdown.classList.remove('visible');
-          this.wisdomBtn.classList.remove('active');
+      if (this.setupsDropdown && this.setupsDropdown.classList.contains('visible')) {
+        if (!this.setupsBtn.contains(e.target) && !this.setupsDropdown.contains(e.target)) {
+          this.setupsDropdown.classList.remove('visible');
+          this.setupsBtn.classList.remove('active');
         }
       }
       if (this.rulesDropdown && this.rulesDropdown.classList.contains('visible')) {
@@ -3395,11 +3417,11 @@ const isTemp = (entry.list || 'main') === 'temp';
     this.priceActionBtn.classList.toggle('active', isVisible);
   }
 
-  // ---- Toggle the Wisdom dropdown ----
-  _toggleWisdomDropdown() {
-    if (!this.wisdomDropdown || !this.wisdomBtn) return;
-    const isVisible = this.wisdomDropdown.classList.toggle('visible');
-    this.wisdomBtn.classList.toggle('active', isVisible);
+  // ---- Toggle the Setups dropdown ----
+  _toggleSetupsDropdown() {
+    if (!this.setupsDropdown || !this.setupsBtn) return;
+    const isVisible = this.setupsDropdown.classList.toggle('visible');
+    this.setupsBtn.classList.toggle('active', isVisible);
   }
 
   // ---- Toggle the Rules dropdown ----
