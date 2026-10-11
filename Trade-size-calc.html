@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Momentum Scalping Quick Reference & Risk Desk Sheet</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@0.468.0"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            bg: '#070a0f',
+                            card: '#0e1420',
+                            border: '#1a2336',
+                            hover: '#151f33',
+                            accent: '#1e2d4a'
+                        },
+                        neon: {
+                            green: '#00f090',
+                            red: '#ff3860',
+                            cyan: '#00d8ff',
+                            amber: '#ffb800'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #070a0f;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(0, 240, 144, 0.03) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(0, 216, 255, 0.03) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(255, 56, 96, 0.02) 0%, transparent 60%);
+            background-attachment: fixed;
+        }
+
+        /* Glassmorphism styling */
+        .glass-panel {
+            background: rgba(14, 20, 32, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        .glass-panel-accent {
+            background: rgba(18, 27, 44, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 216, 255, 0.2);
+        }
+
+        /* Glowing text & box shadows */
+        .glow-green {
+            text-shadow: 0 0 10px rgba(0, 240, 144, 0.4);
+        }
+        .glow-red {
+            text-shadow: 0 0 10px rgba(255, 56, 96, 0.4);
+        }
+        .glow-cyan {
+            text-shadow: 0 0 10px rgba(0, 216, 255, 0.4);
+        }
+
+        .border-glow-green {
+            box-shadow: 0 0 12px -2px rgba(0, 240, 144, 0.25);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #070a0f;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e2d4a;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00d8ff;
+        }
+
+        /* Monospace tabular numbers alignment */
+        .num-mono {
+            font-family: 'JetBrains Mono', monospace;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Custom pulse for active status */
+        @keyframes pulse-fast {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .animate-pulse-fast {
+            animation: pulse-fast 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-10 text-slate-200 antialiased selection:bg-cyan-500 selection:text-slate-900">
+
+    <!-- Top Header Navigation Bar -->
+    <header class="border-b border-dark-border bg-dark-bg/90 sticky top-0 z-50 backdrop-blur-md">
+        <div class="max-w-[1600px] mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-gradient-to-br from-cyan-500/20 to-emerald-500/20 rounded-lg border border-cyan-500/30">
+                    <i data-lucide="activity" class="w-5 h-5 text-neon-cyan"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base md:text-lg tracking-wider text-white uppercase flex items-center gap-2">
+                        Scalp Risk Desk
+                        <span class="text-xs font-mono font-normal px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800/60">TOS ACTIVE TRADER OPTIMIZED</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Micro-Cap Momentum & Small Account Management ($250 Capital)</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 text-xs font-mono">
+                <!-- Market Status Indicator -->
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-md bg-dark-card border border-dark-border">
+                    <span class="w-2 h-2 rounded-full bg-neon-green animate-pulse-fast"></span>
+                    <span class="text-slate-300 font-semibold uppercase">Live Desk Ready</span>
+                </div>
+
+                <!-- Clock Display -->
+                <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-md bg-dark-card border border-dark-border text-slate-300">
+                    <i data-lucide="clock" class="w-3.5 h-3.5 text-cyan-400"></i>
+                    <span id="liveClock" class="text-slate-200">14:30:00 EST</span>
+                </div>
+
+                <!-- Account Size Quick Toggle -->
+                <div class="flex items-center gap-1.5 bg-dark-card px-2.5 py-1 rounded-md border border-cyan-500/40">
+                    <span class="text-slate-400 font-semibold">ACCT:</span>
+                    <span class="text-neon-cyan font-bold">$</span>
+                    <input type="number" id="globalAccountSize" value="250" step="25" min="10" max="100000" class="w-20 bg-transparent text-neon-cyan font-bold focus:outline-none border-b border-cyan-500/60 text-center">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-[1600px] mx-auto px-4 mt-4 space-y-4">
+
+        <!-- 1) ACCOUNT PARAMETER BANNER -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <!-- Account Size Card -->
+            <div class="glass-panel p-3.5 rounded-xl flex items-center justify-between border-l-4 border-l-cyan-400">
+                <div>
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Account Capital</span>
+                    <div class="flex items-center gap-1 mt-0.5">
+                        <span class="text-xl md:text-2xl font-bold num-mono text-neon-cyan">$</span>
+                        <input type="number" id="bannerAccountInput" value="250" step="25" min="10" max="100000" class="w-28 bg-dark-bg/90 border border-cyan-500/50 rounded px-2 py-0.5 text-xl md:text-2xl font-bold num-mono text-white focus:outline-none focus:border-cyan-400">
+                    </div>
+                    <span class="text-[11px] text-cyan-400/90 font-mono block mt-1">Editable Capital Base</span>
+                </div>
+                <div class="p-2.5 rounded-lg bg-cyan-500/10 text-cyan-400">
+                    <i data-lucide="wallet" class="w-5 h-5"></i>
+                </div>
+            </div>
+
+            <!-- Risk Limit Card -->
+            <div class="glass-panel p-3.5 rounded-xl flex items-center justify-between border-l-4 border-l-rose-500">
+                <div>
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Max Risk / Trade</span>
+                    <div class="text-xl md:text-2xl font-bold num-mono text-neon-red mt-0.5" id="bannerRiskLimit">$2.50 – $5.00</div>
+                    <span class="text-[11px] text-rose-400/90 font-mono">Strict 1.0% – 2.0% Account Ceiling</span>
+                </div>
+                <div class="p-2.5 rounded-lg bg-rose-500/10 text-rose-400">
+                    <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                </div>
+            </div>
+
+            <!-- Outlay Limit Card -->
+            <div class="glass-panel p-3.5 rounded-xl flex items-center justify-between border-l-4 border-l-amber-400">
+                <div>
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Position Outlay Cap</span>
+                    <div class="text-xl md:text-2xl font-bold num-mono text-amber-400 mt-0.5" id="bannerOutlayLimit">$50.00 – $100.00</div>
+                    <span class="text-[11px] text-amber-300/80 font-mono">20% – 40% Max Position Size</span>
+                </div>
+                <div class="p-2.5 rounded-lg bg-amber-500/10 text-amber-400">
+                    <i data-lucide="pie-chart" class="w-5 h-5"></i>
+                </div>
+            </div>
+
+            <!-- Max Daily Drawdown Limit -->
+            <div class="glass-panel p-3.5 rounded-xl flex items-center justify-between border-l-4 border-l-rose-400">
+                <div>
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Max Daily Loss</span>
+                    <div class="text-xl md:text-2xl font-bold num-mono text-neon-red mt-0.5" id="bannerDailyLoss">$12.50</div>
+                    <span class="text-[11px] text-rose-400/80 font-mono">5.0% Stop Trading Limit (<span id="bannerLossN">3</span> max-risk losses)</span>
+                </div>
+                <div class="p-2.5 rounded-lg bg-rose-500/10 text-rose-400">
+                    <i data-lucide="octagon" class="w-5 h-5"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- MAIN DASHBOARD CONTENT GRID -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+            <!-- LEFT COLUMN: Interactive Calculator & TOS Rules (5 Cols on LG) -->
+            <div class="lg:col-span-5 space-y-4">
+
+                <!-- 4) INTERACTIVE LIVE SCALP CALCULATOR -->
+                <div class="glass-panel-accent p-4 rounded-xl space-y-4 border border-cyan-500/30 relative overflow-hidden shadow-2xl">
+                    <div class="absolute -top-12 -right-12 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+                    <!-- Calculator Header -->
+                    <div class="flex items-center justify-between border-b border-dark-border pb-3">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="calculator" class="w-5 h-5 text-cyan-400"></i>
+                            <h2 class="font-bold text-white tracking-wide text-sm uppercase">Live Scalp Position Sizer</h2>
+                        </div>
+                        <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">REAL-TIME MATH</span>
+                    </div>
+
+                    <!-- Quick Preset Buttons -->
+                    <div class="flex items-center gap-1.5 flex-wrap text-xs">
+                        <span class="text-[11px] text-slate-400 uppercase font-semibold">Presets:</span>
+                        <button onclick="applyPreset(1.00, 5, 10, 2.50)" class="px-2 py-1 rounded bg-dark-card hover:bg-dark-hover text-slate-300 border border-dark-border text-xs font-mono transition-colors">$1.00 @ 1% Risk</button>
+                        <button onclick="applyPreset(1.00, 5, 10, 5.00)" class="px-2 py-1 rounded bg-dark-card hover:bg-dark-hover text-slate-300 border border-dark-border text-xs font-mono transition-colors">$1.00 @ 2% Risk</button>
+                        <button onclick="applyPreset(2.00, 10, 20, 5.00)" class="px-2 py-1 rounded bg-dark-card hover:bg-dark-hover text-slate-300 border border-dark-border text-xs font-mono transition-colors">$2.00 Stock</button>
+                        <button onclick="applyPreset(3.00, 15, 30, 3.75)" class="px-2 py-1 rounded bg-dark-card hover:bg-dark-hover text-slate-300 border border-dark-border text-xs font-mono transition-colors">$3.00 Stock</button>
+                    </div>
+
+                    <!-- Input Controls Grid -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <!-- Entry Price -->
+                        <div class="space-y-1">
+                            <label class="text-xs font-medium text-slate-300 flex justify-between">
+                                <span>Entry Price ($)</span>
+                                <span class="text-cyan-400 font-mono text-[11px]">Ask / Mid</span>
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-2.5 top-2 text-slate-500 font-mono text-xs">$</span>
+                                <input type="number" id="calcEntryPrice" value="1.00" step="0.01" min="0.10" max="20.00" class="w-full bg-dark-bg border border-dark-border rounded-lg py-1.5 pl-6 pr-2 text-xs font-mono text-white focus:outline-none focus:border-cyan-400">
+                            </div>
+                        </div>
+
+                        <!-- Target Offset (Cents) -->
+                        <div class="space-y-1">
+                            <label class="text-xs font-medium text-slate-300 flex justify-between">
+                                <span>Target Offset (¢)</span>
+                                <span class="text-neon-green font-mono text-[11px]" id="calcTargetPct">+10.0%</span>
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-2.5 top-2 text-emerald-500 font-mono text-xs">+</span>
+                                <input type="number" id="calcTargetOffset" value="10" step="1" min="1" max="200" class="w-full bg-dark-bg border border-dark-border rounded-lg py-1.5 pl-6 pr-6 text-xs font-mono text-white focus:outline-none focus:border-emerald-400">
+                                <span class="absolute right-2 top-2 text-slate-500 font-mono text-xs">¢</span>
+                            </div>
+                        </div>
+
+                        <!-- Stop Loss Offset (Cents) -->
+                        <div class="space-y-1">
+                            <label class="text-xs font-medium text-slate-300 flex justify-between">
+                                <span>Stop Offset (¢)</span>
+                                <span class="text-neon-red font-mono text-[11px]" id="calcStopPct">-5.0%</span>
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-2.5 top-2 text-rose-500 font-mono text-xs">-</span>
+                                <input type="number" id="calcStopOffset" value="5" step="1" min="1" max="100" class="w-full bg-dark-bg border border-dark-border rounded-lg py-1.5 pl-6 pr-6 text-xs font-mono text-white focus:outline-none focus:border-rose-400">
+                                <span class="absolute right-2 top-2 text-slate-500 font-mono text-xs">¢</span>
+                            </div>
+                        </div>
+
+                        <!-- Max Dollar Risk -->
+                        <div class="space-y-1">
+                            <label class="text-xs font-medium text-slate-300 flex justify-between">
+                                <span>Max Risk ($)</span>
+                                <span class="text-slate-400 font-mono text-[11px]" id="calcMaxRiskPct">1.0% acct</span>
+                            </label>
+                            <div class="relative">
+                                <span class="absolute left-2.5 top-2 text-slate-500 font-mono text-xs">$</span>
+                                <input type="number" id="calcMaxRisk" value="2.50" step="0.25" min="0.50" max="50.00" class="w-full bg-dark-bg border border-dark-border rounded-lg py-1.5 pl-6 pr-2 text-xs font-mono text-white focus:outline-none focus:border-cyan-400">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3"><div class="space-y-1"><label class="text-xs font-medium text-slate-300">Spread (¢)</label><input type="number" id="calcSpread" value="2" step="1" min="0" class="w-full bg-dark-bg border border-dark-border rounded-lg py-1.5 px-2 text-xs font-mono text-white focus:outline-none focus:border-cyan-500"></div><div class="space-y-1"><label class="text-xs font-medium text-slate-300">Stop slippage (¢)</label><input type="number" id="calcSlip" value="1" step="1" min="0" class="w-full bg-dark-bg border border-dark-border rounded-lg py-1.5 px-2 text-xs font-mono text-white focus:outline-none focus:border-cyan-500"></div><div class="space-y-1"><label class="text-xs font-medium text-slate-300">Fees / trade ($)</label><input type="number" id="calcFee" value="0.00" step="0.05" min="0" class="w-full bg-dark-bg border border-dark-border rounded-lg py-1.5 px-2 text-xs font-mono text-white focus:outline-none focus:border-cyan-500"></div></div>
+<!-- Output Results Panel -->
+                    <div class="bg-dark-bg/90 rounded-lg p-3.5 border border-dark-border space-y-3">
+                        <div class="flex items-center justify-between border-b border-dark-border/80 pb-2.5">
+                            <div>
+                                <span class="text-[11px] text-slate-400 uppercase block font-semibold">Recommended Position Size</span>
+                                <div class="flex items-baseline gap-2">
+                                    <span class="text-2xl font-extrabold num-mono text-cyan-300 glow-cyan" id="calcShares">50 SHARES</span>
+                                    <button onclick="copyShareSize()" class="text-xs text-slate-400 hover:text-cyan-400 flex items-center gap-1 transition-colors" title="Copy shares">
+                                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-[11px] text-slate-400 uppercase block font-semibold">Capital Outlay</span>
+                                <span class="text-lg font-bold num-mono text-amber-400" id="calcOutlay">$50.00</span>
+                                <span class="text-[11px] text-slate-500 block font-mono" id="calcOutlayPct">20.0% of $250</span>
+                            </div>
+                        </div>
+
+                        <!-- Key Execution Price Levels -->
+                        <div class="grid grid-cols-3 gap-2 text-center text-xs font-mono">
+                            <div class="p-2 rounded bg-rose-950/40 border border-rose-900/50">
+                                <span class="text-[11px] text-rose-400 block uppercase font-sans font-semibold">Stop Loss Line</span>
+                                <span class="font-bold text-rose-300 text-sm" id="calcStopPrice">$0.95</span>
+                                <span class="text-[11px] text-rose-400 block" id="calcDollarRisk">-$2.50</span>
+                            </div>
+
+                            <div class="p-2 rounded bg-dark-card border border-dark-border">
+                                <span class="text-[11px] text-slate-400 block uppercase font-sans font-semibold">Net R:R</span>
+                                <span class="font-bold text-cyan-400 text-sm" id="calcRRRatio">2.00 : 1</span>
+                                <span class="text-[11px] text-emerald-400 block" id="calcRRBadge">OPTIMAL</span>
+                            </div>
+
+                            <div class="p-2 rounded bg-emerald-950/40 border border-emerald-900/50">
+                                <span class="text-[11px] text-emerald-400 block uppercase font-sans font-semibold">Take Profit Line</span>
+                                <span class="font-bold text-emerald-300 text-sm" id="calcTargetPrice">$1.10</span>
+                                <span class="text-[11px] text-emerald-400 block" id="calcDollarProfit">+$5.00</span>
+                            </div>
+                        </div>
+
+                        <div id="calcExtra" class="text-xs text-slate-400 font-mono"></div>
+<!-- Warning / Status Callout -->
+                        <div id="calcWarningBox" class="text-xs p-2 rounded bg-cyan-950/30 border border-cyan-800/50 text-cyan-300 flex items-center gap-2">
+                            <i data-lucide="check-circle2" class="w-4 h-4 text-cyan-400 shrink-0"></i>
+                            <span id="calcWarningText">Trade meets all parameter thresholds. Position within safe limits.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-4 rounded-xl space-y-3">
+<div class="flex items-center justify-between border-b border-dark-border pb-2.5"><h3 class="font-bold text-white text-xs uppercase tracking-wide">Session Tracker</h3><button onclick="resetTracker()" class="text-xs text-slate-400 hover:text-cyan-400">Reset day</button></div>
+<div class="grid grid-cols-3 gap-2 text-center font-mono text-xs">
+<div class="p-2 rounded bg-dark-card border border-dark-border"><span class="text-xs text-slate-400 block font-sans">Day P&amp;L</span><span id="trkPnl" class="font-bold text-sm">$0.00</span></div>
+<div class="p-2 rounded bg-dark-card border border-dark-border"><span class="text-xs text-slate-400 block font-sans">Trades</span><span id="trkWL" class="font-bold text-sm text-slate-200">0W / 0L</span></div>
+<div class="p-2 rounded bg-dark-card border border-dark-border"><span class="text-xs text-slate-400 block font-sans">Loss left today</span><span id="trkLeft" class="font-bold text-sm text-amber-400">$0.00</span></div></div>
+<div id="trkStatus" class="text-xs p-2 rounded border"></div>
+<div class="flex gap-2"><input id="trkInput" type="number" step="0.01" placeholder="Trade P&amp;L in $ (negative for a loss)" class="flex-1 bg-dark-bg border border-dark-border rounded-lg py-1.5 px-2 text-xs font-mono text-white focus:outline-none focus:border-cyan-500">
+<button onclick="logTrade()" class="px-3 rounded-lg bg-cyan-950 text-cyan-300 border border-cyan-800 text-xs font-semibold hover:bg-cyan-900">Log trade</button>
+<button onclick="copyJournalRow()" class="px-3 rounded-lg bg-dark-card text-slate-300 border border-dark-border text-xs hover:bg-dark-hover" title="Copies a tab-separated row for the Trade Journal sheet">Copy journal row</button></div></div>
+<!-- 5) TOS ACTIVE TRADER EXECUTION RULES CARD -->
+                <div class="glass-panel p-4 rounded-xl space-y-3">
+                    <div class="flex items-center justify-between border-b border-dark-border pb-2.5">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="sliders" class="w-4 h-4 text-neon-amber"></i>
+                            <h3 class="font-bold text-white text-xs uppercase tracking-wide">TOS Active Trader Setup & Rules</h3>
+                        </div>
+                        <span class="text-[11px] text-amber-400 font-mono px-2 py-0.5 rounded bg-amber-950 border border-amber-800/60">MICRO-CAP CRITICAL</span>
+                    </div>
+
+                    <div class="space-y-2.5 text-xs">
+                        <!-- Rule 1 -->
+                        <div class="p-2.5 rounded-lg bg-dark-card border border-dark-border flex gap-2.5 items-start">
+                            <span class="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 text-[11px] font-mono font-bold mt-0.5">01</span>
+                            <div>
+                                <span class="font-semibold text-slate-200 block">Switch Offsets from `%` to `$` (Absolute Cents)</span>
+                                <p class="text-slate-400 text-xs mt-0.5">
+                                    On $1.00 stocks, a 2% stop is only <strong class="text-rose-400">2 cents</strong> ($0.02). Normal bid-ask spread noise will wick you out instantly before the move develops. Set active trader buttons to cent offsets (e.g. <span class="text-emerald-400 font-mono">+0.10</span> / <span class="text-rose-400 font-mono">-0.05</span>).
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Rule 2 -->
+                        <div class="p-2.5 rounded-lg bg-dark-card border border-dark-border flex gap-2.5 items-start">
+                            <span class="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 text-[11px] font-mono font-bold mt-0.5">02</span>
+                            <div>
+                                <span class="font-semibold text-slate-200 block">3-Cent Spread Gatekeeper Rule</span>
+                                <p class="text-slate-400 text-xs mt-0.5">
+                                    Never hit <span class="text-emerald-400 font-semibold">BUY ASK</span> if the spread is wider than <strong class="text-amber-300">3 cents ($0.03)</strong>. Crossing a 4¢ spread on a $1.00 stock means you start immediately down -4.0% on execution!
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Rule 3 -->
+                        <div class="p-2.5 rounded-lg bg-dark-card border border-dark-border flex gap-2.5 items-start">
+                            <span class="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 text-[11px] font-mono font-bold mt-0.5">03</span>
+                            <div>
+                                <span class="font-semibold text-slate-200 block">Trailing Stop Warning in Fast Markets</span>
+                                <p class="text-slate-400 text-xs mt-0.5">
+                                    Trailing stops execute as <strong class="text-rose-400">Market Orders</strong> when triggered. In low-float halts or fast market dumps, a 5¢ trailing stop can suffer 3¢ to 5¢ negative slippage. Use fixed limit targets for exits.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pre-Trade Checklist -->
+                    <div class="pt-1 border-t border-dark-border">
+                        <span class="text-[11px] font-semibold uppercase text-slate-400 tracking-wider block mb-2">Pre-Entry Checklist</span>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <label class="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
+                                <input type="checkbox" data-chk onchange="calculateLiveScalp()" class="rounded bg-dark-bg border-dark-border text-cyan-500 focus:ring-0 w-3.5 h-3.5">
+                                <span>Spread ≤ $0.03?</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
+                                <input type="checkbox" data-chk onchange="calculateLiveScalp()" class="rounded bg-dark-bg border-dark-border text-cyan-500 focus:ring-0 w-3.5 h-3.5">
+                                <span>Auto-Send Checked?</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
+                                <input type="checkbox" data-chk onchange="calculateLiveScalp()" class="rounded bg-dark-bg border-dark-border text-cyan-500 focus:ring-0 w-3.5 h-3.5">
+                                <span>Risk ≤ $5.00 Cap?</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
+                                <input type="checkbox" data-chk onchange="calculateLiveScalp()" class="rounded bg-dark-bg border-dark-border text-cyan-500 focus:ring-0 w-3.5 h-3.5">
+                                <span>Volume Spike Active?</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT COLUMN: Stock Matrix & Cent-Offset Matrix (7 Cols on LG) -->
+            <div class="lg:col-span-7 space-y-4">
+
+                <!-- 2) MAIN STOCK PRICE MATRIX TABLE -->
+                <div class="glass-panel p-4 rounded-xl space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-dark-border pb-3">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="table" class="w-4 h-4 text-neon-green"></i>
+                            <h2 class="font-bold text-white text-xs uppercase tracking-wide">Stock Price Matrix ($1.00 to $5.00)</h2>
+                        </div>
+                        <span class="text-[11px] text-slate-400 font-mono">Click any row to load into calculator</span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="border-b border-dark-border text-xs font-semibold text-slate-400 uppercase tracking-wider font-sans bg-dark-card/50">
+                                    <th class="p-2.5">Stock Price</th>
+                                    <th class="p-2.5">Shares</th>
+                                    <th class="p-2.5">Outlay</th>
+                                    <th class="p-2.5 text-emerald-400">Target (+10%)</th>
+                                    <th class="p-2.5 text-emerald-400">Profit ($)</th>
+                                    <th class="p-2.5 text-rose-400">Stop (-5%)</th>
+                                    <th class="p-2.5 text-rose-400">Risk ($)</th>
+                                    <th class="p-2.5 text-cyan-400">% Acct</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-dark-border/60 num-mono" id="stockMatrixTableBody">
+                                <!-- Table rows will be populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 3) CENT-OFFSET QUICK CALCULATOR MATRIX FOR CUSTOM STOCK PRICE -->
+                <div class="glass-panel p-4 rounded-xl space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-dark-border pb-3">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="grid" class="w-4 h-4 text-neon-cyan"></i>
+                            <h2 class="font-bold text-white text-xs uppercase tracking-wide">Cent-Offset Grid for Custom Stock Price</h2>
+                        </div>
+                        
+                        <!-- Custom Stock Price Input -->
+                        <div class="flex items-center gap-2 bg-dark-bg/90 px-3 py-1.5 rounded-lg border border-cyan-500/40">
+                            <label for="customGridPrice" class="text-xs text-slate-300 font-semibold flex items-center gap-1.5">
+                                <i data-lucide="dollar-sign" class="w-3.5 h-3.5 text-cyan-400"></i> Stock Price:
+                            </label>
+                            <span class="text-cyan-400 font-mono font-bold">$</span>
+                            <input type="number" id="customGridPrice" value="1.00" step="0.05" min="0.05" max="100.00" class="w-20 bg-transparent text-white font-mono font-bold text-xs focus:outline-none border-b border-cyan-400/60 text-center">
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-slate-400">
+                        Exact exit prices and dollar P&L for <strong class="text-cyan-300 font-mono" id="gridPriceDisplay">$1.00</strong> across position sizes from 25 to 1,000 shares:
+                    </p>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-center border-collapse text-xs">
+                            <thead>
+                                <tr class="border-b border-dark-border text-xs font-semibold text-slate-400 uppercase font-sans bg-dark-card/50">
+                                    <th class="p-2.5 text-left">Share Size</th>
+                                    <th class="p-2.5 text-left">Capital Outlay</th>
+                                    <th class="p-2.5 text-rose-400 bg-rose-950/20 border-x border-dark-border">-3¢ Stop</th>
+                                    <th class="p-2.5 text-rose-400 bg-rose-950/20 border-r border-dark-border">-5¢ Stop</th>
+                                    <th class="p-2.5 text-emerald-400 bg-emerald-950/20 border-r border-dark-border">+8¢ Target</th>
+                                    <th class="p-2.5 text-emerald-400 bg-emerald-950/20 border-r border-dark-border">+10¢ Target</th>
+                                    <th class="p-2.5 text-emerald-400 bg-emerald-950/20 border-r border-dark-border">+15¢ Target</th>
+                                    <th class="p-2.5 text-cyan-400">Risk Check</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-dark-border/60 num-mono" id="centGridTableBody">
+                                <!-- Grid populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- EXECUTION QUICK TIPS SUMMARY -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="glass-panel p-3.5 rounded-xl border-l-2 border-l-cyan-400 text-xs space-y-1">
+                        <div class="font-bold text-slate-200 flex items-center gap-1.5">
+                            <i data-lucide="zap" class="w-4 h-4 text-cyan-400"></i>
+                            Momentum Scalp Golden Rule
+                        </div>
+                        <p class="text-slate-400 text-xs leading-relaxed">
+                            Never let a winner turn into a loser. When price reaches <strong id="ruleBE">+5.0% (+5¢)</strong>, adjust stop loss up to breakeven (<span id="ruleBEp">$1.00</span>) immediately to lock in a risk-free trade.
+                        </p>
+                    </div>
+
+                    <div class="glass-panel p-3.5 rounded-xl border-l-2 border-l-rose-500 text-xs space-y-1">
+                        <div class="font-bold text-slate-200 flex items-center gap-1.5">
+                            <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-400"></i>
+                            Circuit Breaker Rule
+                        </div>
+                        <p class="text-slate-400 text-xs leading-relaxed">
+                            If you take <strong>2 consecutive losses (<span id="ruleCB">-$5.00</span> at your max risk)</strong>, step away from the desk for 15 minutes to reset emotional discipline and avoid revenge trading.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize Lucide Icons
+            if(window.lucide) lucide.createIcons();
+
+            // Start Clock
+            updateClock();
+            setInterval(updateClock, 1000);
+
+            // Synchronize Account Capital Inputs
+            const globalAcct = document.getElementById('globalAccountSize');
+            const bannerAcct = document.getElementById('bannerAccountInput');
+
+            globalAcct.addEventListener('input', (e) => {
+                bannerAcct.value = e.target.value;
+                handleAccountResize();
+            });
+
+            bannerAcct.addEventListener('input', (e) => {
+                globalAcct.value = e.target.value;
+                handleAccountResize();
+            });
+
+            // Grid Custom Price Input Listener
+            document.getElementById('customGridPrice').addEventListener('input', () => {
+                renderCentGrid();
+            });
+
+            // Attach event listeners for real-time calculator
+            document.getElementById('calcEntryPrice').addEventListener('input', calculateLiveScalp);
+            document.getElementById('calcTargetOffset').addEventListener('input', calculateLiveScalp);
+            document.getElementById('calcStopOffset').addEventListener('input', calculateLiveScalp);
+            document.getElementById('calcMaxRisk').addEventListener('input', calculateLiveScalp);
+
+            ['calcSpread','calcSlip','calcFee'].forEach(i=>$(i).addEventListener('input',calculateLiveScalp));
+            const sa=LS.get('desk_acct'); if(sa){$('globalAccountSize').value=sa;$('bannerAccountInput').value=sa;}
+            setInterval(()=>{renderTracker();},1000);
+            // Initial render
+            handleAccountResize();
+        });
+
+        
+
+        
+
+        
+
+        function renderCentGrid() {
+            const tbody = document.getElementById('centGridTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const acctSize = parseFloat(document.getElementById('globalAccountSize').value) || 250;
+            const stockPrice = parseFloat(document.getElementById('customGridPrice').value) || 1.00;
+
+            const displayEl = document.getElementById('gridPriceDisplay');
+            if (displayEl) displayEl.textContent = `$${stockPrice.toFixed(2)}`;
+
+            const shareSizes = [25, 50, 75, 100, 150, 200, 500, 1000];
+            const maxAllowedRisk = acctSize * 0.02; // 2% max risk ceiling
+            const maxAllowedOutlay = acctSize * 0.40; // 40% outlay limit
+
+            shareSizes.forEach(shares => {
+                const tr = document.createElement('tr');
+                const outlay = shares * stockPrice;
+
+                // Stop & Target Exit Prices
+                const stop3Price = Math.max(0.01, stockPrice - 0.03).toFixed(2);
+                const stop5Price = Math.max(0.01, stockPrice - 0.05).toFixed(2);
+                const tgt8Price = (stockPrice + 0.08).toFixed(2);
+                const tgt10Price = (stockPrice + 0.10).toFixed(2);
+                const tgt15Price = (stockPrice + 0.15).toFixed(2);
+
+                // Dollar PnLs
+                const stop3Dollar = (shares * 0.03).toFixed(2);
+                const stop5Dollar = (shares * 0.05).toFixed(2);
+                const tgt8Dollar = (shares * 0.08).toFixed(2);
+                const tgt10Dollar = (shares * 0.10).toFixed(2);
+                const tgt15Dollar = (shares * 0.15).toFixed(2);
+
+                // Risk & Outlay Status Badge
+                let badgeHTML = '';
+                if (parseFloat(stop5Dollar) > maxAllowedRisk) {
+                    badgeHTML = `<span class="px-1.5 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800 text-[11px] font-sans font-bold">EXCEEDS RISK</span>`;
+                } else if (outlay > maxAllowedOutlay) {
+                    badgeHTML = `<span class="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[11px] font-sans font-bold">HIGH OUTLAY</span>`;
+                } else if (parseFloat(stop5Dollar) <= acctSize * 0.01) {
+                    badgeHTML = `<span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 text-[11px] font-sans font-bold">OPTIMAL</span>`;
+                } else {
+                    badgeHTML = `<span class="px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 text-[11px] font-sans font-bold">SAFE</span>`;
+                }
+
+                const isOptimal = parseFloat(stop5Dollar) <= acctSize * 0.01 && outlay <= maxAllowedOutlay;
+                const rowClass = isOptimal 
+                    ? 'bg-emerald-950/20 hover:bg-emerald-900/30 border-l-2 border-l-emerald-400' 
+                    : 'hover:bg-dark-hover/80';
+
+                tr.className = `cursor-pointer transition-colors ${rowClass}`;
+                tr.onclick = () => applyPreset(stockPrice, 5, 10, Math.min(parseFloat(stop5Dollar), maxAllowedRisk));
+
+                tr.innerHTML = `
+                    <td class="p-2.5 text-left font-bold text-white font-sans">${shares} shares</td>
+                    <td class="p-2.5 text-left text-amber-300">$${outlay.toFixed(2)}</td>
+                    <td class="p-2.5 text-rose-400 bg-rose-950/10 border-x border-dark-border font-medium">
+                        <div>$${stop3Price}</div>
+                        <div class="text-[11px] text-rose-400/80">-$${stop3Dollar}</div>
+                    </td>
+                    <td class="p-2.5 text-rose-400 bg-rose-950/10 border-r border-dark-border font-bold">
+                        <div>$${stop5Price}</div>
+                        <div class="text-[11px] text-rose-400/80">-$${stop5Dollar}</div>
+                    </td>
+                    <td class="p-2.5 text-emerald-400 bg-emerald-950/10 border-r border-dark-border font-medium">
+                        <div>$${tgt8Price}</div>
+                        <div class="text-[11px] text-emerald-400/80">+$${tgt8Dollar}</div>
+                    </td>
+                    <td class="p-2.5 text-emerald-400 bg-emerald-950/10 border-r border-dark-border font-bold">
+                        <div>$${tgt10Price}</div>
+                        <div class="text-[11px] text-emerald-400/80">+$${tgt10Dollar}</div>
+                    </td>
+                    <td class="p-2.5 text-emerald-400 bg-emerald-950/10 border-r border-dark-border font-bold">
+                        <div>$${tgt15Price}</div>
+                        <div class="text-[11px] text-emerald-400/80">+$${tgt15Dollar}</div>
+                    </td>
+                    <td class="p-2.5">${badgeHTML}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        
+
+        
+const $=id=>document.getElementById(id), fmt=n=>n.toFixed(2), acct=()=>parseFloat($('globalAccountSize').value)||250;
+const LS={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+let trk=LS.get('desk_trk'); if(!trk||trk.d!==today()) trk={d:today(),t:[],lockUntil:0};
+const saveTrk=()=>LS.set('desk_trk',trk);
+const dollars=n=>(n<0?'-':'+')+'$'+fmt(Math.abs(n));
+
+function updateClock(){
+  const p=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,weekday:'short'}).formatToParts(new Date());
+  const g=t=>p.find(x=>x.type===t).value, m=(+g('hour')%24)*60+(+g('minute')), wd=g('weekday');
+  let s='Closed';
+  if(wd!=='Sat'&&wd!=='Sun') s=m<240?'Closed':m<570?'Pre-market':m<630?'Open drive':m<690?'Morning':m<840?'Midday lull':m<900?'Afternoon':m<960?'Power hour':m<1200?'After-hours':'Closed';
+  $('liveClock').textContent=`${g('hour')}:${g('minute')}:${g('second')} ET · ${s}`;
+}
+function handleAccountResize(){
+  const a=acct();
+  $('bannerRiskLimit').textContent=`$${fmt(a*.01)} – $${fmt(a*.02)}`;
+  $('bannerOutlayLimit').textContent=`$${fmt(a*.2)} – $${fmt(a*.4)}`;
+  $('bannerDailyLoss').textContent=`$${fmt(a*.05)}`;
+  $('bannerLossN').textContent=(a*.05/(a*.01)).toFixed(0);
+  $('calcMaxRisk').value=fmt(a*.01);
+  LS.set('desk_acct',a);
+  renderStockMatrix(); renderCentGrid(); calculateLiveScalp(); renderTracker();
+}
+function renderStockMatrix(){
+  const a=acct(), tb=$('stockMatrixTableBody'); tb.innerHTML='';
+  [1,2,3,4,5].forEach(price=>[.01,.02].forEach(rp=>{
+    const stop=Math.round(price*5)/100, tgt=Math.round(price*10)/100, cap=Math.max(1,Math.floor(a*.4/price));
+    let sh=Math.max(1,Math.floor(a*rp/stop)); const capped=sh>cap; sh=Math.min(sh,cap);
+    const risk=sh*stop, tr=document.createElement('tr');
+    tr.className='cursor-pointer transition-colors hover:bg-dark-hover/80'+(rp===.01?' bg-cyan-950/20':'');
+    tr.onclick=()=>applyPreset(price,Math.round(stop*100),Math.round(tgt*100),risk);
+    tr.innerHTML=`<td class="p-2.5 font-bold text-white">$${fmt(price)} <span class="text-[11px] text-slate-500 font-sans">${rp*100}% tier</span></td>
+    <td class="p-2.5 font-bold text-cyan-300">${sh} sh${capped?' <span class="text-[11px] text-amber-400 font-sans">40% cap</span>':''}</td>
+    <td class="p-2.5 text-amber-300">$${fmt(sh*price)}</td>
+    <td class="p-2.5 text-emerald-400 font-semibold">$${fmt(price+tgt)} (+${Math.round(tgt*100)}¢)</td>
+    <td class="p-2.5 text-emerald-400 font-bold">+$${fmt(sh*tgt)}</td>
+    <td class="p-2.5 text-rose-400 font-semibold">$${fmt(price-stop)} (-${Math.round(stop*100)}¢)</td>
+    <td class="p-2.5 text-rose-400 font-bold">-$${fmt(risk)}</td>
+    <td class="p-2.5 font-bold text-cyan-400">${(risk/a*100).toFixed(1)}%</td>`;
+    tb.appendChild(tr);
+  }));
+}
+function calculateLiveScalp(){
+  const a=acct(), v=id=>parseFloat($(id).value)||0;
+  const entry=v('calcEntryPrice')||1, tc=v('calcTargetOffset')||10, sc=v('calcStopOffset')||5, maxRisk=v('calcMaxRisk')||2.5;
+  const spr=v('calcSpread'), slip=v('calcSlip'), fee=v('calcFee'), tgt=tc/100, stp=sc/100;
+  $('calcTargetPct').textContent=`+${(tgt/entry*100).toFixed(1)}%`; $('calcStopPct').textContent=`-${(stp/entry*100).toFixed(1)}%`;
+  $('calcMaxRiskPct').textContent=`${(maxRisk/a*100).toFixed(1)}% acct`;
+  const riskPS=stp+slip/100, rewPS=Math.max(0,tgt-spr/100);
+  let sh=Math.max(1,Math.floor(Math.max(0,maxRisk-fee)/riskPS)), capped=false;
+  if(sh*entry>a*.4){sh=Math.max(1,Math.floor(a*.4/entry));capped=true;}
+  const outlay=sh*entry, risk=sh*riskPS+fee, profit=sh*rewPS-fee, rr=risk>0?profit/risk:0;
+  $('calcShares').textContent=`${sh} SHARES`; $('calcOutlay').textContent=`$${fmt(outlay)}`;
+  $('calcOutlayPct').textContent=`${(outlay/a*100).toFixed(1)}% of $${a}`;
+  $('calcStopPrice').textContent=`$${fmt(Math.max(.01,entry-stp))}`; $('calcDollarRisk').textContent=`-$${fmt(risk)}`;
+  $('calcTargetPrice').textContent=`$${fmt(entry+tgt)}`; $('calcDollarProfit').textContent=dollars(profit);
+  $('calcRRRatio').textContent=`${rr.toFixed(2)} : 1`;
+  const b=$('calcRRBadge');
+  if(rr>=2){b.textContent='OPTIMAL';b.className='text-[11px] text-emerald-400 block font-bold';}
+  else if(rr>=1.5){b.textContent='ACCEPTABLE';b.className='text-[11px] text-amber-400 block font-bold';}
+  else{b.textContent='POOR R:R';b.className='text-[11px] text-rose-400 block font-bold';}
+  // rule text tied to inputs
+  const beC=Math.max(1,Math.round(entry*5));
+  $('ruleBE').textContent=`+5.0% (+${beC}¢)`; $('ruleBEp').textContent=`$${fmt(entry)}`; $('ruleCB').textContent=`-$${fmt(maxRisk*2)}`;
+  const chk=[...document.querySelectorAll('[data-chk]')].filter(c=>c.checked).length;
+  $('calcExtra').textContent=`Net of spread, slippage and fees · 1R at $${fmt(entry+riskPS)} (sell half / stop to entry) · checklist ${chk}/4`;
+  const pnl=trk.t.reduce((s,x)=>s+x,0), locked=pnl<=-a*.05||trk.lockUntil>Date.now();
+  const box=$('calcWarningBox'), txt=$('calcWarningText'), red="text-[11px] p-2 rounded bg-rose-950/40 border border-rose-800/60 text-rose-300 flex items-center gap-2", amb=red.replace(/rose/g,'amber');
+  let c=amb,t;
+  if(locked){c=red;t='Trading locked by Session Tracker. Do not enter.';}
+  else if(spr>3){c=red;t=`Spread is ${spr}¢, above the 3¢ limit. Do not buy the ask.`;}
+  else if(capped){t=`Reduced to ${sh} shares to stay under the 40% outlay cap ($${fmt(a*.4)}).`;}
+  else if(risk>a*.02+.05){c=red;t=`Net risk -$${fmt(risk)} exceeds the 2% account limit.`;}
+  else if(rr<1.5){t=`Net R:R is ${rr.toFixed(2)} after spread, slippage and fees.`;}
+  else if(chk<4){t=`Checklist incomplete (${chk}/4).`;}
+  else{c="text-[11px] p-2 rounded bg-cyan-950/30 border border-cyan-800/50 text-cyan-300 flex items-center gap-2";t='All parameters and checklist items pass.';}
+  box.className=c; txt.textContent=t;
+}
+function renderTracker(){
+  const a=acct(), lim=a*.05, pnl=trk.t.reduce((s,x)=>s+x,0), w=trk.t.filter(x=>x>0).length, l=trk.t.filter(x=>x<0).length, rem=trk.lockUntil-Date.now();
+  $('trkPnl').textContent=dollars(pnl); $('trkPnl').className='font-bold text-sm '+(pnl<0?'text-rose-400':'text-emerald-400');
+  $('trkWL').textContent=`${w}W / ${l}L`; $('trkLeft').textContent=`$${fmt(Math.max(0,lim+pnl))}`;
+  const st=$('trkStatus'), bad='text-xs p-2 rounded border bg-rose-950/40 border-rose-800/60 text-rose-300';
+  if(pnl<=-lim){st.className=bad;st.textContent=`Daily loss limit reached (-$${fmt(lim)}). Stop trading for the day.`;}
+  else if(rem>0){st.className=bad;st.textContent=`Two losses in a row. Step away: ${Math.floor(rem/60000)}:${String(Math.floor(rem/1000)%60).padStart(2,'0')} left.`;}
+  else{st.className='text-xs p-2 rounded border bg-cyan-950/30 border-cyan-800/50 text-cyan-300';st.textContent='Clear to trade.';}
+}
+function logTrade(){
+  const pnl=parseFloat($('trkInput').value); if(isNaN(pnl)) return;
+  trk.t.push(pnl); $('trkInput').value='';
+  const L=trk.t.slice(-2); if(L.length===2&&L.every(x=>x<0)) trk.lockUntil=Date.now()+15*60000;
+  document.querySelectorAll('[data-chk]').forEach(c=>c.checked=false);
+  saveTrk(); renderTracker(); calculateLiveScalp();
+}
+function resetTracker(){trk={d:today(),t:[],lockUntil:0};saveTrk();renderTracker();calculateLiveScalp();}
+function copyJournalRow(){
+  // Columns: Date, Ticker, Timeframe, Category, Setup, Entry/Trigger, Why I Entered, What Went Wrong, Why It Went Wrong, Advice/Correction, Key Lesson, Outcome/P&L, Review
+  const last=trk.t.length?dollars(trk.t[trk.t.length-1]):'';
+  const row=[today(),'','','','',$('calcEntryPrice').value,'','','','','',last,''].join('\t');
+  (navigator.clipboard?navigator.clipboard.writeText(row):Promise.reject()).catch(()=>{const e=document.createElement('textarea');e.value=row;document.body.appendChild(e);e.select();document.execCommand('copy');e.remove();});
+  const t=$('calcWarningText'),o=t.textContent; t.textContent='Journal row copied. Paste into the Trade Journal sheet.'; setTimeout(()=>t.textContent=o,2000);
+}
+
+        function applyPreset(price, stopCents, targetCents, maxRisk) {
+            document.getElementById('calcEntryPrice').value = price.toFixed(2);
+            document.getElementById('calcStopOffset').value = stopCents;
+            document.getElementById('calcTargetOffset').value = targetCents;
+            document.getElementById('calcMaxRisk').value = maxRisk.toFixed(2);
+            calculateLiveScalp();
+        }
+
+        function copyShareSize() {
+            const sharesText = document.getElementById('calcShares').textContent;
+            const shareCount = sharesText.replace(' SHARES', '');
+            
+            // Clipboard copy fallbacks
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(shareCount);
+            } else {
+                const el = document.createElement('textarea');
+                el.value = shareCount;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+            }
+
+            // Toast feedback
+            const calcBox = document.getElementById('calcWarningText');
+            const originalText = calcBox.textContent;
+            calcBox.textContent = `Copied ${shareCount} shares to clipboard!`;
+            setTimeout(() => {
+                calcBox.textContent = originalText;
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
