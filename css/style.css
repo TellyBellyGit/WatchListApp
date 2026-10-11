@@ -17,6 +17,7 @@
   --negative-bg: #fee2e2;
   --warning: #d97706;
   --warning-bg: #fef3c7;
+  --pink: #d6336c;
   --list-has-data-bg: #fff8e1;
   --list-has-data-text: #6d4c00;
   --list-has-data-border: #e0c068;
@@ -46,6 +47,7 @@
   --negative-bg: #7f1d1d;
   --warning: #fbbf24;
   --warning-bg: #78350f;
+  --pink: #f472b6;
   --list-has-data-bg: #4a3728;
   --list-has-data-text: #e0c068;
   --list-has-data-border: #6b5030;
@@ -5891,6 +5893,14 @@ body.overlay-open {
   font-size: 0.76rem;
   line-height: 1.55;
   color: var(--text-secondary);
+}
+
+/* The broker line is the one thing a broker export has to read before a file is
+   dropped, so it is flagged in plain language AND in colour — the hint's muted
+   grey is easy to skim past. --pink is per-theme so it stays legible on both. */
+.tj-broker-flag {
+  color: var(--pink);
+  font-weight: 700;
 }
 
 .tj-dialog-row {
