@@ -49,6 +49,13 @@ class TradeJournalApp {
     // HIDDEN keys (see _loadColumnPrefs), so a column added later starts visible.
     this._hiddenColumns = new Set();
     this._columnsLoaded = false;
+
+    // Stats — the P&L panel is the one card with a memory: which months (or
+    // years) it shows, and which of its two readings it is in. Reading state,
+    // not data: it lives for the length of the tab and is never stored.
+    this._pnlView     = 'months';   // 'months' | 'years'
+    this._pnlMonthEnd = null;       // month index (year*12 + month-1); null = newest
+    this._pnlYearEnd  = null;       // year; null = max(newest year, current year)
   }
 
   // ==========================================================================
@@ -396,6 +403,10 @@ class TradeJournalApp {
     [this.filterCategory, this.filterTimeframe, this.filterAdvice, this.filterFrom, this.filterTo]
       .forEach(el => el.addEventListener('change', () => this._applyFilters()));
     this.btnClearFilters.addEventListener('click', () => this._clearFilters());
+
+    // Stats: the P&L card pages through months and years. Its three controls
+    // are rebuilt with the card, so one listener on the grid outlives them.
+    if (this.statsEl) this.statsEl.addEventListener('click', (e) => this._onPnlNav(e));
 
     // How the table is listed: one row per session (the default) or one row per
     // trade. Remembered per browser, because it is a reading preference.
@@ -2517,7 +2528,8 @@ class TradeJournalApp {
     // Row 2 is three cards wide out of nine, so it would end in six empty
     // columns. Six month totals fill that hole exactly — and they answer the one
     // question a filtered set of cards cannot: is this better than months ago?
-    cards.push(this._monthlyPnlHtml(entries));
+    // The panel pages back through history and can be read by year instead.
+    cards.push(this._pnlPanelHtml(entries));
 
     this.statsEl.innerHTML =
       `<div class="tj-stats-head">Overall Performance Summary` +
@@ -2527,20 +2539,27 @@ class TradeJournalApp {
   }
 
   // ==========================================================================
-  // P&L by month — the six-column tail of the stats grid
+  // P&L by month / by year — the six-column tail of the stats grid
   // ==========================================================================
   // Sums the same `tradeData.pnl` the cards above sum, one bucket per calendar
   // month, over the same FILTERED set they are built from. The window ends at
   // the newest month in view — so a filter that hides recent months still shows
   // six months of history instead of a row of blanks — and falls back to the
   // current month when the filter holds no dated P&L at all.
+  //
+  // Six slots, two readings. The ◀ ▶ heads walk the window one month at a time
+  // (back into earlier years, which is why the labels grow a 'YY), and the
+  // button beside the card's name re-reads the same six slots as calendar-year
+  // totals, the current year included as it stands today. Each reading keeps
+  // its own anchor, so a trip to years and back returns you to the month you
+  // left; every step is clamped to the months that actually hold a P&L, and
+  // both arrows switch off at the two edges instead of scrolling into silence.
   // ==========================================================================
-  _monthlyPnlHtml(entries) {
-    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+  // One bucket per month: 'YYYY-MM' → { pnl, trades }. The keys sort as time,
+  // so the first and newest bucket need no Date at all.
+  _pnlSeries(entries) {
     const buckets = new Map();
-    let newest = '';
 
     (entries || []).forEach(entry => {
       if (!entry.tradeData || entry.tradeData.pnl == null) return;
@@ -2551,82 +2570,306 @@ class TradeJournalApp {
       const bucket = buckets.get(key);
       bucket.pnl += entry.tradeData.pnl;
       bucket.trades += 1;
-      if (key > newest) newest = key;
     });
 
-    // Walk back five months in whole-month units. Integers over "YYYY-MM" keep
-    // this free of Date parsing — the journal never lets an engine decide what a
-    // stored date means.
-    const anchor = newest || Utils.todayLocal().slice(0, 7);
-    const anchorMonthIndex = Number(anchor.slice(0, 4)) * 12 + Number(anchor.slice(5, 7)) - 1;
+    const today = Utils.todayLocal().slice(0, 7);
+    const todayIndex = this._monthIndex(today);
+    const keys = Array.from(buckets.keys()).sort();
+
+    return {
+      buckets,
+      first: keys.length ? this._monthIndex(keys[0]) : todayIndex,
+      newest: keys.length ? this._monthIndex(keys[keys.length - 1]) : todayIndex,
+      todayIndex,
+      todayYear: Math.floor(todayIndex / 12)
+    };
+  }
+
+  // 'YYYY-MM' → one integer, and back again. Year*12 + (month - 1) is what lets
+  // an arrow cross New Year by adding one, with no engine deciding what a stored
+  // date means.
+  _monthIndex(key) {
+    return Number(key.slice(0, 4)) * 12 + Number(key.slice(5, 7)) - 1;
+  }
+
+  _monthKey(index) {
+    return `${Math.floor(index / 12)}-${String(index % 12 + 1).padStart(2, '0')}`;
+  }
+
+  // The six-month frame: it never runs past the current month, and its left edge
+  // never pads with months older than the first P&L on record — unless the
+  // history is shorter than the frame, in which case there is only one possible
+  // window and both arrows are off.
+  _pnlMonthBounds(series) {
+    const last = Math.max(series.newest, series.todayIndex);
+    return {
+      min: Math.min(series.first + 5, last),
+      max: last,
+      end: Math.min(series.newest, last)
+    };
+  }
+
+  // A year bar is a calendar year, the current one included as it stands: six
+  // slots, six years. A shorter history gets exactly as many bars as it has
+  // years rather than a row of stubs.
+  _pnlYearBounds(series) {
+    const last = Math.max(Math.floor(series.newest / 12), series.todayYear);
+    const first = Math.floor(series.first / 12);
+    const count = Math.min(6, last - first + 1);
+    return {
+      min: Math.min(first + count - 1, last),
+      max: last,
+      end: last,
+      count
+    };
+  }
+
+  _clampStep(value, bounds) {
+    return Math.min(Math.max(value, bounds.min), bounds.max);
+  }
+
+  // "+$412.30" / "-$1,240.00" — the tooltip; the bar's own label drops the
+  // cents because a 10px line cannot hold them.
+  _signedMoney(value) {
+    const text = Utils.formatCurrency(Math.abs(value));
+    if (value > 0) return '+' + text;
+    if (value < 0) return '-' + text;
+    return text;
+  }
+
+  // "+$81" / "-$1,240" — whole dollars keep six labels the same width, and the
+  // cents are one hover away. A sub-dollar month keeps them, because "$0" would
+  // be a lie about a month that made forty cents.
+  _compactMoney(value) {
+    const abs = Math.abs(value);
+    const rounded = Math.round(abs);
+    const text = (rounded === 0 && abs > 0)
+      ? Utils.formatCurrency(abs)
+      : '$' + rounded.toLocaleString('en-US');
+    if (value > 0) return '+' + text;
+    if (value < 0) return '-' + text;
+    return text;
+  }
+
+  // The card itself, whichever reading is on: one template, so the two views
+  // cannot drift apart in their controls or their spoken sentence.
+  _pnlCardHtml(parts) {
+    const step = (dir) => {
+      const hint = dir < 0 ? parts.prevHint : parts.nextHint;
+      const off = dir < 0 ? parts.prevOff : parts.nextOff;
+      return `<button type="button" class="tj-month-step" data-pnl-step="${dir}"` +
+        ` title="${JournalText.esc(hint)}" aria-label="${JournalText.esc(hint)}"` +
+        `${off ? ' disabled' : ''}>${dir < 0 ? '◀' : '▶'}</button>`;
+    };
+
+    return `<div class="tj-stat tj-stat-months">
+        <div class="tj-months-sum">
+          <div class="tj-months-head">
+            <span class="tj-stat-label">${JournalText.esc(parts.label)}</span>
+            <button type="button" class="tj-months-view" data-pnl-view="${parts.viewTarget}"` +
+              ` title="${JournalText.esc(parts.viewHint)}"` +
+              ` aria-label="${JournalText.esc(parts.viewHint)}">${JournalText.esc(parts.viewText)}</button>
+          </div>
+          <div class="tj-stat-sub">${JournalText.esc(parts.sub)}</div>
+        </div>
+        ${step(-1)}
+        <div class="tj-months-chart" role="img"
+             aria-label="${JournalText.esc(parts.aria)}">${parts.bars}</div>
+        ${step(1)}
+      </div>`;
+  }
+
+  _pnlPanelHtml(entries) {
+    const series = this._pnlSeries(entries);
+    return this._pnlView === 'years'
+      ? this._pnlYearHtml(series)
+      : this._pnlMonthHtml(series);
+  }
+
+  // One bar per month, six months to the frame.
+  _pnlMonthHtml(series) {
+    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const bounds = this._pnlMonthBounds(series);
+    // Reading the old anchor through the bounds is also what keeps it honest: a
+    // filter that shortens the history drags the window back with it.
+    const end = this._clampStep(
+      this._pnlMonthEnd == null ? bounds.end : this._pnlMonthEnd, bounds);
+    this._pnlMonthEnd = end;   // a step starts from what is on screen
+
     const window = [];
     for (let back = 5; back >= 0; back -= 1) {
-      const monthIndex = anchorMonthIndex - back;
-      const bucket = buckets.get(
-        `${Math.floor(monthIndex / 12)}-${String(monthIndex % 12 + 1).padStart(2, '0')}`
-      ) || { pnl: 0, trades: 0 };
+      const monthIndex = end - back;
+      const bucket = series.buckets.get(this._monthKey(monthIndex)) || { pnl: 0, trades: 0 };
       window.push({
-        name: MONTH_NAMES[monthIndex % 12],
+        label: MONTH_NAMES[monthIndex % 12],
+        month: monthIndex % 12,
         year: Math.floor(monthIndex / 12),
         pnl: Math.round(bucket.pnl * 100) / 100,
         trades: bucket.trades
       });
     }
 
-    // "$412.30" / "-$1,240.00" — the tooltip; the bar's own label drops the
-    // cents because a 10px line cannot hold them.
-    const money = (value) => {
-      const text = Utils.formatCurrency(Math.abs(value));
-      if (value > 0) return '+' + text;
-      if (value < 0) return '-' + text;
-      return text;
-    };
-    // "+$81" / "-$1,240" — whole dollars keep six labels the same width, and the
-    // cents are one hover away. A sub-dollar month keeps them, because "$0" would
-    // be a lie about a month that made forty cents.
-    const compact = (value) => {
-      const abs = Math.abs(value);
-      const rounded = Math.round(abs);
-      const text = (rounded === 0 && abs > 0)
-        ? Utils.formatCurrency(abs)
-        : '$' + rounded.toLocaleString('en-US');
-      if (value > 0) return '+' + text;
-      if (value < 0) return '-' + text;
-      return text;
-    };
-
     const hasData = window.some(m => m.trades > 0);
     const total = Math.round(window.reduce((sum, m) => sum + m.pnl, 0) * 100) / 100;
     const peak = Math.max.apply(null, window.map(m => Math.abs(m.pnl)));
 
-    const bars = window.map(m => {
+    const bars = window.map((m, i) => {
       const tone = m.pnl > 0 ? 'positive' : (m.pnl < 0 ? 'negative' : 'tj-muted');
       const height = peak ? Math.round((Math.abs(m.pnl) / peak) * 100) : 0;
+      // The frame can cross New Year, so the first bar and every January name
+      // the year: "Nov '25 … Jan '26" — a bare "Jan" after "Dec" would be a lie.
+      const name = (i === 0 || m.month === 0)
+        ? `${m.label} '${String(m.year).slice(-2)}`
+        : m.label;
       const spoken = m.trades
-        ? `${m.name} ${m.year} · ${money(m.pnl)} · ${m.trades} ${m.trades === 1 ? 'trade' : 'trades'}`
-        : `${m.name} ${m.year} · no trades`;
+        ? `${m.label} ${m.year} · ${this._signedMoney(m.pnl)} · ${m.trades} ${m.trades === 1 ? 'trade' : 'trades'}`
+        : `${m.label} ${m.year} · no trades`;
       return `<div class="tj-month" title="${JournalText.esc(spoken)}">` +
         `<span class="tj-month-val ${m.trades ? tone : 'tj-muted'}">` +
-          `${JournalText.esc(m.trades ? compact(m.pnl) : '—')}</span>` +
+          `${JournalText.esc(m.trades ? this._compactMoney(m.pnl) : '—')}</span>` +
         `<span class="tj-month-track">` +
           `<span class="tj-month-bar ${tone}" style="height:${height}%"></span></span>` +
-        `<span class="tj-month-name">${m.name}</span></div>`;
+        `<span class="tj-month-name">${JournalText.esc(name)}</span></div>`;
     }).join('');
 
+    const from = window[0];
+    const to = window[window.length - 1];
+    const range = `${from.label}${from.year === to.year ? '' : ' ' + from.year}–${to.label} ${to.year}`;
     const spoken = hasData
-      ? window.map(m => `${m.name}: ${m.trades ? money(m.pnl) : 'no trades'}`).join(', ')
+      ? window.map(m => `${m.label} ${m.year}: ${m.trades ? this._signedMoney(m.pnl) : 'no trades'}`).join(', ')
       : 'no P&L yet';
 
-    return `<div class="tj-stat tj-stat-months">
-        <div class="tj-months-sum">
-          <div class="tj-stat-label">P&amp;L by month</div>
-          <div class="tj-stat-sub">${hasData
-            ? 'last 6 months · ' + JournalText.esc(money(total))
-            : 'no P&amp;L yet'}</div>
-        </div>
-        <div class="tj-months-chart" role="img"
-             aria-label="${JournalText.esc('P&L by month, last six months — ' + spoken)}">${bars}</div>
-      </div>`;
+    return this._pnlCardHtml({
+      label: 'P&L by month',
+      // The range is spelled out instead of promised as "last 6 months": with
+      // arrows the window is not always the last six of anything.
+      sub: hasData ? `${range} · ${this._signedMoney(total)}` : 'no P&L yet',
+      aria: `P&L by month, ${range} — ${spoken}`,
+      bars,
+      prevHint: 'Previous month',
+      nextHint: 'Next month',
+      prevOff: end <= bounds.min,
+      nextOff: end >= bounds.max,
+      // The button names the reading you are NOT in, while the card's name names
+      // the one you are: the pair always says where you are and what is next.
+      viewText: 'Years',
+      viewTarget: 'years',
+      viewHint: 'Show yearly totals, including the current year to date'
+    });
+  }
+
+  // One bar per calendar year, summed from the same month buckets — which is
+  // exactly what makes the current year's bar the year to date.
+  _pnlYearHtml(series) {
+    const bounds = this._pnlYearBounds(series);
+    const end = this._clampStep(
+      this._pnlYearEnd == null ? bounds.end : this._pnlYearEnd, bounds);
+    this._pnlYearEnd = end;
+
+    // Years are summed from the months rather than bucketed a second time: one
+    // definition of "what a month made" feeds both readings.
+    const byYear = new Map();
+    series.buckets.forEach((bucket, key) => {
+      const year = Number(key.slice(0, 4));
+      if (!byYear.has(year)) byYear.set(year, { pnl: 0, trades: 0 });
+      const sum = byYear.get(year);
+      sum.pnl += bucket.pnl;
+      sum.trades += bucket.trades;
+    });
+
+    const years = [];
+    for (let back = bounds.count - 1; back >= 0; back -= 1) {
+      const year = end - back;
+      const bucket = byYear.get(year) || { pnl: 0, trades: 0 };
+      years.push({
+        year,
+        pnl: Math.round(bucket.pnl * 100) / 100,
+        trades: bucket.trades
+      });
+    }
+
+    const hasData = years.some(y => y.trades > 0);
+    const total = Math.round(years.reduce((sum, y) => sum + y.pnl, 0) * 100) / 100;
+    const peak = Math.max.apply(null, years.map(y => Math.abs(y.pnl)));
+
+    const bars = years.map(y => {
+      const tone = y.pnl > 0 ? 'positive' : (y.pnl < 0 ? 'negative' : 'tj-muted');
+      const height = peak ? Math.round((Math.abs(y.pnl) / peak) * 100) : 0;
+      const ytd = y.year === series.todayYear ? ' (year to date)' : '';
+      const spoken = y.trades
+        ? `${y.year}${ytd} · ${this._signedMoney(y.pnl)} · ${y.trades} ${y.trades === 1 ? 'trade' : 'trades'}`
+        : `${y.year}${ytd} · no trades`;
+      return `<div class="tj-month" title="${JournalText.esc(spoken)}">` +
+        `<span class="tj-month-val ${y.trades ? tone : 'tj-muted'}">` +
+          `${JournalText.esc(y.trades ? this._compactMoney(y.pnl) : '—')}</span>` +
+        `<span class="tj-month-track">` +
+          `<span class="tj-month-bar ${tone}" style="height:${height}%"></span></span>` +
+        `<span class="tj-month-name">${JournalText.esc(String(y.year))}</span></div>`;
+    }).join('');
+
+    const fromYear = years[0].year;
+    const toYear = years[years.length - 1].year;
+    const range = fromYear === toYear ? String(toYear) : `${fromYear}–${toYear}`;
+    const spoken = hasData
+      ? years.map(y => `${y.year}: ${y.trades ? this._signedMoney(y.pnl) : 'no trades'}`).join(', ')
+      : 'no P&L yet';
+
+    return this._pnlCardHtml({
+      label: 'P&L by year',
+      sub: hasData ? `${range} · ${this._signedMoney(total)}` : 'no P&L yet',
+      aria: `P&L by year, ${fromYear === toYear ? toYear : fromYear + ' to ' + toYear} — ${spoken}`,
+      bars,
+      prevHint: 'Previous year',
+      nextHint: 'Next year',
+      prevOff: end <= bounds.min,
+      nextOff: end >= bounds.max,
+      viewText: 'Months',
+      viewTarget: 'months',
+      viewHint: 'Show monthly totals again'
+    });
+  }
+
+  // The panel redraws itself with every stats render, so its three controls are
+  // handled by one listener on #tj-stats instead of by bindings that would be
+  // thrown away along with the markup.
+  _onPnlNav(e) {
+    const view = e.target.closest('[data-pnl-view]');
+    const step = e.target.closest('[data-pnl-step]');
+    if (!view && !step) return;
+
+    if (view) {
+      // One button, two readings: it carries the reading you are switching to.
+      this._pnlView = view.dataset.pnlView === 'years' ? 'years' : 'months';
+      this._renderStats();
+      this._focusPnlControl('[data-pnl-view]');
+      return;
+    }
+
+    // Read the pressed button before the render detaches it.
+    if (step.disabled) return;
+    const dir = Number(step.dataset.pnlStep) < 0 ? -1 : 1;
+    const byYear = this._pnlView === 'years';
+    const series = this._pnlSeries(this._filtered);
+    const bounds = byYear ? this._pnlYearBounds(series) : this._pnlMonthBounds(series);
+    const from = byYear
+      ? (this._pnlYearEnd == null ? bounds.end : this._pnlYearEnd)
+      : (this._pnlMonthEnd == null ? bounds.end : this._pnlMonthEnd);
+    const next = this._clampStep(from + dir, bounds);
+
+    if (byYear) this._pnlYearEnd = next;
+    else this._pnlMonthEnd = next;
+
+    this._renderStats();
+    // The render replaced the button just pressed: hand focus to its successor,
+    // so a keyboard reader can keep stepping without hunting for the control.
+    this._focusPnlControl(`[data-pnl-step="${dir}"]`);
+  }
+
+  _focusPnlControl(selector) {
+    if (!this.statsEl) return;
+    const el = this.statsEl.querySelector(selector);
+    if (el && !el.disabled) el.focus();
   }
 
   // ==========================================================================

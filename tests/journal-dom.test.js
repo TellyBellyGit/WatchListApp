@@ -283,6 +283,42 @@ check('starting another entry confirms before discarding unsaved work',
 check('the editor overlay really does cover the page header',
   /\.tj-editor-overlay\s*\{[\s\S]{0,200}position:\s*fixed/.test(css), 'the editor must be a full-screen overlay');
 
+// ---- P&L panel: one card, two readings, three controls --------------------
+// The card is rebuilt on every stats render, so its controls are wired through
+// one delegated listener on the grid; per-button bindings would be thrown away
+// with the markup. The arrows must also be clamped, or they scroll into months
+// that hold nothing — and past today into months that cannot exist yet.
+check('the P&L card has one entry point per reading',
+  /_pnlPanelHtml\(entries\)\s*\{[\s\S]{0,200}_pnlYearHtml\(series\)[\s\S]{0,80}_pnlMonthHtml\(series\)/.test(js));
+check('the stats grid delegates the panel controls',
+  /this\.statsEl\.addEventListener\('click', \(e\) => this\._onPnlNav\(e\)\)/.test(js));
+check('the view and both anchors live on the instance',
+  /this\._pnlView\s*=\s*'months'/.test(js) &&
+  /this\._pnlMonthEnd\s*=\s*null/.test(js) &&
+  /this\._pnlYearEnd\s*=\s*null/.test(js));
+check('one button names the reading it switches to',
+  /data-pnl-view="\$\{parts\.viewTarget\}"/.test(js) &&
+  /this\._pnlView = view\.dataset\.pnlView === 'years' \? 'years' : 'months'/.test(js));
+check('both arrows step one unit and are clamped to the bounds',
+  /from \+ dir, bounds/.test(js) && /_clampStep\(value, bounds\)/.test(js));
+check('an edge turns its arrow off',
+  /prevOff: end <= bounds\.min/.test(js) &&
+  /nextOff: end >= bounds\.max/.test(js) &&
+  /off \? ' disabled' : ''/.test(js));
+check('the window never runs past the current month',
+  /const last = Math\.max\(series\.newest, series\.todayIndex\)/.test(js));
+check('the year reading is summed from the month buckets, so this year is YTD',
+  /const byYear = new Map\(\)[\s\S]{0,320}sum\.pnl \+= bucket\.pnl/.test(js));
+check('a first bar and every January name their year',
+  /i === 0 \|\| m\.month === 0/.test(js));
+check('focus follows the pressed arrow through the re-render',
+  /_focusPnlControl\(`\[data-pnl-step="\$\{dir\}"\]`\)/.test(js));
+['tj-months-head', 'tj-months-view', 'tj-month-step'].forEach(cls => {
+  check('style present: .' + cls, css.indexOf('.' + cls) !== -1);
+});
+check('a disabled arrow reads as disabled',
+  /\.tj-month-step:disabled\s*\{[\s\S]{0,80}opacity/.test(css));
+
 console.log(passed + ' checks passed');
 if (failures.length) {
   console.log(failures.length + ' FAILED:');

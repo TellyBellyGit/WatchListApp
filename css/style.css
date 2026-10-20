@@ -5059,13 +5059,65 @@ body.overlay-open {
   grid-column: span 6;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   padding: 6px 11px;
 }
 
 .tj-months-sum {
   flex: 0 0 auto;
   min-width: 92px;
+}
+
+/* The label row carries a second control: the reading you can switch to, sat
+   beside the name of the reading you are in. */
+.tj-months-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+/* "Years" / "Months" and the two ◀ ▶ heads follow the calendar's 20px arrow
+   grammar: small bordered chips, muted until pointed at. They are controls, not
+   figures, so they never compete with the totals beneath them. */
+.tj-months-view,
+.tj-month-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: all var(--transition);
+}
+
+.tj-months-view:hover,
+.tj-month-step:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.tj-month-step {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 0.6rem;
+}
+
+/* An edge has nowhere left to go: the arrow says so before it is pressed. */
+.tj-month-step:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .tj-months-chart {
@@ -5135,6 +5187,13 @@ body.overlay-open {
 @media (max-width: 520px) {
   .tj-stats-grid { grid-template-columns: repeat(2, 1fr); }
   .tj-stat-months { grid-column: span 2; }
+  /* Two arrows cost the bars ~48px on a phone: pin the label column tighter,
+     close the gaps and shave the type, so six figures still fit. */
+  .tj-stat-months { gap: 6px; padding: 6px 8px; }
+  .tj-months-sum { min-width: 74px; }
+  .tj-months-chart { gap: 4px; }
+  .tj-month-val,
+  .tj-month-name { font-size: 0.55rem; }
 }
 
 /* ---- View tabs ---- */
