@@ -44,6 +44,11 @@ class TradeJournalApp {
     this._lastGroups = null;       // sessions of the last render (Expand all)
     this._currentGroupId = null;   // stored groupId of the entry in the editor
     this._groupIntent = null;      // 'solo' once Split out has been pressed
+
+    // Columns — which of the table's columns this browser draws. Stored as the
+    // HIDDEN keys (see _loadColumnPrefs), so a column added later starts visible.
+    this._hiddenColumns = new Set();
+    this._columnsLoaded = false;
   }
 
   // ==========================================================================
@@ -55,6 +60,7 @@ class TradeJournalApp {
     this._renderStaticOptions();
     this._initQuill();
     this._bindEvents();
+    this._renderColumnPicker();    // the tick boxes for the table's columns
 
     // The CSV letter map (A–M) has to stay identical to the sheet's 13 columns
     if (typeof JournalCSV === 'undefined') {
@@ -116,6 +122,14 @@ class TradeJournalApp {
     this.groupActionBar    = $('tj-group-actions');
     this.btnExpandGroups   = $('tj-btn-expand-groups');
     this.btnCollapseGroups = $('tj-btn-collapse-groups');
+
+    // Columns (the drop-down list of table columns)
+    this.columnsDetails    = $('tj-columns');
+    this.columnsSummary    = $('tj-columns-summary');
+    this.columnsCount      = $('tj-columns-count');
+    this.columnsList       = $('tj-columns-list');
+    this.columnsAllBtn     = $('tj-columns-all');
+    this.columnsProseBtn   = $('tj-columns-prose');
 
     // Table
     this.tableHead       = $('tj-table-head');
@@ -220,7 +234,7 @@ class TradeJournalApp {
   _initTheme() {
     const saved = localStorage.getItem('stockwatchlist_theme') || 'dark';
     document.documentElement.setAttribute('data-theme', saved);
-    if (this.btnTheme) this.btnTheme.textContent = saved === 'dark' ? '☀️' : '��';
+    if (this.btnTheme) this.btnTheme.textContent = saved === 'dark' ? '☀️' : '🌙';
   }
 
   _toggleTheme() {
@@ -228,7 +242,7 @@ class TradeJournalApp {
     const next = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('stockwatchlist_theme', next);
-    if (this.btnTheme) this.btnTheme.textContent = next === 'dark' ? '☀️' : '��';
+    if (this.btnTheme) this.btnTheme.textContent = next === 'dark' ? '☀️' : '🌙';
   }
 
   // ---- Populate selects / datalists from the shared vocabulary ----
@@ -393,11 +407,41 @@ class TradeJournalApp {
         try { localStorage.setItem('stockwatchlist_journal_group_by', this._groupBy); }
         catch (e) { /* private mode — the choice simply is not remembered */ }
         this._renderTable();
+        this._renderColumnPicker();   // the locked Session column comes and goes with it
         this._renderStats();
       });
     }
     if (this.btnExpandGroups) this.btnExpandGroups.addEventListener('click', () => this._setAllGroups(true));
     if (this.btnCollapseGroups) this.btnCollapseGroups.addEventListener('click', () => this._setAllGroups(false));
+
+    // Columns picker — a tick box per column, applied on the spot. <details>
+    // opens and closes natively; Escape and a click outside close it like a menu.
+    if (this.columnsList) {
+      this.columnsList.addEventListener('change', (e) => {
+        const box = e.target.closest('input[type="checkbox"][data-column]');
+        if (!box) return;
+        const changed = this._setColumnVisible(box.dataset.column, box.checked);
+        // A refused tick has to be put back, and that is the one case worth
+        // redrawing the list for: a redraw moves focus off the box being ticked.
+        if (!changed) { this._renderColumnPicker(); return; }
+        this._updateColumnsSummary();
+        this._renderTable();
+      });
+    }
+    if (this.columnsAllBtn) this.columnsAllBtn.addEventListener('click', () => this._showAllColumns());
+    if (this.columnsProseBtn) this.columnsProseBtn.addEventListener('click', () => this._hideProseColumns());
+    if (this.columnsDetails) {
+      document.addEventListener('click', (e) => {
+        if (this.columnsDetails.open && !this.columnsDetails.contains(e.target)) {
+          this.columnsDetails.open = false;
+        }
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape' || !this.columnsDetails.open) return;
+        this.columnsDetails.open = false;
+        if (this.columnsSummary) this.columnsSummary.focus();
+      });
+    }
 
     // Table: sortable headers + row actions
     this.tableHead.addEventListener('click', (e) => {
@@ -446,7 +490,7 @@ class TradeJournalApp {
     this.editorFullscreen.addEventListener('click', () => {
       const isFs = this.editorOverlay.classList.toggle('fullscreen');
       this.editorFullscreen.title = isFs ? 'Exit full screen' : 'Full screen';
-      this.editorFullscreen.textContent = isFs ? '��' : '⛶';
+      this.editorFullscreen.textContent = isFs ? '🗗' : '⛶';
     });
     this.editorOverlay.addEventListener('click', (e) => {
       if (e.target === this.editorOverlay) this.closeEditor();
@@ -571,7 +615,7 @@ class TradeJournalApp {
       this.cloudBadge.className = 'tj-badge tj-badge-ok';
       this.cloudBadge.title = 'Entries are stored in Firestore (journal_entries)';
     } else {
-      this.cloudBadge.textContent = '�� Local only';
+      this.cloudBadge.textContent = '💾 Local only';
       this.cloudBadge.className = 'tj-badge tj-badge-warn';
       this.cloudBadge.title = 'Firestore unreachable — entries are saved to this browser only';
     }
@@ -934,7 +978,7 @@ class TradeJournalApp {
     this._updateSaveStatus('');
   }
 
-  // ---- "＋ New" / "�� Import" in the editor head ---------------------------
+  // ---- "＋ New" / "📥 Import" in the editor head ---------------------------
   // The overlay covers the whole page, so the header's "+ New entry" and
   // "Import" buttons are out of reach the moment a form is open. These two
   // start a second entry (or an import) from inside the form; unsaved work is
@@ -1139,7 +1183,7 @@ class TradeJournalApp {
     this.sourceReviewBody.innerHTML = '<div class="tj-muted">Loading linked review…</div>';
     if (this.linkBadge) {
       this.linkBadge.style.display = 'inline-block';
-      this.linkBadge.textContent = '�� Linked review';
+      this.linkBadge.textContent = '🔗 Linked review';
     }
 
     try {
@@ -1301,7 +1345,7 @@ class TradeJournalApp {
 
   // Delete keeps its own name so the two call sites stay readable
   _confirmDelete(htmlMessage) {
-    return this._confirm(htmlMessage, { okLabel: '��️ Delete', danger: true });
+    return this._confirm(htmlMessage, { okLabel: '🗑️ Delete', danger: true });
   }
 
   _resolveConfirm(result) {
@@ -1373,7 +1417,7 @@ class TradeJournalApp {
     if (banner) {
       banner.style.display = 'block';
       banner.innerHTML =
-        `<span>�� Prefilled${prefill.source ? ' from ' + JournalText.esc(prefill.source) : ''} — ` +
+        `<span>📥 Prefilled${prefill.source ? ' from ' + JournalText.esc(prefill.source) : ''} — ` +
         `check the fields before saving.</span>` +
         `<button type="button" class="tj-banner-close" id="tj-prefill-dismiss" title="Dismiss">&times;</button>`;
       const dismiss = document.getElementById('tj-prefill-dismiss');
@@ -1576,38 +1620,199 @@ class TradeJournalApp {
   // ==========================================================================
   // Column order mirrors the Day_Trading_Journal sheet, left to right, with the
   // derived numbers pinned to the right so the spreadsheet stays recognisable.
-  _tableColumns(showSession = false) {
+  //
+  // `group` only drives the sections of the column picker. `lock` marks the two
+  // columns that are not a choice — see _columnLockReason(). `picker` names a
+  // column whose header is empty (the actions cell). `num` marks a column of
+  // figures: its header is right-aligned like the cells under it, so the title
+  // sits over the numbers it names instead of over the empty left edge.
+  _allTableColumns(showSession = false) {
     const cols = [
-      { key: 'date',           label: 'Date',              sortable: true },
-      { key: 'ticker',         label: 'Ticker',            sortable: true },
-      { key: 'timeframe',      label: 'Timeframe',         sortable: true },
-      { key: 'category',       label: 'Category',          sortable: true },
-      { key: 'setup',          label: 'Setup',             sortable: true,  max: 40 },
-      { key: 'entryTrigger',   label: 'Entry Trigger',     sortable: false, max: 60 },
-      { key: 'whyEntered',     label: 'Why Entered',       sortable: false, max: 90 },
-      { key: 'whatWentWrong',  label: 'What Went Wrong',   sortable: false, max: 90 },
-      { key: 'whyItWentWrong', label: 'Why It Went Wrong', sortable: false, max: 90 },
-      { key: 'advice',         label: 'Advice',            sortable: false, max: 90 },
-      { key: 'keyLesson',      label: 'Key Lesson',        sortable: false, max: 90 },
-      { key: 'outcome',        label: 'Outcome / P&L',     sortable: false, max: 70 },
-      { key: 'adviceStatus',   label: 'Advice Followed',   sortable: false },
-      { key: 'pnl',            label: 'Net P&L',           sortable: true },
-      { key: 'star',           label: 'Process',           sortable: false },
-      { key: 'actions',        label: '',                  sortable: false }
+      { key: 'date',           label: 'Date',              sortable: true,  group: 'trade' },
+      { key: 'ticker',         label: 'Ticker',            sortable: true,  group: 'trade' },
+      { key: 'timeframe',      label: 'Timeframe',         sortable: true,  group: 'trade' },
+      { key: 'category',       label: 'Category',          sortable: true,  group: 'trade' },
+      { key: 'setup',          label: 'Setup',             sortable: true,  max: 40, group: 'trade' },
+      { key: 'entryTrigger',   label: 'Entry Trigger',     sortable: false, max: 60, group: 'prose' },
+      { key: 'whyEntered',     label: 'Why Entered',       sortable: false, max: 90, group: 'prose' },
+      { key: 'whatWentWrong',  label: 'What Went Wrong',   sortable: false, max: 90, group: 'prose' },
+      { key: 'whyItWentWrong', label: 'Why It Went Wrong', sortable: false, max: 90, group: 'prose' },
+      { key: 'advice',         label: 'Advice',            sortable: false, max: 90, group: 'prose' },
+      { key: 'keyLesson',      label: 'Key Lesson',        sortable: false, max: 90, group: 'prose' },
+      { key: 'outcome',        label: 'Outcome / P&L',     sortable: false, max: 70, group: 'result' },
+      { key: 'adviceStatus',   label: 'Advice Followed',   sortable: false, group: 'result' },
+      { key: 'pnl',            label: 'Net P&L',           sortable: true,  num: true, group: 'result' },
+      { key: 'star',           label: 'Process',           sortable: false, num: true, group: 'result' },
+      { key: 'actions',        label: '',   picker: 'Actions', sortable: false, group: 'fixed', lock: true }
     ];
 
     // Grouped views gain one column on the left: the disclosure triangle that
     // opens a session's legs, and the line-and-arrow mark that keeps the legs
     // readable. It is not sortable — a session has no single date or ticker to
     // sort by.
-    if (showSession) cols.unshift({ key: 'session', label: 'Session', sortable: false });
+    if (showSession) {
+      cols.unshift({ key: 'session', label: 'Session', sortable: false, group: 'fixed', lock: true });
+    }
     return cols;
+  }
+
+  // What the table actually draws: the full list minus the columns this browser
+  // has ticked off. The header row and every body cell come from this one array
+  // (see _renderTable), so hiding a column can never leave the two disagreeing.
+  _tableColumns(showSession = false) {
+    this._loadColumnPrefs();
+    return this._allTableColumns(showSession)
+      .filter(col => col.lock || !this._hiddenColumns.has(col.key));
+  }
+
+  // ---- The column picker ----------------------------------------------------
+  // The table is sixteen columns wide, so which of them are drawn is a reading
+  // preference of this browser — the same kind of thing as Group by session, and
+  // stored the same way. What is stored is the HIDDEN keys, so a column added to
+  // _allTableColumns() later starts visible instead of silently missing from
+  // everyone's table.
+  _loadColumnPrefs() {
+    if (this._columnsLoaded) return;
+    this._columnsLoaded = true;
+
+    let raw = null;
+    try {
+      raw = localStorage.getItem('stockwatchlist_journal_columns');
+    } catch (e) { return; }          // private mode — every column stays visible
+
+    if (!raw) return;
+    let keys = null;
+    try { keys = JSON.parse(raw); } catch (e) { return; }
+    if (!Array.isArray(keys)) return;
+
+    const known = new Set(this._allTableColumns(true).filter(c => !c.lock).map(c => c.key));
+    keys.forEach(key => { if (known.has(key)) this._hiddenColumns.add(key); });
+  }
+
+  _saveColumnPrefs() {
+    try {
+      localStorage.setItem('stockwatchlist_journal_columns', JSON.stringify([...this._hiddenColumns]));
+    } catch (e) { /* private mode — the choice simply is not remembered */ }
+  }
+
+  // The two buttons under the list: everything back, or the long columns gone
+  _showAllColumns() {
+    this._loadColumnPrefs();
+    this._hiddenColumns.clear();
+    this._saveColumnPrefs();
+    this._renderColumnPicker();
+    this._renderTable();
+  }
+
+  _hideProseColumns() {
+    this._loadColumnPrefs();
+    this._allTableColumns(false)
+      .filter(c => c.group === 'prose' && !c.lock)
+      .forEach(c => this._hiddenColumns.add(c.key));
+    this._saveColumnPrefs();
+    this._renderColumnPicker();
+    this._renderTable();
+  }
+
+  // One tick box per column. The locked columns are drawn as disabled ticks
+  // rather than left out: a column nobody can find is worse than one nobody can
+  // hide, and the reason is one hover away.
+  _renderColumnPicker() {
+    if (!this.columnsList) return;
+    this._loadColumnPrefs();
+
+    const showSession = this._groupMode() === 'session';
+    this.columnsList.innerHTML = this._columnPickerGroups(showSession).map(group =>
+      `<div class="tj-columns-group">` +
+      `<div class="tj-columns-group-label">${JournalText.esc(group.label)}</div>` +
+      group.columns.map(col => {
+        if (col.lock) {
+          const why = 'Always shown — ' + this._columnLockReason(col.key);
+          return `<label class="tj-columns-item tj-columns-locked" title="${JournalText.esc(why)}">` +
+            `<input type="checkbox" checked disabled> ` +
+            `<span>${JournalText.esc(col.picker || col.label)}</span>` +
+            `<span class="tj-columns-lock" aria-hidden="true">🔒</span></label>`;
+        }
+        const shown = !this._hiddenColumns.has(col.key);
+        return `<label class="tj-columns-item">` +
+          `<input type="checkbox" data-column="${JournalText.esc(col.key)}"${shown ? ' checked' : ''}> ` +
+          `<span>${JournalText.esc(col.picker || col.label)}</span></label>`;
+      }).join('') +
+      `</div>`
+    ).join('');
+
+    // The summary says how much is hidden, so a column that is not there is
+    // never a mystery
+    this._updateColumnsSummary();
+  }
+
+  _updateColumnsSummary() {
+    if (!this.columnsCount) return;
+    const hidden = this._allTableColumns(this._groupMode() === 'session')
+      .filter(c => !c.lock && this._hiddenColumns.has(c.key)).length;
+    this.columnsCount.textContent = hidden ? `· ${hidden} hidden` : '';
+  }
+
+  // The picker's sections, with their columns, in the order they are listed
+  _columnPickerGroups(showSession = false) {
+    const cols = this._allTableColumns(showSession);
+    return this._columnGroups()
+      .map(group => ({ id: group.id, label: group.label, columns: cols.filter(c => c.group === group.id) }))
+      .filter(group => group.columns.length);
+  }
+
+  _columnGroups() {
+    return [
+      { id: 'trade',  label: 'Trade' },
+      { id: 'prose',  label: 'Prose — the long columns' },
+      { id: 'result', label: 'Result' },
+      { id: 'fixed',  label: 'Always shown' }
+    ];
+  }
+
+  _columnLockReason(key) {
+    if (key === 'session') return 'the caret and the └───→ mark are what tell a session row from a leg';
+    if (key === 'actions') return 'it holds the only delete button in the table';
+    return 'it is part of the table';
+  }
+
+  // Tick or untick one column. Returns false when the request was refused, so
+  // the caller can put the tick box back the way it was.
+  _setColumnVisible(key, visible) {
+    this._loadColumnPrefs();
+    const col = this._allTableColumns(true).find(c => c.key === key);
+    if (!col || col.lock) return false;
+
+    if (visible) {
+      this._hiddenColumns.delete(key);
+    } else {
+      // Never leave a table with nothing in it but its furniture: at least one
+      // column of the user's own choosing has to stay
+      const keep = this._allTableColumns(this._groupMode() === 'session')
+        .filter(c => !c.lock && c.key !== key && !this._hiddenColumns.has(c.key));
+      if (!keep.length) {
+        Utils.showToast('At least one column has to stay visible');
+        return false;
+      }
+      this._hiddenColumns.add(key);
+    }
+
+    // A sort you can no longer see is a table that looks out of order, so a
+    // hidden sort column hands the order back to the default (newest first)
+    if (!visible && this._sort.key === key) {
+      this._sort = { key: 'date', dir: 'desc' };
+      this._sortEntries(this._filtered || []);
+      Utils.showToast(`“${col.label}” is hidden — back to newest first`);
+    }
+
+    this._saveColumnPrefs();
+    return true;
   }
 
   _adviceBadge(status) {
     const map = {
       'applied':           { cls: 'tj-badge tj-badge-ok',    label: '✅ Applied' },
-      'partially-applied': { cls: 'tj-badge tj-badge-warn',  label: '�� Partial' },
+      'partially-applied': { cls: 'tj-badge tj-badge-warn',  label: '🟡 Partial' },
       'not-applied':       { cls: 'tj-badge tj-badge-bad',   label: '❌ Not applied' },
       'n/a':               { cls: 'tj-badge',                label: 'n/a' },
       'not-reviewed':      { cls: 'tj-badge tj-badge-muted', label: '— Not reviewed' }
@@ -1624,12 +1829,16 @@ class TradeJournalApp {
     this._lastGroups = groups;
     const cols = this._tableColumns(!!groups);
 
-    // Sortable header row
+    // Header row — a numeric column carries tj-num as well, so its title is
+    // right-aligned over the figures its cells draw instead of over the empty
+    // left edge of the column.
     this.tableHead.innerHTML = '<tr>' + cols.map(c => {
-      if (!c.sortable) return `<th>${JournalText.esc(c.label)}</th>`;
-      const active = this._sort.key === c.key;
+      const active = !!c.sortable && this._sort.key === c.key;
+      const classes = [c.num ? 'tj-num' : '', active ? 'sorted' : ''].filter(Boolean).join(' ');
+      const classAttr = classes ? ` class="${classes}"` : '';
+      if (!c.sortable) return `<th${classAttr}>${JournalText.esc(c.label)}</th>`;
       const arrow = active ? (this._sort.dir === 'asc' ? ' ▲' : ' ▼') : '';
-      return `<th data-sort="${c.key}" class="${active ? 'sorted' : ''}" ` +
+      return `<th data-sort="${c.key}"${classAttr} ` +
         `title="Sort by ${JournalText.esc(c.label)}">${JournalText.esc(c.label)}${arrow}</th>`;
     }).join('') + '</tr>';
 
@@ -1668,7 +1877,7 @@ class TradeJournalApp {
           `spreadsheet columns, the numbers behind the trade, and an optional annotated deep dive.</div>` +
           `<div class="tj-empty-actions">` +
           `<button type="button" class="btn btn-primary" id="tj-empty-new">+ Add your first entry</button>` +
-          `<button type="button" class="btn btn-secondary" id="tj-empty-import">�� Import a CSV</button>` +
+          `<button type="button" class="btn btn-secondary" id="tj-empty-import">📥 Import a CSV</button>` +
           `<button type="button" class="btn btn-secondary" id="tj-empty-sample">See an example entry</button>` +
           `</div>`;
         const newBtn = document.getElementById('tj-empty-new');
@@ -1767,7 +1976,7 @@ class TradeJournalApp {
         case 'actions':
           return `<td class="tj-actions">` +
             `<button type="button" class="tj-icon-btn" data-edit="${JournalText.esc(entry.id)}" title="Edit">✏️</button>` +
-            `<button type="button" class="tj-icon-btn" data-del="${JournalText.esc(entry.id)}" title="Delete">��️</button>` +
+            `<button type="button" class="tj-icon-btn" data-del="${JournalText.esc(entry.id)}" title="Delete">🗑️</button>` +
             `</td>`;
 
         default: {
@@ -1918,7 +2127,7 @@ class TradeJournalApp {
           if (group.stored) return `<td class="tj-actions"></td>`;
           return `<td class="tj-actions">` +
             `<button type="button" class="tj-icon-btn" data-stamp-group="${esc(group.key)}" ` +
-            `title="Store one group id on all ${group.count} rows, so this session survives an edit to the ticker or the date">��</button>` +
+            `title="Store one group id on all ${group.count} rows, so this session survives an edit to the ticker or the date">🔗</button>` +
             `</td>`;
 
         default:
@@ -2000,7 +2209,7 @@ class TradeJournalApp {
     this.sessionStrip.style.display = 'flex';
 
     if (this.groupSessionBtn) {
-      this.groupSessionBtn.textContent = solo ? '↩ Join the session' : '�� Store the group id';
+      this.groupSessionBtn.textContent = solo ? '↩ Join the session' : '🔗 Store the group id';
       this.groupSessionBtn.title = solo
         ? 'Drop the split: this row joins its ticker and date again'
         : 'Write one group id onto this row and every stored row on this ticker and date, so the session no longer depends on both fields staying put';
@@ -2019,7 +2228,7 @@ class TradeJournalApp {
       : JournalCSV.newGroupId();
   }
 
-  // "�� Store the group id" — and "↩ Join the session" once the row is split out.
+  // "🔗 Store the group id" — and "↩ Join the session" once the row is split out.
   // Joining is local (dropping the id is enough, the row groups by ticker+date
   // again). Storing writes ONE new id onto this row and onto every stored row
   // that shares its ticker and date: that back-fill is the only thing in the app
@@ -2087,7 +2296,7 @@ class TradeJournalApp {
       : 'Split out — this row saves on its own');
   }
 
-  // "��" on a session row in the table — the same job as the strip's button, for
+  // "🔗" on a session row in the table — the same job as the strip's button, for
   // a session the reader picked out of the list instead of opening a leg in the
   // editor.
   async _stampSession(autoKey) {
@@ -2104,7 +2313,7 @@ class TradeJournalApp {
       `Store one group id on the <b>${legs.length}</b> rows of ` +
       `<b>${JournalText.esc(session.replace('@', ' · '))}</b>?<br>` +
       `The session then keeps holding together even if the ticker or the date of a row is edited later.`,
-      { okLabel: '�� Group them', danger: false }
+      { okLabel: '🔗 Group them', danger: false }
     );
     if (!ok) return;
 
@@ -2406,7 +2615,7 @@ class TradeJournalApp {
         <div class="tj-cat-item-side">
           ${this._adviceBadge(e.mentor ? e.mentor.status : null)}
           <span class="tj-num">${pnl}</span>
-          <button type="button" class="tj-icon-btn" data-toggle-advice="${JournalText.esc(e.id)}" title="Cycle advice status">��</button>
+          <button type="button" class="tj-icon-btn" data-toggle-advice="${JournalText.esc(e.id)}" title="Cycle advice status">🔄</button>
           <button type="button" class="tj-icon-btn" data-edit="${JournalText.esc(e.id)}" title="Edit">✏️</button>
         </div>
       </div>`;
@@ -2462,7 +2671,7 @@ class TradeJournalApp {
 
     const statusIcon = {
       'applied': '✅',
-      'partially-applied': '��',
+      'partially-applied': '🟡',
       'not-applied': '❌',
       'not-reviewed': '⏳',
       'n/a': '–'
@@ -2470,7 +2679,7 @@ class TradeJournalApp {
 
     const head = `<div class="tj-advice-count tj-muted">
       ${list.length} distinct ${list.length === 1 ? 'point' : 'points'} of advice
-      ${list.some(g => g.count > 1) ? ' — �� marks advice that keeps repeating' : ''}
+      ${list.some(g => g.count > 1) ? ' — 🔁 marks advice that keeps repeating' : ''}
     </div>`;
 
     const rows = list.map(g => {
@@ -2486,7 +2695,7 @@ class TradeJournalApp {
       return `<div class="tj-advice-row${g.count > 1 ? ' repeated' : ''}">
         <div class="tj-advice-text">${JournalText.esc(g.text)}</div>
         <div class="tj-advice-meta">
-          ${g.count > 1 ? `<span class="tj-badge tj-badge-warn" title="Given in ${g.count} entries">�� ×${g.count}</span>` : ''}
+          ${g.count > 1 ? `<span class="tj-badge tj-badge-warn" title="Given in ${g.count} entries">🔁 ×${g.count}</span>` : ''}
           ${sourceBadges}
           ${statusBadges}
         </div>
@@ -2788,7 +2997,7 @@ class TradeJournalApp {
       'Import <b>' + n + '</b> ' + (n === 1 ? 'entry' : 'entries') + ' into the journal?<br>' +
       'Each row becomes its own entry, with the P&amp;L, the duration and the R-multiple computed from its own numbers.' +
       groupNote,
-      { okLabel: '�� Import ' + n, danger: false }
+      { okLabel: '📥 Import ' + n, danger: false }
     );
     if (!ok) return;
 

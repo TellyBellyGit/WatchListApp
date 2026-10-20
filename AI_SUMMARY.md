@@ -161,5 +161,29 @@ why the downloadable example stays exactly A–Z.
   there is nothing underneath it to open, it carries no toggle and is `aria-hidden`. Flat mode (*One row per
   trade*)
   draws neither, so a journal with nothing to group looks exactly the way it always did.
+- **Sixteen columns is more than anyone reads at once**, so the entries table has a **☰ Columns** picker in the
+  filter row: one tick box per column, sectioned *Trade / Prose / Result / Always shown*, applied on the spot.
+  `_tableColumns()` is still the single array the header **and** every body cell are drawn from — it is now
+  `_allTableColumns()` minus the unticked keys — so the two can never disagree about how many cells a row has.
+  `Session` and `Actions` are drawn as locked ticks (`lock: true`): the first carries the caret and the `└───→`
+  grammar, the second the only delete button in the table. Hiding the column the table is currently sorted by
+  hands the order back to newest-first rather than leaving an order with no visible cause, and at least one
+  column of the user's own always stays. The choice is stored as the **hidden** keys in
+  `localStorage['stockwatchlist_journal_columns']` (like the group-by setting, in `try/catch` so private mode
+  simply forgets it and the Node tests run without a `localStorage`), so a column added later starts visible
+  instead of silently missing from everyone's table.
+- **A figure column reads under its own title**: `Net P&L` and `Process` hold numbers, so the column carries
+  `num: true` and `_renderTable()` puts `tj-num` on the **th** as well as on every cell — the header
+  right-aligns over the figures instead of over the empty left edge of the column. The sort arrow and the
+  `sorted` class are added on top, so sorting a figure column does not lose the alignment.
+- **The emoji are back**: an older save had decoded 4-byte characters as something narrower and left **42**
+  U+FFFD in `js/journal.js` (where `🟡 Partial`, the theme toggle's `🌙`, the `🗑️` delete button and the
+  `🔗` stamp icon belonged) and **5** in `css/style.css` (the calendar comments' em dashes). Each damaged line
+  was matched against the last commit that still had the glyphs (`aca7e39`) and restored character for
+  character, so the page shows `🌙`, `🗗`, `💾`, `📥`, `🔗`, `🗑️`, `🟡`, `🔄`, `🔁` again; the CSS em dashes
+  were put back to match the file's own comment style. Both journal suites now fail if U+FFFD ever reappears
+  in the page, the controller or the stylesheet, because no runtime check can see a glyph that was lost at
+  save time.
+
 - `JournalCSV.describeRollup(roll, { noCount: true })` leaves the leading leg count off, for the callers that
   already print it next to the line: the Session column says `3 trades` over `3 legs · …` otherwise.

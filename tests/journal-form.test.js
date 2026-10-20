@@ -625,6 +625,169 @@ check('table: the session column goes with it',
   renderApp.tableHead.innerHTML.indexOf('Session') === -1);
 
 // ============================================================================
+// 11. Columns — the ☰ Columns picker
+// The table is sixteen columns wide, so which of them are drawn is a reading
+// preference: it is remembered like Group by session is. What makes it safe is
+// that the header and every body cell still come from the one column array, so
+// they cannot disagree about how many cells a row has.
+// ============================================================================
+const colApp = appWith(formFields());
+colApp.tableHead = { innerHTML: '' };
+colApp.tableBody = { innerHTML: '' };
+colApp.emptyState = { style: {}, innerHTML: '' };
+colApp.resultCount = { textContent: '' };
+colApp.groupActionBar = { style: {} };
+colApp.columnsList = { innerHTML: '' };
+colApp.columnsCount = { textContent: '' };
+colApp._groupBy = 'none';                 // flat view: sixteen columns, no session
+colApp._entries = [
+  { id: 'c1', date: '2026-09-29', ticker: 'NVDA', timeframe: '5-min',
+    category: 'Good trade / Win', setup: 'ORB', entryTrigger: 'break of the level',
+    whyEntered: 'volume expanding', whatWentWrong: '', whyItWentWrong: '',
+    advice: 'wait for the retest', keyLesson: 'location is the setup',
+    outcome: '+$120.00', mentor: { adviceStatus: 'applied' },
+    tradeData: { pnl: 120 }, tags: [] }
+];
+colApp._filtered = colApp._entries.slice();
+const colKeys = (app, grouped = false) => app._tableColumns(grouped).map(c => c.key);
+
+eq('columns: sixteen to begin with', colApp._tableColumns(false).length, 16);
+
+colApp._renderColumnPicker();
+eq('columns: one tick box per column that can be hidden',
+  (colApp.columnsList.innerHTML.match(/data-column="/g) || []).length, 15);
+check('columns: the fixed cell is listed, ticked and locked',
+  colApp.columnsList.innerHTML.indexOf('tj-columns-locked') !== -1 &&
+  colApp.columnsList.innerHTML.indexOf('🔒') !== -1 &&
+  /data-column="actions"/.test(colApp.columnsList.innerHTML) === false,
+  colApp.columnsList.innerHTML.substring(0, 200));
+eq('columns: nothing hidden means nothing on the summary', colApp.columnsCount.textContent, '');
+eq('columns: the sections read Trade, Prose, Result, Always shown',
+  colApp._columnPickerGroups(false).map(g => g.id), ['trade', 'prose', 'result', 'fixed']);
+eq('columns: the prose section holds the six long columns',
+  colApp._columnPickerGroups(false).find(g => g.id === 'prose').columns.length, 6);
+
+// Hiding one column: gone from the list, gone from the table, and the header
+// and the row still draw the same number of cells
+eq('columns: hiding Why Entered is accepted', colApp._setColumnVisible('whyEntered', false), true);
+eq('columns: it is out of the column list', colKeys(colApp).indexOf('whyEntered'), -1);
+eq('columns: fifteen columns are left', colApp._tableColumns(false).length, 15);
+colApp._renderColumnPicker();
+eq('columns: the summary counts what is hidden', colApp.columnsCount.textContent, '· 1 hidden');
+
+colApp._renderTable();
+eq('columns: the header draws fifteen cells',
+  (colApp.tableHead.innerHTML.match(/<th/g) || []).length, 15);
+eq('columns: and the row draws fifteen cells too',
+  (colApp.tableBody.innerHTML.match(/<td/g) || []).length, 15);
+check('columns: the hidden column is drawn nowhere',
+  colApp.tableHead.innerHTML.indexOf('Why Entered') === -1 &&
+  colApp.tableBody.innerHTML.indexOf('volume expanding') === -1,
+  colApp.tableBody.innerHTML.substring(0, 300));
+
+// A column of figures is right-aligned in the header too: the title has to sit
+// over the numbers it names, not over the empty left edge of the column. Net
+// P&L and Process are the two numeric columns, and the cells already say so
+// with tj-num — the header now says it as well.
+const headTag = (key) =>
+  (new RegExp('<th[^>]*data-sort="' + key + '"[^>]*>[\\s\\S]*?</th>').exec(colApp.tableHead.innerHTML) || [''])[0];
+check('columns: the Net P&L header is the numeric side of the table',
+  /class="[^"]*tj-num/.test(headTag('pnl')), headTag('pnl'));
+check('columns: the Process header lines up with its scores',
+  colApp.tableHead.innerHTML.indexOf('<th class="tj-num">Process</th>') !== -1,
+  colApp.tableHead.innerHTML.substring(0, 200));
+check('columns: a text column keeps its left-aligned header',
+  !/tj-num/.test(headTag('ticker')), headTag('ticker'));
+eq('columns: exactly the two figure columns ask for right alignment',
+  colApp._tableColumns(false).filter(c => c.num).map(c => c.key), ['pnl', 'star']);
+
+// Sorting adds the arrow and the sorted class without losing the alignment
+colApp._sort = { key: 'pnl', dir: 'desc' };
+colApp._renderTable();
+check('columns: a sorted figure header keeps its alignment and gains its arrow',
+  /class="[^"]*tj-num[^"]*sorted/.test(headTag('pnl')) && /Net P&amp;L ▼/.test(headTag('pnl')),
+  headTag('pnl'));
+colApp._sort = { key: 'date', dir: 'desc' };
+
+// The two columns that are not a choice: one carries the caret and the
+// line-and-arrow grammar, the other is the only delete button in the table
+eq('columns: the session column cannot be hidden', colApp._setColumnVisible('session', false), false);
+eq('columns: the actions cell cannot be hidden', colApp._setColumnVisible('actions', false), false);
+colApp._groupBy = 'session';
+check('columns: the session column is there when the view is grouped',
+  colKeys(colApp, true).indexOf('session') !== -1);
+eq('columns: and it is the only one grouping adds', colKeys(colApp, true).length, 16);
+
+// The table is never left with nothing but its fixed cells
+const guard = appWith(formFields());
+guard._groupBy = 'none';
+const hideable = guard._tableColumns(false).filter(c => c.key !== 'actions').map(c => c.key);
+hideable.slice(0, -1).forEach(k => guard._setColumnVisible(k, false));
+eq('columns: all but the last can be hidden', guard._tableColumns(false).length, 2);
+eq('columns: the last one refuses to go',
+  guard._setColumnVisible(hideable[hideable.length - 1], false), false);
+eq('columns: so one column of the user\'s own stays', guard._tableColumns(false).length, 2);
+check('columns: and it says why', /stay visible/.test(toasts[toasts.length - 1]), toasts[toasts.length - 1]);
+
+// A sort you can no longer see is a table that looks out of order
+const sortedCols = appWith(formFields());
+sortedCols._sort = { key: 'ticker', dir: 'asc' };
+sortedCols._filtered = [];
+eq('columns: hiding the sorted column is accepted', sortedCols._setColumnVisible('ticker', false), true);
+eq('columns: the order falls back to newest first',
+  sortedCols._sort, { key: 'date', dir: 'desc' });
+check('columns: and the reason is said out loud',
+  /Ticker/i.test(toasts[toasts.length - 1]) && /newest first/.test(toasts[toasts.length - 1]),
+  toasts[toasts.length - 1]);
+
+// The two buttons under the list
+const presets = appWith(formFields());
+presets._renderTable = () => {};          // this is about the column set, not the draw
+presets._hideProseColumns();
+eq('columns: Hide prose drops the six long columns', presets._tableColumns(false).length, 10);
+check('columns: ...leaving the trade and result columns alone',
+  colKeys(presets).indexOf('entryTrigger') === -1 && colKeys(presets).indexOf('setup') !== -1 &&
+  colKeys(presets).indexOf('pnl') !== -1);
+presets._showAllColumns();
+eq('columns: Show all brings every column back', presets._tableColumns(false).length, 16);
+
+// Remembered per browser — the HIDDEN keys are what is stored, so a column
+// added to the table later starts visible
+const store = {};
+context.localStorage = {
+  getItem: (k) => (Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null),
+  setItem: (k, v) => { store[k] = String(v); },
+  removeItem: (k) => { delete store[k]; }
+};
+colApp._saveColumnPrefs();
+eq('columns: the hidden keys are what is stored',
+  JSON.parse(store.stockwatchlist_journal_columns), ['whyEntered']);
+
+const reloaded = appWith(formFields());
+eq('columns: a stored choice is honoured on the next visit', reloaded._tableColumns(false).length, 15);
+eq('columns: and it is the same column that is missing',
+  colKeys(reloaded).indexOf('whyEntered'), -1);
+
+store.stockwatchlist_journal_columns = '["advice","nonsense","actions"]';
+const junkPrefs = appWith(formFields());
+eq('columns: a key the table no longer has is ignored', junkPrefs._tableColumns(false).length, 15);
+check('columns: a locked column can never be stored away',
+  colKeys(junkPrefs).indexOf('actions') !== -1);
+
+store.stockwatchlist_journal_columns = '{"nope":true}';
+eq('columns: a corrupt preference shows every column again',
+  appWith(formFields())._tableColumns(false).length, 16);
+
+// Private mode: no localStorage at all. Every column stays visible and the page
+// neither throws nor loses the tick.
+delete context.localStorage;
+const bare = appWith(formFields());
+eq('columns: no storage means every column is shown', bare._tableColumns(false).length, 16);
+check('columns: and changing a column still works without it',
+  bare._setColumnVisible('advice', false) === true &&
+  colKeys(bare).indexOf('advice') === -1);
+
+// ============================================================================
 // Summary
 // ============================================================================
 console.log(passed + ' checks passed');

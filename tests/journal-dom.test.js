@@ -188,6 +188,67 @@ check('the import stamps one id per ticker and date',
   /assignGroupIds\(result\.entries/.test(js) && /importGroupCheck/.test(js));
 check('the store owns the group id generator', /generateGroupId\(\)/.test(fsJs));
 
+// ---- Columns: the ☰ Columns picker ----------------------------------------
+// One more control a mistyped id would silently disable. It sits in the filter
+// row above the table, and it is built from the same array the table draws, so
+// the two can never disagree about a column's name or order.
+check('the picker sits in the filter row above the table',
+  idsInHtml.has('tj-columns') && idsInHtml.has('tj-columns-list') &&
+  html.indexOf('id="tj-columns"') < html.indexOf('class="table-wrapper tj-table-wrapper"'));
+check('the picker offers its two buttons and its hint',
+  idsInHtml.has('tj-columns-all') && idsInHtml.has('tj-columns-prose') &&
+  idsInHtml.has('tj-columns-count'));
+check('the summary counts what is hidden',
+  /class="tj-columns-count" id="tj-columns-count"/.test(html));
+check('the controller caches every picker element',
+  /this\.columnsDetails\s*=\s*\$\('tj-columns'\)/.test(js) &&
+  /this\.columnsList\s*=\s*\$\('tj-columns-list'\)/.test(js) &&
+  /this\.columnsAllBtn\s*=\s*\$\('tj-columns-all'\)/.test(js) &&
+  /this\.columnsProseBtn\s*=\s*\$\('tj-columns-prose'\)/.test(js));
+check('the controller draws the list from the columns the table draws',
+  /_tableColumns\(showSession = false\)\s*\{[\s\S]{0,120}_allTableColumns\(showSession\)/.test(js));
+check('the picker is rendered on start-up',
+  /this\._bindEvents\(\);[\s\S]{0,120}this\._renderColumnPicker\(\)/.test(js));
+check('the choice is remembered per browser like Group by session',
+  /localStorage\.setItem\('stockwatchlist_journal_columns'/.test(js) &&
+  /localStorage\.getItem\('stockwatchlist_journal_columns'\)/.test(js));
+check('the session and actions columns are locked',
+  /key: 'session'[^}]*lock: true/.test(js) && /key: 'actions'[^}]*lock: true/.test(js));
+check('a hidden sort column hands the order back to newest first',
+  /this\._sort\.key === key[\s\S]{0,160}this\._sort = \{ key: 'date', dir: 'desc' \}/.test(js));
+check('the panel paints above the sticky table header',
+  /\.tj-columns\s*\{[\s\S]{0,120}z-index:\s*10/.test(css) &&
+  /\.tj-columns-panel\s*\{[\s\S]{0,400}z-index:\s*50/.test(css));
+['tj-columns-group', 'tj-columns-group-label', 'tj-columns-item', 'tj-columns-locked',
+ 'tj-columns-lock', 'tj-columns-list'].forEach(cls => {
+  check('style present: .' + cls, css.indexOf('.' + cls) !== -1);
+});
+
+// ---- Figures are right-aligned in the header, not just in the cells -------
+// Net P&L and Process hold numbers, so their titles sit over the figures they
+// name. The rule that does it is in the stylesheet, and the controller has to
+// put the class on the header for it to apply.
+check('the header has a right-aligned rule for numeric columns',
+  /\.tj-table thead th\.tj-num\s*\{\s*text-align:\s*right/.test(css));
+check('the figure columns mark themselves numeric',
+  /key: 'pnl'[^}]*num: true/.test(js) && /key: 'star'[^}]*num: true/.test(js));
+check('the header passes the mark on to the th',
+  /const classes = \[c\.num \? 'tj-num' : ''/.test(js));
+
+// ---- Nothing may be silently lost to U+FFFD ------------------------------
+// An old save once decoded 4-byte characters as a narrower encoding: the page
+// kept the bytes but not the glyph, and every run of them became U+FFFD. No
+// runtime check can see a lost character, so the files themselves are checked.
+const damaged = [['TradeJournal.html', html], ['js/journal.js', js], ['css/style.css', css]]
+  .filter(pair => pair[1].indexOf('\uFFFD') !== -1)
+  .map(pair => pair[0]);
+check('no character in the page, the controller or the stylesheet is U+FFFD',
+  damaged.length === 0, damaged.join(', '));
+check('the icons the journal writes are the ones it always had',
+  js.indexOf("'☀️' : '🌙'") !== -1 &&
+  js.indexOf('🟡 Partial') !== -1 &&
+  js.indexOf('🗑️</button>') !== -1);
+
 // ---- Rough well-formedness: container tags must balance ----
 ['div', 'table', 'thead', 'tbody', 'tr', 'td', 'th', 'textarea', 'select', 'option', 'label',
  'span', 'button', 'ul', 'li', 'h1', 'h2', 'h3', 'p', 'a', 'datalist', 'optgroup', 'form'

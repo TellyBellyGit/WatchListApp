@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=261020a">
+  <link rel="stylesheet" href="css/style.css?v=261020c">
   <!-- Quill Rich Text Editor (same build as the main app / Reviews tab) -->
   <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
 </head>
@@ -87,6 +87,23 @@
           <button class="btn btn-secondary btn-sm" id="tj-btn-collapse-groups" type="button"
             title="Close every session in this view">⤡ Collapse all</button>
         </span>
+        <!-- Which columns the table draws. The list is built by js/journal.js
+             from the same array the table itself uses, so the picker and the
+             table can never disagree about a column's name or order. -->
+        <details class="tj-columns" id="tj-columns">
+          <summary class="btn btn-secondary btn-sm" id="tj-columns-summary"
+            title="Choose which columns the entries table shows">☰ Columns<span class="tj-columns-count" id="tj-columns-count"></span></summary>
+          <div class="tj-columns-panel">
+            <div class="tj-columns-list" id="tj-columns-list"></div>
+            <div class="tj-columns-foot">
+              <button class="btn btn-secondary btn-sm" id="tj-columns-all" type="button">Show all</button>
+              <button class="btn btn-secondary btn-sm" id="tj-columns-prose" type="button"
+                title="Hide the six long-text columns">Hide prose</button>
+            </div>
+            <div class="tj-columns-hint">Remembered in this browser.</div>
+          </div>
+        </details>
+
         <button class="btn btn-secondary btn-sm" id="tj-btn-clear-filters" type="button">✕ Clear filters</button>
         <span class="tj-result-count" id="tj-result-count"></span>
       </div>
@@ -691,7 +708,7 @@
   <script src="js/journal-categories.js"></script>
   <script src="js/journal-csv.js?v=261008a"></script>
   <script src="js/journal-draft.js?v=260929b"></script>
-  <script src="js/journal.js?v=261020a"></script>
+  <script src="js/journal.js?v=261020c"></script>
 </body>
 </html>
 
