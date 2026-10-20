@@ -2341,28 +2341,33 @@ class TradeJournalApp {
   }
 
   // ==========================================================================
-  // Stats strip
+  // Stats strip — the Overall Performance Summary
   // ==========================================================================
   _renderStats() {
     if (!this.statsEl) return;
 
-    // Stats are computed over the FILTERED set, so the strip answers
-    // "how am I doing on what I'm currently looking at?"
+    // Stats are computed over the FILTERED set, so the summary answers
+    // "how am I doing on what I'm currently looking at?". The arithmetic is
+    // JournalCSV.rollup() — the same sums a session row draws — so the summary
+    // can never disagree with the rows and sessions underneath it.
     const entries = this._filtered;
+    const roll = JournalCSV.rollup(entries);
+    const hasNumbers = roll.traded > 0;
 
-    const withPnl = entries.filter(e => e.tradeData && e.tradeData.pnl != null);
-    const wins = withPnl.filter(e => e.tradeData.pnl > 0);
-    const losses = withPnl.filter(e => e.tradeData.pnl < 0);
-    const netPnl = withPnl.reduce((sum, e) => sum + e.tradeData.pnl, 0);
+    // A scratch finished exactly flat: it IS a trade and it stays in the win
+    // rate's denominator, but it is neither a win nor a loss — hence the second
+    // figure that leaves it out.
+    const decided = roll.wins + roll.losses;
+    const winRateNoScratch = decided ? (roll.wins / decided) * 100 : null;
 
-    const winRate = withPnl.length ? (wins.length / withPnl.length) * 100 : null;
+    const profitFactor = roll.grossLoss > 0 ? roll.grossWin / roll.grossLoss : null;
 
-    const grossWin = wins.reduce((s, e) => s + e.tradeData.pnl, 0);
-    const grossLoss = Math.abs(losses.reduce((s, e) => s + e.tradeData.pnl, 0));
-    const profitFactor = grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? null : 0);
-
-    const withR = entries.filter(e => e.tradeData && e.tradeData.realisedR != null);
-    const avgR = withR.length ? withR.reduce((s, e) => s + e.tradeData.realisedR, 0) / withR.length : null;
+    // Average win / average loss are per TRADE: the plain sums over their own
+    // counts. The payoff ratio puts one against the other — the number the win
+    // rate on its own cannot tell you.
+    const avgWin = roll.wins ? roll.grossWin / roll.wins : null;
+    const avgLoss = roll.losses ? -roll.grossLoss / roll.losses : null;
+    const payoff = (avgWin != null && avgLoss != null) ? avgWin / Math.abs(avgLoss) : null;
 
     // Advice discipline — only counts entries that actually have mentor advice
     const withAdvice = entries.filter(e =>
@@ -2378,49 +2383,124 @@ class TradeJournalApp {
     });
     const topCategory = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || null;
 
-    const card = (label, value, tone, sub) =>
-      `<div class="tj-stat">
-        <div class="tj-stat-label">${JournalText.esc(label)}</div>
+    // "+$33.45" / "-$75.09" / "$0.00" — the sign is part of the figure, so the
+    // reader never has to infer it from the colour alone.
+    const money = (value) => {
+      if (value == null) return '—';
+      const text = Utils.formatCurrency(Math.abs(value));
+      if (value > 0) return '+' + text;
+      if (value < 0) return '-' + text;
+      return text;
+    };
+
+    const plural = (n, word) => `${n} ${n === 1 ? word : word + 's'}`;
+
+    // "0.47" says nothing on its own: the sentence says which side of the
+    // ledger is bigger, which is the whole point of the ratio.
+    const payoffNote = (() => {
+      if (payoff == null || avgWin === 0 || avgLoss === 0) return null;
+      const win = Math.abs(avgWin);
+      const loss = Math.abs(avgLoss);
+      if (loss > win) {
+        const times = Math.floor(loss / win);
+        return times >= 2
+          ? `Your average loss is over ${times}x larger than your average win`
+          : 'Your average loss is larger than your average win';
+      }
+      if (win > loss) {
+        const times = Math.floor(win / loss);
+        return times >= 2
+          ? `Your average win is over ${times}x larger than your average loss`
+          : 'Your average win is larger than your average loss';
+      }
+      return 'Your average win and average loss are the same size';
+    })();
+
+    // `hint` becomes a native tooltip on an ℹ️ beside the label — every other
+    // control in this journal uses `title=`, and JournalText.esc() is the only
+    // helper here that really escapes attribute values (Utils.escapeAttr() is a
+    // documented no-op). The glyph carries the tooltip rather than the whole
+    // card, so the figure underneath stays a figure and not a hidden control.
+    const info = (hint) =>
+      `<span class="tj-stat-info" role="img" aria-label="${JournalText.esc(hint)}"` +
+      ` title="${JournalText.esc(hint)}">ℹ️</span>`;
+
+    // `modifier` lands on the card itself: it is how a card says what KIND of
+    // figure it holds (the category name reads as a word, not as a number).
+    const card = (label, value, tone, sub, hint, modifier) =>
+      `<div class="tj-stat${modifier ? ' ' + modifier : ''}">
+        <div class="tj-stat-label">${JournalText.esc(label)}${hint ? info(hint) : ''}</div>
         <div class="tj-stat-value${tone ? ' ' + tone : ''}">${value}</div>
         ${sub ? `<div class="tj-stat-sub">${JournalText.esc(sub)}</div>` : ''}
       </div>`;
 
+    // These figures are one statement about the same trades, so they get one
+    // heading — and the heading carries the "filtered" hint the old Entries card
+    // used to spell out, because this is still a summary of the visible set.
+    // The heading is rendered outside the grid (see the end of this method) so
+    // every row of cards can share one height.
     const cards = [];
 
-    // The Entries card counts ROWS, because that is what the table's rows are
-    // backed by — but when the view is grouped it also says how many sessions
-    // those rows make up, so the two numbers never look like a contradiction.
-    const viewGroups = this._buildGroups();
-    const subBits = [];
-    if (viewGroups) {
-      const stats = JournalCSV.groupStats(viewGroups);
-      subBits.push(`${stats.sessions} ${stats.sessions === 1 ? 'session' : 'sessions'}`);
-      if (stats.multiLeg) subBits.push(`${stats.multiLeg} with several legs`);
-    }
-    if (this._filtered.length !== this._entries.length) subBits.push('filtered view');
-
-    cards.push(card('Entries', JournalText.esc(String(entries.length)),
-      null, subBits.length ? subBits.join(' · ') : null));
+    cards.push(card('Total Trades',
+      hasNumbers ? JournalText.esc(String(roll.traded)) : '—',
+      hasNumbers ? null : 'tj-muted',
+      !hasNumbers ? 'no numbers yet'
+        : (roll.untraded
+          ? `${roll.untraded} more ${roll.untraded === 1 ? 'entry' : 'entries'} without a P&L`
+          : null)));
 
     cards.push(card('Net P&L',
-      withPnl.length ? JournalText.esc(Utils.formatCurrency(netPnl)) : '—',
-      withPnl.length ? (netPnl >= 0 ? 'positive' : 'negative') : 'tj-muted',
-      withPnl.length ? `${wins.length}W / ${losses.length}L` : 'no numbers yet'));
+      hasNumbers ? JournalText.esc(money(roll.netPnl)) : '—',
+      hasNumbers ? (roll.netPnl >= 0 ? 'positive' : 'negative') : 'tj-muted',
+      hasNumbers ? `${roll.wins}W / ${roll.losses}L` : 'add prices + size'));
 
-    cards.push(card('Win rate',
-      winRate == null ? '—' : JournalText.esc(winRate.toFixed(0) + '%'),
-      winRate == null ? 'tj-muted' : (winRate >= 50 ? 'positive' : 'negative'),
-      withPnl.length ? `of ${withPnl.length} sized trades` : 'add prices + size'));
+    cards.push(card('Gross Profit',
+      hasNumbers ? JournalText.esc(money(roll.grossWin)) : '—',
+      roll.wins ? 'positive' : 'tj-muted',
+      roll.wins ? plural(roll.wins, 'winning trade') : 'no winning trades yet'));
 
-    cards.push(card('Profit factor',
-      profitFactor == null ? '∞' : (grossLoss > 0 ? JournalText.esc(profitFactor.toFixed(2)) : '—'),
-      profitFactor == null ? 'positive' : (profitFactor >= 1 ? 'positive' : 'negative'),
-      grossLoss > 0 ? 'gross win ÷ gross loss' : 'no losing entries'));
+    cards.push(card('Gross Loss',
+      hasNumbers ? JournalText.esc(money(-roll.grossLoss)) : '—',
+      roll.losses ? 'negative' : 'tj-muted',
+      roll.losses ? plural(roll.losses, 'losing trade') : 'no losing trades yet'));
 
-    cards.push(card('Avg R',
-      avgR == null ? '—' : JournalText.esc((avgR >= 0 ? '+' : '') + avgR.toFixed(2) + 'R'),
-      avgR == null ? 'tj-muted' : (avgR >= 0 ? 'positive' : 'negative'),
-      withR.length ? `over ${withR.length} entries` : 'set planned risk 1R'));
+    cards.push(card('Scratch Trades',
+      hasNumbers ? JournalText.esc(String(roll.flat)) : '—',
+      hasNumbers ? (roll.flat ? 'tj-muted' : null) : 'tj-muted',
+      roll.flat
+        ? `${Utils.formatCurrency(0)} P&L — neither a win nor a loss`
+        : 'no flat trades'));
+
+    cards.push(card('Win Rate',
+      roll.winRate == null ? '—' : JournalText.esc(roll.winRate.toFixed(1) + '%'),
+      roll.winRate == null ? 'tj-muted' : (roll.winRate >= 50 ? 'positive' : 'negative'),
+      roll.winRate == null ? 'add prices + size'
+        : (roll.flat && winRateNoScratch != null
+          ? `${winRateNoScratch.toFixed(1)}% excluding scratches`
+          : `of ${plural(roll.traded, 'sized trade')}`)));
+
+    cards.push(card('Profit Factor',
+      !hasNumbers ? '—' : (profitFactor == null ? '∞' : JournalText.esc(profitFactor.toFixed(2))),
+      !hasNumbers ? 'tj-muted' : ((profitFactor == null || profitFactor >= 1) ? 'positive' : 'negative'),
+      roll.grossLoss > 0 ? 'gross profit ÷ gross loss' : 'no losing trades'));
+
+    cards.push(card('Average Win',
+      avgWin == null ? '—' : JournalText.esc(money(avgWin)),
+      avgWin == null ? 'tj-muted' : 'positive',
+      avgWin == null ? 'no winning trades yet' : null));
+
+    cards.push(card('Average Loss',
+      avgLoss == null ? '—' : JournalText.esc(money(avgLoss)),
+      avgLoss == null ? 'tj-muted' : 'negative',
+      avgLoss == null ? 'no losing trades yet' : null));
+
+    // The conclusion is a hover hint rather than a row-wide sentence: it is an
+    // opinion about the ratio, and you want it when you point at the number.
+    cards.push(card('Win/Loss Payoff Ratio',
+      payoff == null ? '—' : JournalText.esc(payoff.toFixed(2)),
+      payoff == null ? 'tj-muted' : (payoff >= 1 ? 'positive' : 'negative'),
+      payoff == null ? 'needs one win and one loss' : 'avg win ÷ avg loss',
+      payoffNote));
 
     cards.push(card('Advice followed',
       appliedPct == null ? '—' : JournalText.esc(appliedPct.toFixed(0) + '%'),
@@ -2430,9 +2510,123 @@ class TradeJournalApp {
     cards.push(card('Most common category',
       topCategory ? JournalText.esc(topCategory) : '—',
       null,
-      topCategory ? `${counts[topCategory]} ${counts[topCategory] === 1 ? 'entry' : 'entries'}` : null));
+      topCategory ? `${counts[topCategory]} ${counts[topCategory] === 1 ? 'entry' : 'entries'}` : null,
+      null,
+      'tj-stat-text'));
 
-    this.statsEl.innerHTML = cards.join('');
+    // Row 2 is three cards wide out of nine, so it would end in six empty
+    // columns. Six month totals fill that hole exactly — and they answer the one
+    // question a filtered set of cards cannot: is this better than months ago?
+    cards.push(this._monthlyPnlHtml(entries));
+
+    this.statsEl.innerHTML =
+      `<div class="tj-stats-head">Overall Performance Summary` +
+      (entries.length !== this._entries.length ? ' · filtered view' : '') +
+      `</div>` +
+      `<div class="tj-stats-grid">${cards.join('')}</div>`;
+  }
+
+  // ==========================================================================
+  // P&L by month — the six-column tail of the stats grid
+  // ==========================================================================
+  // Sums the same `tradeData.pnl` the cards above sum, one bucket per calendar
+  // month, over the same FILTERED set they are built from. The window ends at
+  // the newest month in view — so a filter that hides recent months still shows
+  // six months of history instead of a row of blanks — and falls back to the
+  // current month when the filter holds no dated P&L at all.
+  // ==========================================================================
+  _monthlyPnlHtml(entries) {
+    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    const buckets = new Map();
+    let newest = '';
+
+    (entries || []).forEach(entry => {
+      if (!entry.tradeData || entry.tradeData.pnl == null) return;
+      const iso = JournalCSV.normaliseDate(entry.date);
+      if (!iso) return;
+      const key = iso.slice(0, 7);
+      if (!buckets.has(key)) buckets.set(key, { pnl: 0, trades: 0 });
+      const bucket = buckets.get(key);
+      bucket.pnl += entry.tradeData.pnl;
+      bucket.trades += 1;
+      if (key > newest) newest = key;
+    });
+
+    // Walk back five months in whole-month units. Integers over "YYYY-MM" keep
+    // this free of Date parsing — the journal never lets an engine decide what a
+    // stored date means.
+    const anchor = newest || Utils.todayLocal().slice(0, 7);
+    const anchorMonthIndex = Number(anchor.slice(0, 4)) * 12 + Number(anchor.slice(5, 7)) - 1;
+    const window = [];
+    for (let back = 5; back >= 0; back -= 1) {
+      const monthIndex = anchorMonthIndex - back;
+      const bucket = buckets.get(
+        `${Math.floor(monthIndex / 12)}-${String(monthIndex % 12 + 1).padStart(2, '0')}`
+      ) || { pnl: 0, trades: 0 };
+      window.push({
+        name: MONTH_NAMES[monthIndex % 12],
+        year: Math.floor(monthIndex / 12),
+        pnl: Math.round(bucket.pnl * 100) / 100,
+        trades: bucket.trades
+      });
+    }
+
+    // "$412.30" / "-$1,240.00" — the tooltip; the bar's own label drops the
+    // cents because a 10px line cannot hold them.
+    const money = (value) => {
+      const text = Utils.formatCurrency(Math.abs(value));
+      if (value > 0) return '+' + text;
+      if (value < 0) return '-' + text;
+      return text;
+    };
+    // "+$81" / "-$1,240" — whole dollars keep six labels the same width, and the
+    // cents are one hover away. A sub-dollar month keeps them, because "$0" would
+    // be a lie about a month that made forty cents.
+    const compact = (value) => {
+      const abs = Math.abs(value);
+      const rounded = Math.round(abs);
+      const text = (rounded === 0 && abs > 0)
+        ? Utils.formatCurrency(abs)
+        : '$' + rounded.toLocaleString('en-US');
+      if (value > 0) return '+' + text;
+      if (value < 0) return '-' + text;
+      return text;
+    };
+
+    const hasData = window.some(m => m.trades > 0);
+    const total = Math.round(window.reduce((sum, m) => sum + m.pnl, 0) * 100) / 100;
+    const peak = Math.max.apply(null, window.map(m => Math.abs(m.pnl)));
+
+    const bars = window.map(m => {
+      const tone = m.pnl > 0 ? 'positive' : (m.pnl < 0 ? 'negative' : 'tj-muted');
+      const height = peak ? Math.round((Math.abs(m.pnl) / peak) * 100) : 0;
+      const spoken = m.trades
+        ? `${m.name} ${m.year} · ${money(m.pnl)} · ${m.trades} ${m.trades === 1 ? 'trade' : 'trades'}`
+        : `${m.name} ${m.year} · no trades`;
+      return `<div class="tj-month" title="${JournalText.esc(spoken)}">` +
+        `<span class="tj-month-val ${m.trades ? tone : 'tj-muted'}">` +
+          `${JournalText.esc(m.trades ? compact(m.pnl) : '—')}</span>` +
+        `<span class="tj-month-track">` +
+          `<span class="tj-month-bar ${tone}" style="height:${height}%"></span></span>` +
+        `<span class="tj-month-name">${m.name}</span></div>`;
+    }).join('');
+
+    const spoken = hasData
+      ? window.map(m => `${m.name}: ${m.trades ? money(m.pnl) : 'no trades'}`).join(', ')
+      : 'no P&L yet';
+
+    return `<div class="tj-stat tj-stat-months">
+        <div class="tj-months-sum">
+          <div class="tj-stat-label">P&amp;L by month</div>
+          <div class="tj-stat-sub">${hasData
+            ? 'last 6 months · ' + JournalText.esc(money(total))
+            : 'no P&amp;L yet'}</div>
+        </div>
+        <div class="tj-months-chart" role="img"
+             aria-label="${JournalText.esc('P&L by month, last six months — ' + spoken)}">${bars}</div>
+      </div>`;
   }
 
   // ==========================================================================
