@@ -5961,6 +5961,13 @@ body.overlay-open {
 .tj-drop-icon { font-size: 1.4rem; }
 .tj-drop-text { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6; }
 
+.tj-link-btns {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+}
+
 .tj-link-btn {
   border: none;
   background: none;

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Account statement matcher</title>
+<style>
+  :root { --bg:#f6f7f9; --fg:#1b1f24; --mute:#667085; --line:#d9dde3; --card:#fff; --acc:#0b6b5c; --neg:#b42318; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14181d; --fg:#e6e9ee; --mute:#8b95a3; --line:#2b323b; --card:#1b2128; --acc:#4cc2ab; --neg:#f27a6e; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:24px; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, sans-serif; }
+  main { max-width:1000px; margin:0 auto; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  p.sub { margin:0 0 16px; color:var(--mute); }
+  #drop { border:2px dashed var(--line); border-radius:8px; padding:24px; text-align:center; background:var(--card); cursor:pointer; }
+  #drop.over { border-color:var(--acc); }
+  button { font:inherit; padding:8px 14px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--fg); cursor:pointer; }
+  button.primary { background:var(--acc); border-color:var(--acc); color:#fff; }
+  button:disabled { opacity:.45; cursor:default; }
+  button:focus-visible, #drop:focus-visible { outline:2px solid var(--acc); outline-offset:2px; }
+  #bar { display:flex; gap:8px; margin:16px 0 8px; align-items:center; flex-wrap:wrap; }
+  #count { color:var(--mute); margin-left:auto; }
+  #notes { margin:8px 0; padding:0; list-style:none; color:var(--neg); }
+  .wrap { overflow-x:auto; border:1px solid var(--line); border-radius:8px; background:var(--card); }
+  table { border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums; }
+  th, td { padding:6px 10px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--line); }
+  th:first-child, td:first-child { text-align:left; }
+  th { color:var(--mute); font-weight:600; position:sticky; top:0; background:var(--card); }
+  .neg { color:var(--neg); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Account statement matcher</h1>
+  <p class="sub">Load a Schwab Account Statement CSV. Fills are read from the Account Trade History block (falling back to filled orders), and each buy is matched to sells first-in, first-out, one row per matched piece.</p>
+
+  <div id="drop" tabindex="0" role="button" aria-label="Choose or drop an Account Statement CSV file">
+    Drop the Account Statement CSV here, or click to choose a file
+    <input id="file" type="file" accept=".csv,text/csv" hidden>
+  </div>
+
+  <div id="bar">
+    <button id="download" class="primary" disabled>Download CSV</button>
+    <button id="copy" disabled>Copy CSV</button>
+    <span id="count"></span>
+  </div>
+  <ul id="notes"></ul>
+  <div class="wrap"><table id="tbl"></table></div>
+</main>
+
+<script>
+/* ---------- Core logic (no DOM use; reusable in your own program) ---------- */
+
+const OUT_COLS = ["Symbol","Qty","EntryTime","EntryPrice","ExitTime","ExitPrice","HoldMinutes","PnL","PnLPct","Direction"];
+const EXCLUDED_SYMBOLS = ["TEST"];
+
+function splitCsvLine(line) {
+  const out = []; let cur = "", q = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (q) { if (c === '"') { if (line[i+1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+    else if (c === '"') q = true;
+    else if (c === ",") { out.push(cur); cur = ""; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out.map(s => s.trim());
+}
+
+function parseTime(s) { // "MM/DD/YY HH:MM" or "MM/DD/YYYY HH:MM" (seconds ignored, as in trade-matcher)
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4}) (\d{1,2}):(\d{2})/.exec(s);
+  if (!m) return NaN;
+  let year = +m[3];
+  if (year < 100) year += 2000;
+  return new Date(year, +m[1]-1, +m[2], +m[4], +m[5]).getTime();
+}
+
+function findSection(lines, title) {
+  const want = title.toLowerCase();
+  return lines.findIndex(l => l.trim().toLowerCase().startsWith(want));
+}
+
+function readSection(lines, start, title) {
+  let h = start + 1;
+  while (h < lines.length && lines[h].trim() === "") h++;
+  if (h >= lines.length) throw new Error(`The "${title}" block is empty.`);
+  const header = splitCsvLine(lines[h]);
+  const rows = [];
+  for (let i = h + 1; i < lines.length; i++) {
+    if (lines[i].trim() === "") break; // blank line ends the block
+    rows.push(splitCsvLine(lines[i]));
+  }
+  return { header, rows };
+}
+
+function readColumn(header, names, title) {
+  for (const name of names) {
+    const i = header.findIndex(h => h.toLowerCase() === name.toLowerCase());
+    if (i >= 0) return i;
+  }
+  throw new Error(`The "${title}" header is missing a "${names[0]}" column.`);
+}
+
+function parseNumber(cell) {
+  const n = parseFloat(String(cell == null ? "" : cell).replace(/[$,+]/g, ""));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function readAccountTrades(text) {
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
+  const notes = [];
+
+  // Preferred source: the execution block, which carries the actual fill price.
+  const tradeStart = findSection(lines, "Account Trade History");
+  if (tradeStart >= 0) {
+    const title = "Account Trade History";
+    const { header, rows } = readSection(lines, tradeStart, title);
+    const col = {
+      t: readColumn(header, ["Exec Time"], title),
+      side: readColumn(header, ["Side"], title),
+      qty: readColumn(header, ["Qty"], title),
+      eff: readColumn(header, ["Pos Effect"], title),
+      sym: readColumn(header, ["Symbol"], title),
+      px: readColumn(header, ["Price", "Net Price"], title)
+    };
+    const orders = [];
+    for (const cells of rows) {
+      const timeStr = cells[col.t] || "";
+      if (!timeStr) continue; // continuation rows have no execution time
+      const time = parseTime(timeStr);
+      const side = (cells[col.side] || "").toUpperCase();
+      const qty = Math.abs(parseNumber(cells[col.qty]));
+      const effect = (cells[col.eff] || "").toUpperCase();
+      const symbol = cells[col.sym] || "";
+      const price = parseNumber(cells[col.px]);
+      if (!Number.isFinite(time) || !Number.isFinite(qty) || !Number.isFinite(price) || !symbol || !side) {
+        notes.push(`Skipped unreadable execution: ${cells.join(",") || "(blank row)"}.`);
+        continue;
+      }
+      orders.push({ timeStr, time, side, qty, effect, symbol, price });
+    }
+    // File is newest-first: reverse it so that same-minute fills keep their true order, then stable-sort by time.
+    return { orders: orders.reverse().sort((a, b) => a.time - b.time), notes };
+  }
+
+  // Fallback: older statements may only carry the order history. It has limit prices
+  // but no price at all for market orders, so those rows are reported, not matched.
+  const orderStart = findSection(lines, "Account Order History");
+  if (orderStart >= 0) {
+    const title = "Account Order History";
+    const { header, rows } = readSection(lines, orderStart, title);
+    const col = {
+      t: readColumn(header, ["Time Placed"], title),
+      side: readColumn(header, ["Side"], title),
+      qty: readColumn(header, ["Qty"], title),
+      eff: readColumn(header, ["Pos Effect"], title),
+      sym: readColumn(header, ["Symbol"], title),
+      px: readColumn(header, ["PRICE", "Price"], title),
+      status: readColumn(header, ["Status"], title)
+    };
+    const orders = [];
+    for (const cells of rows) {
+      if (!(cells[col.status] || "").toUpperCase().includes("FILLED")) continue;
+      const timeStr = cells[col.t] || "";
+      if (!timeStr) continue; // continuation rows have no time
+      const time = parseTime(timeStr);
+      const side = (cells[col.side] || "").toUpperCase();
+      const qty = Math.abs(parseNumber(cells[col.qty]));
+      const effect = (cells[col.eff] || "").toUpperCase();
+      const symbol = cells[col.sym] || "";
+      const price = parseNumber(cells[col.px]);
+      if (!Number.isFinite(time) || !Number.isFinite(qty) || !symbol || !side) {
+        notes.push(`Skipped unreadable order: ${cells.join(",") || "(blank row)"}.`);
+        continue;
+      }
+      if (!Number.isFinite(price)) {
+        notes.push(`No fill price in order history: ${side} ${qty} ${symbol} (${timeStr}).`);
+        continue;
+      }
+      orders.push({ timeStr, time, side, qty, effect, symbol, price });
+    }
+    return { orders: orders.reverse().sort((a, b) => a.time - b.time), notes };
+  }
+
+  throw new Error('No "Account Trade History" or "Account Order History" block found in this file.');
+}
+
+const round = (n, d) => Math.round(n * 10 ** d) / 10 ** d;
+
+function buildTrades(text) {
+  const parsed = readAccountTrades(text);
+  const orders = parsed.orders;
+  const rows = [], notes = parsed.notes.slice(), lots = {};
+  for (const o of orders) {
+    if (EXCLUDED_SYMBOLS.includes(o.symbol)) { notes.push(`Excluded ${o.symbol} order: ${o.side} ${o.qty} @ ${o.price} (${o.timeStr}).`); continue; }
+    if (o.side === "SELL" && o.effect === "TO OPEN") { notes.push(`Skipped short-style order: ${o.symbol} SELL ${o.qty} @ ${o.price} (${o.timeStr}).`); continue; }
+    const q = (lots[o.symbol] = lots[o.symbol] || []);
+    if (o.side === "BUY") { q.push({ qty: o.qty, price: o.price, timeStr: o.timeStr, time: o.time }); continue; }
+    let left = o.qty;
+    while (left > 1e-9 && q.length) {
+      const lot = q[0], m = Math.min(left, lot.qty);
+      rows.push({
+        Symbol: o.symbol, Qty: m,
+        EntryTime: lot.timeStr, EntryPrice: lot.price,
+        ExitTime: o.timeStr, ExitPrice: o.price,
+        HoldMinutes: Math.round((o.time - lot.time) / 60000),
+        PnL: round((o.price - lot.price) * m, 4),
+        PnLPct: round((o.price / lot.price - 1) * 100, 2),
+        Direction: "Long"
+      });
+      lot.qty -= m; left -= m;
+      if (lot.qty <= 1e-9) q.shift();
+    }
+    if (left > 1e-9) notes.push(`Sell with no matching buy: ${o.symbol} ${left} @ ${o.price} (${o.timeStr}).`);
+  }
+  for (const [sym, q] of Object.entries(lots))
+    for (const lot of q) notes.push(`Still open: ${sym} ${lot.qty} bought @ ${lot.price} (${lot.timeStr}).`);
+  return { rows, notes };
+}
+
+function toCsv(rows) {
+  return [OUT_COLS.join(",")].concat(rows.map(r => OUT_COLS.map(c => r[c]).join(","))).join("\r\n") + "\r\n";
+}
+
+/* ---------- Page wiring ---------- */
+
+let csvOut = "", fileName = "trades";
+const $ = id => document.getElementById(id);
+
+function render({ rows, notes }) {
+  csvOut = toCsv(rows);
+  $("count").textContent = `${rows.length} matched trades`;
+  $("download").disabled = $("copy").disabled = rows.length === 0;
+  $("notes").innerHTML = "";
+  notes.forEach(n => { const li = document.createElement("li"); li.textContent = n; $("notes").appendChild(li); });
+  const head = "<tr>" + OUT_COLS.map(c => `<th>${c}</th>`).join("") + "</tr>";
+  const body = rows.map(r => "<tr>" + OUT_COLS.map(c => {
+    const neg = (c === "PnL" || c === "PnLPct") && r[c] < 0 ? ' class="neg"' : "";
+    return `<td${neg}>${r[c]}</td>`;
+  }).join("") + "</tr>").join("");
+  $("tbl").innerHTML = head + body;
+}
+
+function handleFile(f) {
+  if (!f) return;
+  fileName = f.name.replace(/\.csv$/i, "") + "-matched";
+  const reader = new FileReader();
+  reader.onload = () => {
+    try { render(buildTrades(reader.result)); }
+    catch (e) { $("notes").innerHTML = ""; const li = document.createElement("li"); li.textContent = e.message; $("notes").appendChild(li); }
+  };
+  reader.readAsText(f);
+}
+
+if (typeof document !== "undefined" && $("drop")) {
+  const drop = $("drop"), input = $("file");
+  drop.addEventListener("click", () => input.click());
+  drop.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+  input.addEventListener("change", () => handleFile(input.files[0]));
+  drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); handleFile(e.dataTransfer.files[0]); });
+  $("download").addEventListener("click", () => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csvOut], { type: "text/csv" }));
+    a.download = fileName + ".csv"; a.click(); URL.revokeObjectURL(a.href);
+  });
+  $("copy").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(csvOut); $("copy").textContent = "Copied"; setTimeout(() => $("copy").textContent = "Copy CSV", 1500); }
+    catch { $("copy").textContent = "Copy failed"; }
+  });
+}
+</script>
+</body>
+</html>

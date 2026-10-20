@@ -184,6 +184,7 @@ class TradeJournalApp {
     this.importGroupCheck= $('tj-import-group-session');
     this.importGroupNote = $('tj-import-group-note');
     this.importMatcherBtn= $('tj-import-matcher');
+    this.importStatementMatcherBtn = $('tj-import-statement-matcher');
 
     // Draft dialog (offline write-up helper)
     this.draftOverlay    = $('tj-draft-overlay');
@@ -219,7 +220,7 @@ class TradeJournalApp {
   _initTheme() {
     const saved = localStorage.getItem('stockwatchlist_theme') || 'dark';
     document.documentElement.setAttribute('data-theme', saved);
-    if (this.btnTheme) this.btnTheme.textContent = saved === 'dark' ? '☀️' : '🌙';
+    if (this.btnTheme) this.btnTheme.textContent = saved === 'dark' ? '☀️' : '��';
   }
 
   _toggleTheme() {
@@ -227,7 +228,7 @@ class TradeJournalApp {
     const next = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('stockwatchlist_theme', next);
-    if (this.btnTheme) this.btnTheme.textContent = next === 'dark' ? '☀️' : '🌙';
+    if (this.btnTheme) this.btnTheme.textContent = next === 'dark' ? '☀️' : '��';
   }
 
   // ---- Populate selects / datalists from the shared vocabulary ----
@@ -445,7 +446,7 @@ class TradeJournalApp {
     this.editorFullscreen.addEventListener('click', () => {
       const isFs = this.editorOverlay.classList.toggle('fullscreen');
       this.editorFullscreen.title = isFs ? 'Exit full screen' : 'Full screen';
-      this.editorFullscreen.textContent = isFs ? '🗗' : '⛶';
+      this.editorFullscreen.textContent = isFs ? '��' : '⛶';
     });
     this.editorOverlay.addEventListener('click', (e) => {
       if (e.target === this.editorOverlay) this.closeEditor();
@@ -570,7 +571,7 @@ class TradeJournalApp {
       this.cloudBadge.className = 'tj-badge tj-badge-ok';
       this.cloudBadge.title = 'Entries are stored in Firestore (journal_entries)';
     } else {
-      this.cloudBadge.textContent = '💾 Local only';
+      this.cloudBadge.textContent = '�� Local only';
       this.cloudBadge.className = 'tj-badge tj-badge-warn';
       this.cloudBadge.title = 'Firestore unreachable — entries are saved to this browser only';
     }
@@ -933,7 +934,7 @@ class TradeJournalApp {
     this._updateSaveStatus('');
   }
 
-  // ---- "＋ New" / "📥 Import" in the editor head ---------------------------
+  // ---- "＋ New" / "�� Import" in the editor head ---------------------------
   // The overlay covers the whole page, so the header's "+ New entry" and
   // "Import" buttons are out of reach the moment a form is open. These two
   // start a second entry (or an import) from inside the form; unsaved work is
@@ -1138,7 +1139,7 @@ class TradeJournalApp {
     this.sourceReviewBody.innerHTML = '<div class="tj-muted">Loading linked review…</div>';
     if (this.linkBadge) {
       this.linkBadge.style.display = 'inline-block';
-      this.linkBadge.textContent = '🔗 Linked review';
+      this.linkBadge.textContent = '�� Linked review';
     }
 
     try {
@@ -1300,7 +1301,7 @@ class TradeJournalApp {
 
   // Delete keeps its own name so the two call sites stay readable
   _confirmDelete(htmlMessage) {
-    return this._confirm(htmlMessage, { okLabel: '🗑️ Delete', danger: true });
+    return this._confirm(htmlMessage, { okLabel: '��️ Delete', danger: true });
   }
 
   _resolveConfirm(result) {
@@ -1372,7 +1373,7 @@ class TradeJournalApp {
     if (banner) {
       banner.style.display = 'block';
       banner.innerHTML =
-        `<span>📥 Prefilled${prefill.source ? ' from ' + JournalText.esc(prefill.source) : ''} — ` +
+        `<span>�� Prefilled${prefill.source ? ' from ' + JournalText.esc(prefill.source) : ''} — ` +
         `check the fields before saving.</span>` +
         `<button type="button" class="tj-banner-close" id="tj-prefill-dismiss" title="Dismiss">&times;</button>`;
       const dismiss = document.getElementById('tj-prefill-dismiss');
@@ -1606,7 +1607,7 @@ class TradeJournalApp {
   _adviceBadge(status) {
     const map = {
       'applied':           { cls: 'tj-badge tj-badge-ok',    label: '✅ Applied' },
-      'partially-applied': { cls: 'tj-badge tj-badge-warn',  label: '🟡 Partial' },
+      'partially-applied': { cls: 'tj-badge tj-badge-warn',  label: '�� Partial' },
       'not-applied':       { cls: 'tj-badge tj-badge-bad',   label: '❌ Not applied' },
       'n/a':               { cls: 'tj-badge',                label: 'n/a' },
       'not-reviewed':      { cls: 'tj-badge tj-badge-muted', label: '— Not reviewed' }
@@ -1667,7 +1668,7 @@ class TradeJournalApp {
           `spreadsheet columns, the numbers behind the trade, and an optional annotated deep dive.</div>` +
           `<div class="tj-empty-actions">` +
           `<button type="button" class="btn btn-primary" id="tj-empty-new">+ Add your first entry</button>` +
-          `<button type="button" class="btn btn-secondary" id="tj-empty-import">📥 Import a CSV</button>` +
+          `<button type="button" class="btn btn-secondary" id="tj-empty-import">�� Import a CSV</button>` +
           `<button type="button" class="btn btn-secondary" id="tj-empty-sample">See an example entry</button>` +
           `</div>`;
         const newBtn = document.getElementById('tj-empty-new');
@@ -1766,7 +1767,7 @@ class TradeJournalApp {
         case 'actions':
           return `<td class="tj-actions">` +
             `<button type="button" class="tj-icon-btn" data-edit="${JournalText.esc(entry.id)}" title="Edit">✏️</button>` +
-            `<button type="button" class="tj-icon-btn" data-del="${JournalText.esc(entry.id)}" title="Delete">🗑️</button>` +
+            `<button type="button" class="tj-icon-btn" data-del="${JournalText.esc(entry.id)}" title="Delete">��️</button>` +
             `</td>`;
 
         default: {
@@ -1917,7 +1918,7 @@ class TradeJournalApp {
           if (group.stored) return `<td class="tj-actions"></td>`;
           return `<td class="tj-actions">` +
             `<button type="button" class="tj-icon-btn" data-stamp-group="${esc(group.key)}" ` +
-            `title="Store one group id on all ${group.count} rows, so this session survives an edit to the ticker or the date">🔗</button>` +
+            `title="Store one group id on all ${group.count} rows, so this session survives an edit to the ticker or the date">��</button>` +
             `</td>`;
 
         default:
@@ -1999,7 +2000,7 @@ class TradeJournalApp {
     this.sessionStrip.style.display = 'flex';
 
     if (this.groupSessionBtn) {
-      this.groupSessionBtn.textContent = solo ? '↩ Join the session' : '🔗 Store the group id';
+      this.groupSessionBtn.textContent = solo ? '↩ Join the session' : '�� Store the group id';
       this.groupSessionBtn.title = solo
         ? 'Drop the split: this row joins its ticker and date again'
         : 'Write one group id onto this row and every stored row on this ticker and date, so the session no longer depends on both fields staying put';
@@ -2018,7 +2019,7 @@ class TradeJournalApp {
       : JournalCSV.newGroupId();
   }
 
-  // "🔗 Store the group id" — and "↩ Join the session" once the row is split out.
+  // "�� Store the group id" — and "↩ Join the session" once the row is split out.
   // Joining is local (dropping the id is enough, the row groups by ticker+date
   // again). Storing writes ONE new id onto this row and onto every stored row
   // that shares its ticker and date: that back-fill is the only thing in the app
@@ -2086,7 +2087,7 @@ class TradeJournalApp {
       : 'Split out — this row saves on its own');
   }
 
-  // "🔗" on a session row in the table — the same job as the strip's button, for
+  // "��" on a session row in the table — the same job as the strip's button, for
   // a session the reader picked out of the list instead of opening a leg in the
   // editor.
   async _stampSession(autoKey) {
@@ -2103,7 +2104,7 @@ class TradeJournalApp {
       `Store one group id on the <b>${legs.length}</b> rows of ` +
       `<b>${JournalText.esc(session.replace('@', ' · '))}</b>?<br>` +
       `The session then keeps holding together even if the ticker or the date of a row is edited later.`,
-      { okLabel: '🔗 Group them', danger: false }
+      { okLabel: '�� Group them', danger: false }
     );
     if (!ok) return;
 
@@ -2405,7 +2406,7 @@ class TradeJournalApp {
         <div class="tj-cat-item-side">
           ${this._adviceBadge(e.mentor ? e.mentor.status : null)}
           <span class="tj-num">${pnl}</span>
-          <button type="button" class="tj-icon-btn" data-toggle-advice="${JournalText.esc(e.id)}" title="Cycle advice status">🔄</button>
+          <button type="button" class="tj-icon-btn" data-toggle-advice="${JournalText.esc(e.id)}" title="Cycle advice status">��</button>
           <button type="button" class="tj-icon-btn" data-edit="${JournalText.esc(e.id)}" title="Edit">✏️</button>
         </div>
       </div>`;
@@ -2461,7 +2462,7 @@ class TradeJournalApp {
 
     const statusIcon = {
       'applied': '✅',
-      'partially-applied': '🟡',
+      'partially-applied': '��',
       'not-applied': '❌',
       'not-reviewed': '⏳',
       'n/a': '–'
@@ -2469,7 +2470,7 @@ class TradeJournalApp {
 
     const head = `<div class="tj-advice-count tj-muted">
       ${list.length} distinct ${list.length === 1 ? 'point' : 'points'} of advice
-      ${list.some(g => g.count > 1) ? ' — 🔁 marks advice that keeps repeating' : ''}
+      ${list.some(g => g.count > 1) ? ' — �� marks advice that keeps repeating' : ''}
     </div>`;
 
     const rows = list.map(g => {
@@ -2485,7 +2486,7 @@ class TradeJournalApp {
       return `<div class="tj-advice-row${g.count > 1 ? ' repeated' : ''}">
         <div class="tj-advice-text">${JournalText.esc(g.text)}</div>
         <div class="tj-advice-meta">
-          ${g.count > 1 ? `<span class="tj-badge tj-badge-warn" title="Given in ${g.count} entries">🔁 ×${g.count}</span>` : ''}
+          ${g.count > 1 ? `<span class="tj-badge tj-badge-warn" title="Given in ${g.count} entries">�� ×${g.count}</span>` : ''}
           ${sourceBadges}
           ${statusBadges}
         </div>
@@ -2558,13 +2559,21 @@ class TradeJournalApp {
       if (file) this._readImportFile(file);
     });
 
-    // A broker export arrives as a list of FILLS, not journal rows. The converter
-    // in trade-matcher.html does the first-in, first-out matching and writes the
-    // CSV this dialog reads. It opens in its own tab so the paste box here — and
-    // anything already read into it — survives the trip.
+    // A broker export arrives as a list of FILLS, not journal rows. Either
+    // converter does the first-in, first-out matching and writes the CSV this
+    // dialog reads: trade-matcher.html for thinkorswim, and
+    // account-statement-matcher.html for a Schwab statement. They open in their
+    // own tabs so the paste box here — and anything already read into it —
+    // survives the trip.
     if (this.importMatcherBtn) {
       this.importMatcherBtn.addEventListener('click', () => {
         window.open('trade-matcher.html', '_blank');
+      });
+    }
+    // account-statement-matcher.html converts a Schwab Account Statement to the same CSV.
+    if (this.importStatementMatcherBtn) {
+      this.importStatementMatcherBtn.addEventListener('click', () => {
+        window.open('account-statement-matcher.html', '_blank');
       });
     }
 
@@ -2779,7 +2788,7 @@ class TradeJournalApp {
       'Import <b>' + n + '</b> ' + (n === 1 ? 'entry' : 'entries') + ' into the journal?<br>' +
       'Each row becomes its own entry, with the P&amp;L, the duration and the R-multiple computed from its own numbers.' +
       groupNote,
-      { okLabel: '📥 Import ' + n, danger: false }
+      { okLabel: '�� Import ' + n, danger: false }
     );
     if (!ok) return;
 

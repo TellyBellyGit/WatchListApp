@@ -101,6 +101,15 @@ check('the import dialog offers the broker converter', idsInHtml.has('tj-import-
 check('the converter page ships with the app', fs.existsSync(path.join(ROOT, 'trade-matcher.html')));
 check('the converter opens in its own tab',
   /importMatcherBtn[\s\S]{0,240}window\.open\('trade-matcher\.html', '_blank'\)/.test(js));
+check('the import dialog offers the account statement converter',
+  idsInHtml.has('tj-import-statement-matcher'));
+check('the account statement converter page ships with the app',
+  fs.existsSync(path.join(ROOT, 'account-statement-matcher.html')));
+check('the account statement converter opens in its own tab',
+  /importStatementMatcherBtn[\s\S]{0,240}window\.open\('account-statement-matcher\.html', '_blank'\)/.test(js));
+check('the broker links name the file they expect',
+  /🔀 Open Trade Matcher \(TradeActivity\)/.test(html) &&
+  /🔀 Open Trade Matcher \(Account Summary\)/.test(html));
 check('the draft dialog has exactly two tabs',
   (html.match(/data-draft-tab="/g) || []).length === 2);
 
@@ -113,6 +122,7 @@ check('scripts load in dependency order',
 check('the new scripts are cache-busted',
   /journal-csv\.js\?v=/.test(html) && /journal-draft\.js\?v=/.test(html) && /journal\.js\?v=/.test(html));
 check('utils.js is cache-busted too', /utils\.js\?v=/.test(html));
+check('the stylesheet is cache-busted too', /style\.css\?v=/.test(html));
 
 // ---- Styles exist for the new classes ----
 ['tj-timing', 'tj-cell-sub', 'tj-dialog-overlay', 'tj-dialog', 'tj-drop', 'tj-warn-list',
