@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VPA / VSA Pocket Guide</title>
+<style>
+:root{
+ --bg:#0b1020;--panel:#131c31;--panel2:#182641;--ink:#edf3ff;--muted:#a8b6d3;
+ --line:#2c3b5c;--cyan:#48d9e8;--green:#49dfa0;--red:#ff7189;--amber:#ffc766;
+ --purple:#b5a0ff;--blue:#7fb5ff;--pink:#ff9ed4;
+}
+*{box-sizing:border-box} body{margin:0;background:radial-gradient(ellipse at 12% 0%,#1d3155 0,transparent 38%),radial-gradient(ellipse at 95% 18%,#34234e 0,transparent 30%),var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+button,select{font:inherit} button{cursor:pointer}
+.shell{max-width:1180px;margin:auto;padding:22px}
+header{padding:18px 0 24px}.eyebrow{text-transform:uppercase;letter-spacing:.16em;color:var(--cyan);font-weight:800;font-size:.76rem}
+h1{font-size:clamp(2rem,5vw,3.6rem);line-height:1.05;margin:.45rem 0 .7rem;letter-spacing:-.04em}
+header p{max-width:760px;color:var(--muted);font-size:1.05rem;margin:0}
+.hero-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}.chip{border:1px solid #3b5279;background:#172642;color:#dceaff;padding:6px 10px;border-radius:999px;font-size:.8rem}
+.nav{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 22px;position:sticky;top:0;z-index:5;padding:10px 0;background:linear-gradient(180deg,var(--bg) 75%,transparent)}
+.nav button{border:1px solid var(--line);background:#121b2e;color:var(--muted);padding:10px 14px;border-radius:12px;font-weight:750}
+.nav button.active{background:linear-gradient(135deg,#2a9aa8,#6a5cd1);color:white;border-color:transparent;box-shadow:0 6px 22px #287b9b33}
+.panel{background:linear-gradient(145deg,#17243b,#111a2d);border:1px solid var(--line);border-radius:20px;padding:clamp(16px,3vw,26px);box-shadow:0 16px 42px #0002;margin-bottom:18px}
+h2{font-size:1.55rem;line-height:1.2;margin:0 0 8px}h3{margin:0 0 7px;font-size:1.08rem}p{margin:.45rem 0 .8rem}.muted{color:var(--muted)}.small{font-size:.87rem}.section-intro{max-width:820px;color:var(--muted);margin-bottom:18px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.card{border:1px solid var(--line);background:#111a2c;border-radius:16px;padding:16px;min-width:0}
+.card.tint-cyan{border-top:3px solid var(--cyan)}.card.tint-green{border-top:3px solid var(--green)}.card.tint-red{border-top:3px solid var(--red)}.card.tint-amber{border-top:3px solid var(--amber)}.card.tint-purple{border-top:3px solid var(--purple)}
+.kicker{font-size:.72rem;font-weight:850;text-transform:uppercase;letter-spacing:.1em;color:var(--cyan);margin-bottom:5px}
+.callout{padding:12px 14px;border-radius:12px;background:#1a2a45;border-left:3px solid var(--cyan);margin:12px 0}
+.callout.warn{border-color:var(--amber);background:#332a1c}.callout.good{border-color:var(--green);background:#15352f}.callout.bad{border-color:var(--red);background:#38212d}
+.pill{display:inline-block;border-radius:8px;padding:3px 8px;font-size:.78rem;font-weight:800;margin:2px 3px 2px 0}.pill.green{color:#a8ffdb;background:#143b32}.pill.red{color:#ffb1c0;background:#452331}.pill.amber{color:#ffe0a0;background:#45351e}.pill.blue{color:#b9d7ff;background:#1b3456}.pill.purple{color:#d6cbff;background:#30284f}
+select{background:#0d1526;color:var(--ink);border:1px solid #405477;border-radius:10px;padding:10px;width:100%}
+label{display:block;color:var(--muted);font-size:.82rem;font-weight:750;margin-bottom:6px}
+.fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.candlebox{background:linear-gradient(180deg,#0c1628,#101e34);border:1px solid #2a4162;border-radius:16px;padding:10px;min-height:220px;display:flex;align-items:center;justify-content:center}
+svg.chart{width:100%;max-width:340px;height:210px}.bull{fill:var(--green);stroke:var(--green)}.bear{fill:var(--red);stroke:var(--red)}.neutral{fill:var(--amber);stroke:var(--amber)}.wick{stroke-width:2.5;stroke-linecap:round}
+.vol{opacity:.85}.volume-label{font-size:10px;fill:#9fb1d1}
+.detail-list{padding-left:19px;margin:7px 0}.detail-list li{margin:5px 0}
+.topic-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.topic{width:100%;text-align:left;background:#111a2c;color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:13px 14px;display:flex;justify-content:space-between;gap:12px;align-items:center}
+.topic:hover,.topic.selected{border-color:var(--cyan);background:#172b45}.topic strong{display:block}.topic span{color:var(--muted);font-size:.82rem}
+.topic-detail{margin-top:14px}.topic-detail h3{font-size:1.3rem}
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:16px 0}.step{padding:12px;border-radius:12px;background:#111a2c;border:1px solid var(--line)}.step b{display:block;color:var(--cyan);font-size:.78rem;letter-spacing:.06em}.step span{font-weight:800}
+.case-nav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.case-nav button{background:#111a2c;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:8px 11px}.case-nav button.active{background:#28436a;color:white;border-color:var(--blue)}
+.case-candles{display:flex;gap:8px;align-items:end;justify-content:center;min-height:190px;background:#0d1729;border-radius:14px;border:1px solid var(--line);padding:14px;overflow:hidden}
+.mini{width:42px;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:end;height:150px}.mini .stick{position:absolute;width:2px;background:var(--green)}.mini .body{position:absolute;width:20px;border-radius:2px;background:var(--green)}.mini.red .stick,.mini.red .body{background:var(--red)}.mini small{position:absolute;bottom:-20px;color:var(--muted);font-size:.68rem}
+footer{color:#8395b7;font-size:.8rem;text-align:center;padding:18px}
+.hidden{display:none!important}
+@media(max-width:760px){.shell{padding:14px}.grid,.grid3,.fields,.topic-list{grid-template-columns:1fr}.steps{grid-template-columns:repeat(2,minmax(0,1fr))}.nav{position:static}.candlebox{min-height:190px}.case-candles{min-height:165px}.mini{width:30px}.mini .body{width:15px}}
+
+.opts{display:grid;gap:8px;margin:8px 0 14px}.opt,.go,.tool{background:#111a2c;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-align:left}
+.opt:hover:not(:disabled){border-color:var(--cyan)}.opt:disabled{cursor:default}.opt.sel{border-color:var(--blue);background:#28436a}.opt.right{border-color:var(--green);background:#15352f}.opt.wrong{border-color:var(--red);background:#38212d}.opt.sel,.opt.right,.opt.wrong{color:var(--ink)}
+.go{background:linear-gradient(135deg,#2a9aa8,#6a5cd1);border:0;font-weight:750;margin:8px 8px 8px 0}.tool{padding:8px 11px;margin:0 8px 8px 0;font-size:.85rem}
+.bar{height:8px;background:#0d1526;border-radius:6px;overflow:hidden;margin:4px 0 10px}.bar i{display:block;height:100%;background:var(--green)}
+#gq,.fld{width:100%;background:#0d1526;color:var(--ink);border:1px solid #405477;border-radius:10px;padding:10px;font:inherit;margin-bottom:10px}textarea.fld{min-height:56px}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.candlebox{overflow-x:auto}
+@media(max-width:760px){.two{grid-template-columns:1fr}}
+@media print{.nav,.hero-chips,button,footer{display:none!important}body{background:#fff!important;color:#000!important}.panel,.card{background:#fff!important;color:#000!important;box-shadow:none!important;border-color:#999!important}.muted,.small{color:#333!important}}
+body.pq .tab:not(#quick){display:none!important}body.pq #quick{display:block!important}
+</style>
+</head>
+<body>
+<div class="shell">
+<header>
+ <div class="eyebrow">A visual learning tool · Price + Volume</div>
+ <h1>VPA <span style="color:var(--cyan)">/</span> VSA<br><span style="background:linear-gradient(90deg,var(--green),var(--cyan),var(--purple));background-clip:text;color:transparent">Pocket Guide</span></h1>
+ <p>Read the effort. Judge the result. Check the location. Then look for evidence that confirms or contradicts your idea. A candle is a clue, not a verdict.</p>
+ <div class="hero-chips"><span class="chip">Illustrated candle library</span><span class="chip">Effort vs result</span><span class="chip">Market structure</span><span class="chip">Liquidity & order book</span><span class="chip">Worked sequences</span></div>
+</header>
+<nav class="nav" aria-label="Guide sections">
+ <button class="active" data-tab="candle">Candle reader</button><button data-tab="principles">Core principles</button><button data-tab="structure">Structure & liquidity</button><button data-tab="cases">Worked examples</button><button data-tab="quick">Quick reference</button>
+<button data-tab="practice">Practice</button><button data-tab="micro">Micro-cap</button><button data-tab="review">Review</button><button data-tab="mycases">My cases</button></nav>
+
+<section id="candle" class="tab">
+ <div class="panel">
+  <h2>1. Read the candle in context</h2>
+  <p class="section-intro">Choose a candle, relative volume and where it appears. The interpretation changes with context: the same shape can mean different things at support, resistance or in the middle of a range.</p>
+  <div class="fields">
+   <div><label for="candleType">Candle shape</label><select id="candleType"><option value="doji">Doji / narrow body</option><option value="hammer">Hammer / long lower wick</option><option value="shooting">Shooting star / long upper wick</option><option value="widegreen">Wide green candle</option><option value="widered">Wide red candle</option><option value="smallgreen">Small green candle</option><option value="smallred">Small red candle</option><option value="bothwick">Long wicks both sides</option></select></div>
+   <div><label for="volume">Relative volume</label><select id="volume"><option value="high">High</option><option value="normal">Normal</option><option value="low">Low</option><option value="ultra">Ultra-high / climactic</option></select></div>
+   <div><label for="location">Market location</label><select id="location"><option value="support">At support / after a decline</option><option value="resistance">At resistance / after a rise</option><option value="pullback">Pullback in an uptrend</option><option value="breakout">At a breakout level</option><option value="middle">Middle of a range / unclear</option></select></div>
+  </div>
+  <div class="grid" style="margin-top:16px">
+   <div class="candlebox" id="candleDrawing" aria-label="Illustrated candle and volume"></div>
+   <div class="card tint-cyan" id="interpretation" aria-live="polite"></div>
+  </div>
+ </div>
+ <div class="grid">
+  <div class="card tint-green"><div class="kicker">Remember</div><h3>Effort vs result</h3><p>Volume is the effort. Spread, direction and closing position show the result. Ask whether that amount of activity produced a proportionate price move.</p></div>
+  <div class="card tint-amber"><div class="kicker">Avoid this shortcut</div><h3>High volume ≠ buying</h3><p>Every completed trade has both a buyer and a seller. Volume alone does not identify who initiated the trade, who is accumulating, or who is distributing.</p></div>
+ </div>
+</section>
+
+<section id="principles" class="tab hidden">
+ <div class="panel"><h2>2. Core VPA / VSA principles</h2><p class="section-intro">These are interpretive frameworks, not mechanical buy/sell signals. Select a principle to see the observation, possible explanation, context and evidence that would change the reading.</p>
+ <div class="topic-list" id="principleList"></div><div class="card topic-detail" id="principleDetail"></div></div>
+ <div class="callout warn"><strong>Terminology note:</strong> Traditional <em>No Supply</em> generally means a narrow-spread down candle on low volume; traditional <em>No Demand</em> generally means a narrow-spread up candle on low volume. A low-volume, wide-spread surge is better described separately as a thin-liquidity move or “air pocket.”</div>
+</section>
+
+<section id="structure" class="tab hidden">
+ <div class="panel"><h2>3. Structure, liquidity and the order book</h2><p class="section-intro">Candles tell you what traded prices did. They do not show the whole mechanism behind every move. Use each lens for what it can actually tell you.</p>
+ <div class="grid">
+  <div class="card tint-blue"><div class="kicker">Market structure</div><h3>Where is price in the bigger picture?</h3><ul class="detail-list"><li><b>Higher highs and higher lows:</b> an advancing structure, while those swing points hold.</li><li><b>Support / resistance:</b> areas where price previously turned or paused; not guaranteed walls.</li><li><b>Breakout:</b> price moves beyond a meaningful boundary. A close beyond it is useful evidence, not a guarantee.</li><li><b>Retest:</b> price revisits the boundary. Holding it supports the breakout thesis; losing it weakens that thesis.</li><li><b>Location matters:</b> a bullish candle into nearby resistance has less room than the same candle breaking into open space.</li></ul></div>
+  <div class="card tint-purple"><div class="kicker">Order book</div><h3>Displayed bids, asks and spread</h3><ul class="detail-list"><li><b>Bid:</b> displayed buying interest; <b>ask:</b> displayed selling interest.</li><li><b>Spread:</b> the gap between best bid and ask. A wide spread increases friction and uncertainty.</li><li><b>Depth:</b> displayed size at price levels. A thin book can allow price to jump on relatively modest orders.</li><li><b>Market impact:</b> an order may move price if nearby liquidity is limited.</li><li><b>Limit:</b> displayed orders can be cancelled or changed; the book is not a promise that liquidity will remain.</li></ul></div>
+  <div class="card tint-amber"><div class="kicker">Absorption</div><h3>Heavy activity, little progress</h3><p>If price repeatedly trades at a level with high volume but barely advances, aggressive orders may be meeting opposing liquidity. If the level holds and price turns, that is consistent with absorption.</p><p class="muted small">But OHLCV alone cannot prove absorption, identify hidden orders or tell you which participant is responsible. Repeated executions and order-book/tape evidence can add detail.</p></div>
+  <div class="card tint-red"><div class="kicker">False breakouts & “traps”</div><h3>When a breakout cannot hold</h3><ol class="detail-list"><li>Price moves above a visible high or resistance.</li><li>Buyers enter, but price fails to sustain the higher level.</li><li>Price falls back below the boundary.</li><li>A failed reclaim or renewed selling strengthens the failed-breakout reading.</li></ol><p>Some breakout buyers may be trapped and sell as price weakens. But a failed breakout does not prove that a market maker deliberately engineered a trap.</p></div>
+  <div class="card tint-green"><div class="kicker">Institutional activity</div><h3>What can the chart really tell us?</h3><p>Accumulation or distribution are possible explanations for certain sequences, not facts revealed by a candle. Look for repeated behaviour: effort, progress, level response, and follow-through across multiple bars.</p><p>Large volume can reflect institutions, retail activity, news, hedging or many participants trading with each other. Do not assign an identity without evidence.</p></div>
+  <div class="card tint-cyan"><div class="kicker">Micro-cap caution</div><h3>Thin liquidity changes the picture</h3><p>A wide green candle on low volume can travel quickly because offers are sparse, not because broad demand is powerful. A wide red candle on low volume can fall because bids are thin.</p><p>Check spread, volume relative to recent bars, nearby levels and whether price holds when trading activity returns.</p></div>
+ </div></div>
+ <div class="panel"><h2>The four-question routine</h2><div class="steps"><div class="step"><b>01 · OBSERVE</b><span>What is price doing?</span><p class="small muted">Breakout, pullback, rejection, range?</p></div><div class="step"><b>02 · INTERPRET</b><span>Effort vs result?</span><p class="small muted">Volume, spread, close, wicks.</p></div><div class="step"><b>03 · FILTER</b><span>Where is it?</span><p class="small muted">Trend, structure, key level, background.</p></div><div class="step"><b>04 · CONFIRM</b><span>What changes my mind?</span><p class="small muted">Follow-through or invalidation.</p></div></div></div>
+</section>
+
+<section id="cases" class="tab hidden">
+ <div class="panel"><h2>4. Worked multi-candle examples</h2><p class="section-intro">The aim is not to predict every candle. It is to build a hypothesis from a sequence, then check whether later price action supports it.</p>
+ <div class="case-nav" id="caseNav"></div>
+ <div class="grid"><div class="case-candles" id="caseDrawing"></div><div class="card tint-cyan" id="caseText"></div></div>
+ </div>
+</section>
+
+<section id="quick" class="tab hidden">
+ <div class="panel"><h2>5. Quick reference: classic VPA / VSA ideas</h2><p class="section-intro">A compact reminder of common concepts. The interpretation always depends on trend, location, preceding action and follow-through.</p>
+ <div class="grid">
+  <div class="card tint-green"><h3>Harmony / validation</h3><p>Wide spread and increased volume in the direction of movement can indicate that effort is producing a meaningful result.</p><span class="pill green">Potential strength</span><p class="small muted">Stronger at a valid breakout or in trend; weaker if immediately rejected.</p></div>
+  <div class="card tint-amber"><h3>Divergence / anomaly</h3><p>High volume but little price progress suggests effort is meeting opposition or the market is pausing.</p><span class="pill amber">Investigate</span><p class="small muted">Could be absorption, two-way trade or temporary balance; it is not automatically a reversal.</p></div>
+  <div class="card tint-green"><h3>No Supply · traditional</h3><p>A down candle with narrow spread and low volume, especially during an uptrend or pullback.</p><span class="pill green">Potentially supportive</span><p class="small muted">Suggests limited selling effort. A subsequent bullish response improves the case.</p></div>
+  <div class="card tint-red"><h3>No Demand · traditional</h3><p>An up candle with narrow spread and low volume, especially in a downtrend or near resistance.</p><span class="pill red">Potential weakness</span><p class="small muted">Suggests limited buying effort. It is more meaningful when the background is weak.</p></div>
+  <div class="card tint-green"><h3>Stopping volume</h3><p>Very high volume near the end of a decline, sometimes with a lower wick or reduced downward progress.</p><span class="pill green">Possible selling climax</span><p class="small muted">Potential buyers may be absorbing selling, but the low must hold and recovery needs follow-through.</p></div>
+  <div class="card tint-amber"><h3>Climactic buying / blow-off</h3><p>Very high volume after an extended rise, especially with rejection or poor progress.</p><span class="pill amber">Exhaustion risk</span><p class="small muted">Late demand may be meeting supply. Wait for weakness to confirm rather than assuming the top.</p></div>
+  <div class="card tint-red"><h3>Upthrust</h3><p>Price pushes above a prior high but fails and closes back down, often with a prominent upper wick.</p><span class="pill red">Potential weakness</span><p class="small muted">A failed breakout becomes more persuasive if price cannot reclaim the level.</p></div>
+  <div class="card tint-green"><h3>Spring</h3><p>Price briefly breaks below a trading range or support, then quickly recovers back into the range.</p><span class="pill green">Potential strength</span><p class="small muted">A sustained recovery is important. A clean breakdown that continues lower is not a spring.</p></div>
+  <div class="card tint-cyan"><h3>Test / low-volume retest</h3><p>Price revisits a prior low or breakout area on reduced volume and a narrow spread.</p><span class="pill blue">Possible lack of opposition</span><p class="small muted">A successful test is followed by a positive response; low volume alone is not enough.</p></div>
+  <div class="card tint-purple"><h3>Churn</h3><p>High volume but relatively limited price progress, sometimes after a substantial move.</p><span class="pill purple">Two-way activity</span><p class="small muted">May reflect absorption or balance. Location and subsequent direction help distinguish possibilities.</p></div>
+  <div class="card tint-amber"><h3>Air pocket · practical term</h3><p>A wide-spread move on low volume, up or down, where thin opposing liquidity may let price travel easily.</p><span class="pill amber">Liquidity-vulnerable</span><p class="small muted">Do not confuse this with traditional No Supply or No Demand.</p></div>
+  <div class="card tint-cyan"><h3>Follow-through</h3><p>The response after an initial signal: continuation, hold, reclaim, rejection or failure.</p><span class="pill blue">Evidence check</span><p class="small muted">Follow-through does not guarantee success; it helps test the initial interpretation.</p></div>
+ </div></div>
+ <div class="panel"><h2>Before treating a pattern as meaningful</h2><ul class="detail-list"><li>What happened before this candle?</li><li>What did volume accomplish relative to the spread and close?</li><li>Is price at a meaningful level or in random mid-range space?</li><li>Does the wider trend and structure support the interpretation?</li><li>What price action would invalidate the idea?</li><li>Is there a separate entry trigger and a clearly defined risk?</li></ul><div class="callout good"><strong>Core mental model:</strong> Price shows the movement. Volume shows activity. VPA compares effort with result. Context tells you whether it matters. Price action provides the trigger.</div></div>
+</section>
+
+<section id="practice" class="tab hidden"><div class="panel"><h2>6. Practice</h2><p class="section-intro">Commit to a reading before you see what happened. Scores are stored in this browser only. Keys 1 to 3 pick an option; left and right arrows change section.</p>
+<div class="case-nav" id="pbar"><button class="active" data-sub="s">Predict, then reveal</button><button data-sub="q">Quiz</button><button data-sub="f">Spot the flaw</button><button data-sub="c">Contrast pairs</button></div>
+<div id="p-s"><div class="case-nav" id="slist"></div><div id="shost"></div></div><div id="p-q" class="hidden"></div><div id="p-f" class="hidden"></div><div id="p-c" class="hidden"></div></div></section>
+
+<section id="micro" class="tab hidden"><div class="panel"><h2>7. Micro-cap and low-float cautions</h2><p class="section-intro">Classic VSA was developed on deeper markets. On thin names the same bars can mean less, and a good "no" or "wait" is a valid answer.</p>
+<div class="grid"><div class="card tint-amber"><h3>Wide and quiet</h3><p>A wide green bar on near-average volume may have moved through a few offers. Strength is unproven until price holds as activity returns.</p></div>
+<div class="card tint-amber"><h3>Spread is part of the signal</h3><p>A wide bid-ask spread raises the cost of being wrong and can make candle closes less meaningful. Check it before trusting a bar.</p></div>
+<div class="card tint-amber"><h3>Volume arrives in bursts</h3><p>Relative volume against the last few bars can mislead when one bar dominates. Compare against a longer average and the opening burst.</p></div>
+<div class="card tint-amber"><h3>Rules that weaken</h3><p>No Supply and No Demand need enough participation to mean anything. On very thin stocks a low-volume bar may simply be no one trading.</p></div></div></div>
+<div class="panel"><h3>Intraday practice sequences (constructed)</h3><div class="case-nav" id="mlist"></div><div id="mhost"></div></div></section>
+
+<section id="review" class="tab hidden"><div class="panel"><h2>8. Review</h2><div id="dash"></div>
+<div class="case-nav"><button class="tool" id="bMiss">Practise missed items</button><button class="tool" id="bExp">Export progress</button><label class="tool">Import<input type="file" id="fImp" accept=".json" hidden></label><button class="tool" id="bPrint">Print cheat sheet</button><button class="tool" id="bReset">Reset progress</button></div><div id="missHost"></div></div>
+<div class="panel"><h2>Glossary: definition and common misuse</h2><input id="gq" type="text" placeholder="Search terms" aria-label="Search glossary"><div id="gl"></div></div></section>
+
+<section id="mycases" class="tab hidden"><div class="panel"><h2>9. My cases</h2><p class="section-intro">Log a chart or trade and run the four-question routine on it. Outcomes feed the Review scores. Data stays in this browser; images are shrunk before saving.</p><div id="cform"></div></div><div id="clist"></div></section>
+<footer>Educational reference only · Interpretations are hypotheses, not guarantees or proof of participant intent.</footer>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const candleInfo={
+ doji:{name:"Doji / narrow body",type:"neutral",top:48,bottom:143,bodyTop:94,bodyH:5,wickTop:32,wickBottom:160,meaning:"A lot of two-way trading may have produced little net progress.",detail:"The candle alone does not reveal who won. It records an open and close near each other, with price travelling beyond them during the period.",confirm:"At resistance after a strong rise, watch whether price fails to advance and then breaks a nearby low. At support, a held low and recovery may support the opposite reading.",invalidate:"A strong continuation through the doji's high or low can show that the pause resolved decisively."},
+ hammer:{name:"Hammer / long lower wick",type:"bull",top:65,bottom:155,bodyTop:65,bodyH:19,wickTop:45,wickBottom:184,meaning:"Lower prices were explored, but price recovered before the candle closed.",detail:"That recovery can indicate rejection of lower prices. It does not prove that buyers have taken control: the candle may simply be a pause or a temporary bounce.",confirm:"More interesting at support, after a decline, or on a pullback that keeps the broader uptrend intact. Look for the low to hold and price to reclaim a nearby level.",invalidate:"A break below the hammer low, especially with expanding red spread and volume, weakens the bullish interpretation."},
+ shooting:{name:"Shooting star / long upper wick",type:"bear",top:43,bottom:126,bodyTop:109,bodyH:18,wickTop:23,wickBottom:145,meaning:"Price traded higher but could not hold the high by the close.",detail:"Higher prices met enough selling, reduced buying, or both to pull price back. The candle does not tell us which participants were responsible.",confirm:"More significant near resistance or after an extended advance. A break below the candle low or failed attempt to reclaim the high strengthens the warning.",invalidate:"A strong move through the shooting star high suggests the rejection did not persist."},
+ widegreen:{name:"Wide green candle",type:"bull",top:73,bottom:138,bodyTop:73,bodyH:65,wickTop:61,wickBottom:151,meaning:"Price made substantial upward progress during the bar.",detail:"If volume is elevated, effort and result may be in harmony. If volume is low, the move may have travelled through thin offers rather than broad, durable demand.",confirm:"A breakout above a meaningful level that holds, followed by an orderly lower-volume pullback and renewed buying, is more convincing than one isolated candle.",invalidate:"Immediate rejection back below the breakout level, particularly on strong selling, weakens the continuation case."},
+ widered:{name:"Wide red candle",type:"bear",top:62,bottom:145,bodyTop:62,bodyH:83,wickTop:51,wickBottom:158,meaning:"Price made substantial downward progress during the bar.",detail:"High volume can show heavy activity but does not by itself identify sellers as institutions. A low-volume wide red candle may instead reflect sparse bids and a liquidity gap.",confirm:"Continuation below support, failed recovery and further downward progress support the weakness reading.",invalidate:"A rapid reclaim of the broken level and a held higher low suggest the flush may have failed."},
+ smallgreen:{name:"Small green candle",type:"bull",top:70,bottom:116,bodyTop:86,bodyH:12,wickTop:60,wickBottom:130,meaning:"Price closed higher, but the net progress was limited.",detail:"With low volume, this can fit traditional No Demand when it is an up candle with a narrow spread and appears in a weak background or near resistance.",confirm:"Repeated weak attempts to rise near resistance, followed by a downside break, support a lack-of-demand interpretation.",invalidate:"A strong next advance with expanding spread and volume suggests demand arrived."},
+ smallred:{name:"Small red candle",type:"bear",top:73,bottom:121,bodyTop:80,bodyH:12,wickTop:60,wickBottom:133,meaning:"Price closed lower, but downward progress was limited.",detail:"With low volume and a narrow spread, this can fit traditional No Supply, particularly during a pullback in an uptrend.",confirm:"A held support area and a bullish response suggest selling pressure may be limited.",invalidate:"A break below support on expanding red spread and volume shows sellers are still making progress."},
+ bothwick:{name:"Long wicks both sides",type:"neutral",top:47,bottom:136,bodyTop:84,bodyH:16,wickTop:22,wickBottom:160,meaning:"Price moved substantially in both directions but ended near the middle.",detail:"This can reflect two-way trade, volatility or uncertainty. High volume means substantial activity occurred; it does not say which side will win next.",confirm:"Use the range boundaries: a sustained break and hold outside the candle range can show which side gained control.",invalidate:"Repeated reversals within the same range mean there is not yet a clear directional resolution."}
+};
+function drawing(type,vol){
+ const c=candleInfo[type], cls=c.type==="bull"?"bull":c.type==="bear"?"bear":"neutral";
+ const volH=vol==="low"?18:vol==="normal"?38:vol==="high"?62:84;
+ const candle=`<line x1="112" y1="${c.wickTop}" x2="112" y2="${c.wickBottom}" class="${cls} wick"/><rect x="96" y="${c.bodyTop}" width="32" height="${Math.max(5,c.bodyH)}" rx="2" class="${cls}"/>`;
+ let bars=[22,28,20,34,26,32,volH]; const colors=["#405574","#405574","#405574","#405574","#405574","#405574",vol==="low"?"#ffc766":vol==="ultra"?"#ff7189":"#48d9e8"];
+ let vb=bars.map((h,i)=>`<rect x="${23+i*23}" y="${196-h*(i===6?1:.65)}" width="13" height="${h*(i===6?1:.65)}" rx="2" fill="${colors[i]}" class="vol"/>`).join("");
+ return `<svg class="chart" viewBox="0 0 220 220" role="img" aria-label="${c.name} candle and relative volume"><g stroke="#263854" stroke-dasharray="3 5"><line x1="12" y1="55" x2="208" y2="55"/><line x1="12" y1="100" x2="208" y2="100"/><line x1="12" y1="145" x2="208" y2="145"/></g>${candle}<line x1="14" y1="173" x2="206" y2="173" stroke="#344866"/><text x="14" y="187" class="volume-label">RELATIVE VOLUME</text>${vb}</svg>`;
+}
+function renderCandle(){
+ const type=$("#candleType").value, vol=$("#volume").value, loc=$("#location").value, c=candleInfo[type];
+ $("#candleDrawing").innerHTML=drawing(type,vol);
+ const locationNames={support:"support / after a decline",resistance:"resistance / after a rise",pullback:"a pullback in an uptrend",breakout:"a breakout level",middle:"the middle of a range or unclear structure"};
+ let locationNote={
+ support:"At support, ask whether sellers can keep making progress. A long lower wick or narrow red candle becomes more interesting if the level holds and price recovers.",
+ resistance:"At resistance, ask whether buyers can keep making progress. Upper wicks, narrow up candles or heavy activity with little advance may warn that supply is meeting demand.",
+ pullback:"In an uptrend pullback, contracting red spreads and lower volume can suggest limited counter-trend pressure. A wide red candle on rising volume is a different message.",
+ breakout:"At a breakout, check whether price can hold beyond the boundary. Volume, spread and close matter, but the hold or failure after the break is crucial.",
+ middle:"Away from a meaningful level, the candle may have little decision value. Avoid inventing a story from a shape without a useful location."
+ }[loc];
+ let vnote=vol==="low"?"Low volume means less activity relative to the comparison period; it can indicate little interest, or simply a thin market.":vol==="normal"?"Normal volume gives no special volume clue on its own; focus on spread, close and context.":vol==="high"?"High volume means elevated activity. Compare that effort with the price progress achieved.":"Ultra-high volume is unusual effort. It may mark climax, absorption or intense two-way trading; the result and location decide how to read it.";
+ $("#interpretation").innerHTML=`<div class="kicker">Selected reading</div><h2>${c.name}</h2><p><span class="pill ${c.type==="bull"?"green":c.type==="bear"?"red":"amber"}">${c.type==="bull"?"Potential rejection of lower prices":c.type==="bear"?"Potential rejection of higher prices":"Two-way activity / indecision"}</span></p><h3>What is observable?</h3><p>${c.meaning}</p><h3>What might explain it?</h3><p>${c.detail}</p><h3>Volume clue</h3><p>${vnote}</p><h3>Why location matters</h3><p>${locationNote}</p><div class="callout good"><strong>Evidence that strengthens the reading</strong><br>${c.confirm}</div><div class="callout bad"><strong>Evidence that weakens it</strong><br>${c.invalidate}</div><p class="muted small">Interpretation is a hypothesis. It does not identify the trader or guarantee the next move.</p>`;
+}
+["candleType","volume","location"].forEach(id=>$("#"+id).addEventListener("change",renderCandle));
+const principles=[
+ {name:"Harmony / validation",sub:"Effort produces a proportionate result",color:"green",obs:"Volume rises and the candle makes meaningful progress in the same direction, often with a relatively wide spread and a close near the extreme.",why:"The effort appears to be producing a result rather than being completely absorbed. This can support continuation, especially when price breaks a meaningful level.",context:"A breakout from a well-defined base is more informative than a wide candle running straight into major resistance.",confirm:"Price holds the breakout or retest and continues to make progress without an immediate heavy rejection.",fail:"Price returns into the range, or high volume produces no further progress and the level fails."},
+ {name:"Divergence / anomaly",sub:"High effort, little progress",color:"amber",obs:"Volume is high but spread is narrow, the close is poor, or repeated effort fails to move price through a level.",why:"Opposing orders may be absorbing aggressive trading; alternatively, the market may simply be balanced or temporarily congested.",context:"At resistance after a rally, stalled upward progress is a warning. At support after a decline, stalled downward progress can have a different implication.",confirm:"A subsequent break away from the level, supported by spread and volume, reveals which side gained ground.",fail:"Price resumes its original direction and the apparent stall proves temporary."},
+ {name:"No Supply · traditional",sub:"Narrow down candle + low volume",color:"green",obs:"A down candle has a narrow spread and lower volume than surrounding bars.",why:"The decline is occurring with relatively little selling activity. Supply may be drying up, but low volume can also mean little participation overall.",context:"Most useful as a candidate during an uptrend pullback or near support, not as a standalone signal in a damaged downtrend.",confirm:"The low holds and a following candle moves upward with better spread or volume.",fail:"Price breaks the low with expanding selling effort and continues lower."},
+ {name:"No Demand · traditional",sub:"Narrow up candle + low volume",color:"red",obs:"An up candle has a narrow spread and lower volume than surrounding bars.",why:"The upward attempt is making little progress on limited activity; demand may be weak.",context:"More relevant in a downtrend, near resistance or after a weak rally. In a healthy uptrend, low volume on a pause may be less concerning.",confirm:"Price fails to advance and then breaks a nearby low or shows renewed selling pressure.",fail:"Buyers return, spread expands upward and price holds above resistance."},
+ {name:"Stopping volume",sub:"Heavy activity after a decline",color:"green",obs:"Very high volume appears near a low, sometimes with a lower wick or less downward progress than expected.",why:"Selling may be meeting enough buying interest to slow the decline. This is a possible stopping action, not proof of institutional accumulation.",context:"Look for a prior decline and a meaningful support area. High volume in the middle of a range is less specific.",confirm:"Price holds the low, recovers a nearby level and subsequent pullbacks show less selling pressure.",fail:"Price breaks the low and continues down with strong spreads; the selling was not stopped."},
+ {name:"Climactic buying",sub:"Exceptional effort after an extended rise",color:"amber",obs:"Very high volume follows a sustained advance; price may make a wide upward spread but close off the high or stall.",why:"Late aggressive buying may be meeting substantial supply. The activity can mark exhaustion, but it can also accompany a genuine news-driven breakout.",context:"The preceding run-up matters. A high-volume candle early in a fresh breakout is not automatically a climax.",confirm:"Price fails to make progress, breaks a short-term low or shows a failed attempt to reclaim the high.",fail:"Price consolidates above the breakout, pullbacks are orderly and buyers continue to make progress."},
+ {name:"Upthrust / failed breakout",sub:"Above a prior high, then back below",color:"red",obs:"Price trades above a prior high or range boundary but closes back below it, often leaving an upper wick.",why:"The higher price was not sustained. Breakout buyers may be trapped if the market continues lower; intent to trap them is not established.",context:"A clearly visible prior high or resistance gives the move meaning. Random upper wicks without a level are less useful.",confirm:"Price cannot reclaim the boundary and then breaks a nearby swing low with selling pressure.",fail:"Price quickly reclaims the boundary, holds above it and continues higher."},
+ {name:"Spring / downside false break",sub:"Below a range low, then recovery",color:"green",obs:"Price briefly breaks below a trading range or support, then returns into the range.",why:"The breakdown failed to sustain. Selling may have been absorbed, or the break may have run into a pocket of demand.",context:"Needs a clearly defined range low and a meaningful recovery. A breakdown that remains below support is not a spring.",confirm:"Price holds back inside the range, forms a higher low or breaks a nearby internal high.",fail:"Price falls back below the range low and continues down."},
+ {name:"Test / low-volume retest",sub:"Revisit a level with reduced effort",color:"cyan",obs:"Price revisits a prior low, support or breakout level with a narrower spread and lower volume.",why:"There may be less opposing interest on the revisit. It is a test candidate, not a confirmation by itself.",context:"A low-volume pullback within a healthy uptrend can be constructive. A low-volume drift in a weak stock with no support may not be.",confirm:"The level holds and buyers produce a clear upward response.",fail:"Price breaks the tested level with expanding spread and volume."},
+ {name:"Churn / absorption candidate",sub:"High volume, limited movement",color:"purple",obs:"Heavy volume occurs without much net progress, often around a key level or after an extended move.",why:"Aggressive trading may be meeting replenished opposing liquidity, or buyers and sellers may simply be balanced.",context:"Near a low, stalled selling may be supportive if price recovers. Near a high, stalled buying may be a warning if price falls away.",confirm:"Price breaks away from the level and holds the move; tape/order-book evidence may add support to an absorption hypothesis.",fail:"Price continues through the level and the earlier stall does not lead to a lasting response."}
+];
+let activePrinciple=0;
+function renderPrinciples(){
+ $("#principleList").innerHTML=principles.map((p,i)=>`<button class="topic ${i===activePrinciple?"selected":""}" data-pr="${i}"><div><strong>${p.name}</strong><span>${p.sub}</span></div><span style="color:var(--${p.color==="cyan"?"cyan":p.color})">↗</span></button>`).join("");
+ document.querySelectorAll("[data-pr]").forEach(b=>b.addEventListener("click",()=>{activePrinciple=+b.dataset.pr;renderPrinciples()}));
+ const p=principles[activePrinciple];
+ $("#principleDetail").innerHTML=`<div class="kicker">Core principle ${activePrinciple+1} of ${principles.length}</div><h3>${p.name}</h3><div class="grid"><div><h3>What do you observe?</h3><p>${p.obs}</p><h3>Possible explanation</h3><p>${p.why}</p></div><div><h3>Context</h3><p>${p.context}</p><div class="callout good"><b>What strengthens the idea?</b><br>${p.confirm}</div><div class="callout bad"><b>What weakens it?</b><br>${p.fail}</div></div></div>`;
+}
+const cases=[
+ {name:"Pullback with light selling",labels:["Prior rise","Small red","Small red","Green response","Continuation"],types:["g","r","r","g","g"],title:"A pullback that may be running out of selling pressure",summary:"The stock is already in an uptrend. The pullback candles become smaller and volume contracts, then price responds upward.",read:"The observation is lower prices with reduced effort and limited downward progress. This can fit a test or possible No Supply, provided the candles meet the traditional definition and the context remains constructive.",good:"The pullback holds a meaningful level, the low remains intact, and buyers return with a better spread. A later higher high supports the continuation hypothesis.",bad:"A wide red candle appears on rising volume, support breaks, or price cannot recover the level. The original bullish idea is weakened.",lesson:"A good pullback is not merely red candles: judge the size of the decline, the effort behind it, the level being tested and the response afterward."},
+ {name:"Breakout that fails",labels:["Range","Breakout","Rejection","Back inside","Failed reclaim"],types:["r","g","r","r","r"],title:"A breakout can attract buyers and still fail",summary:"Price moves above a visible range high, but the advance is rejected and price returns into the range.",read:"The initial breakout is only an attempt. The return below the boundary says the higher price was not sustained. Buyers who entered above the level may now be under pressure.",good:"Price stays below the old range high, a reclaim attempt fails, and selling pushes through a nearby swing low.",bad:"Price quickly recovers the boundary and holds above it. That weakens the failed-breakout interpretation.",lesson:"Do not call every breakout a trap. Wait for failure of the level and evidence that the market cannot reclaim it."},
+ {name:"High volume, little progress",labels:["Advance","High volume","Small body","Rejection","Resolution"],types:["g","g","r","r","r"],title:"Effort without progress deserves investigation",summary:"After a rise, volume becomes unusually high but candles stop making upward progress and begin to reject higher prices.",read:"High activity is producing little additional upside. Supply may be meeting demand, but the chart cannot prove who is trading or why.",good:"Price loses a nearby support or swing low, and the next recovery attempt is weak. This gives the stall a bearish resolution.",bad:"Price consolidates above the level and then breaks higher with strong progress. The heavy activity may have supported continuation.",lesson:"High volume is not automatically bullish or bearish. Ask what it accomplished and whether the next sequence resolves the uncertainty."},
+ {name:"Thin-liquidity air pocket",labels:["Quiet","Wide green","Pause","Supply appears","Pullback"],types:["g","g","g","r","r"],title:"A fast rise can be caused by a thin book",summary:"Price surges upward on relatively low volume, then struggles when trading activity increases near resistance.",read:"The wide spread is real, but low volume means the move may have travelled through sparse offers. It does not necessarily prove broad, persistent demand.",good:"If price holds the breakout when more activity arrives, the move gains credibility.",bad:"If the surge is retraced as soon as offers return, the initial move was vulnerable and may have been a liquidity air pocket.",lesson:"In thin micro-caps, speed and strength are not the same thing. Check spread, volume, level and the reaction when liquidity returns."}
+];
+let activeCase=0;
+function renderCases(){
+ $("#caseNav").innerHTML=cases.map((c,i)=>`<button class="${i===activeCase?"active":""}" data-case="${i}">${i+1}. ${c.name}</button>`).join("");
+ document.querySelectorAll("[data-case]").forEach(b=>b.addEventListener("click",()=>{activeCase=+b.dataset.case;renderCases()}));
+ const c=cases[activeCase];
+ const heights=[55,70,88,105,125];
+ $("#caseDrawing").innerHTML=c.types.map((t,i)=>{let h=heights[i],red=t==="r";return `<div class="mini ${red?"red":""}"><span class="stick" style="height:${h+20}px;bottom:${35+(i%2)*5}px"></span><span class="body" style="height:${h}px;bottom:${45+(i%2)*5}px"></span><small>${i+1}</small></div>`}).join("");
+ $("#caseText").innerHTML=`<div class="kicker">Case study ${activeCase+1} of ${cases.length}</div><h2>${c.title}</h2><p>${c.summary}</p><h3>VPA reading</h3><p>${c.read}</p><div class="callout good"><b>Evidence that supports the idea</b><br>${c.good}</div><div class="callout bad"><b>Evidence that contradicts it</b><br>${c.bad}</div><div class="callout"><b>Takeaway</b><br>${c.lesson}</div><p class="muted small">Illustrative sequence, not historical market data or a trade signal.</p>`;
+}
+document.querySelectorAll("[data-tab]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("active",x===b));document.querySelectorAll(".tab").forEach(s=>s.classList.toggle("hidden",s.id!==b.dataset.tab));window.scrollTo({top:0,behavior:"smooth"})}));
+renderCandle();renderPrinciples();renderCases();
+</script>
+<script>
+(function(){
+const $$=s=>document.querySelector(s),esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let P={};try{P=JSON.parse(localStorage.getItem("vpa1")||"{}")}catch(e){}
+P.t=P.t||{};P.i=P.i||{};P.c=P.c||[];
+const save=()=>{try{localStorage.setItem("vpa1",JSON.stringify(P));return 1}catch(e){return 0}};
+const rec=(g,e,m,id)=>{const t=P.t[g]=P.t[g]||[0,0];t[0]+=e;t[1]+=m;if(id)P.i[id]=e>=m?1:0;save()};
+const TN={spring:"Spring",upthrust:"Upthrust",nosupply:"No Supply / pullback",absorb:"Absorption and effort vs result",thin:"Thin liquidity",vwap:"Pullback at a level",volume:"Volume is not buyers",inst:"Institutional claims",trap:"Failed breakouts",ctx:"Context",climax:"Climax",test:"Testable hypotheses"};
+
+function build(b,p){let o=p;return b.map(([d,u,w,v])=>{const c=o+d,r={o,c,h:Math.max(o,c)+u,l:Math.min(o,c)-w,v};o=c;return r})}
+function chart(bars,p0,n,lvl){const B=build(bars,p0),W=Math.max(300,B.length*44+40),a=B.flatMap(x=>[x.h,x.l]).concat(lvl?[lvl]:[]),mx=Math.max(...a),mn=Math.min(...a),pd=(mx-mn)*.06,y=p=>8+(mx+pd-p)/(mx-mn+2*pd)*160,vm=Math.max(...B.map(x=>x.v)),av=B.slice(0,n).reduce((s,x)=>s+x.v,0)/n;
+let s=`<svg class="chart" viewBox="0 0 ${W} 240" style="max-width:${W}px;height:auto" role="img" aria-label="Candle chart with volume bars">`;
+if(lvl)s+=`<line x1="0" x2="${W}" y1="${y(lvl)}" y2="${y(lvl)}" stroke="var(--amber)" stroke-dasharray="5 4"/><text x="4" y="${y(lvl)-4}" class="volume-label" style="fill:var(--amber)">${lvl.toFixed(2)}</text>`;
+B.slice(0,n).forEach((x,i)=>{const k=x.c>=x.o?"bull":"bear",cx=30+i*44,h=x.v/vm*44;
+s+=`<line class="wick ${k}" x1="${cx}" x2="${cx}" y1="${y(x.h)}" y2="${y(x.l)}"/><rect class="${k}" x="${cx-9}" y="${y(Math.max(x.o,x.c))}" width="18" height="${Math.max(2,Math.abs(y(x.o)-y(x.c)))}" rx="2"/><rect class="vol ${k}" x="${cx-9}" y="${228-h}" width="18" height="${h}"/><text x="${cx}" y="239" text-anchor="middle" class="volume-label">${i+1}</text>`});
+const ay=228-av/vm*44;return s+`<line x1="0" x2="${W}" y1="${ay}" y2="${ay}" stroke="var(--muted)" stroke-dasharray="2 3"/></svg>`}
+const cap=`<p class="muted small">Lower bars: volume. Dotted line: average volume of the bars shown. Constructed example, not market data or a signal.</p>`;
+
+/* ---------- predict then reveal ---------- */
+const S=[
+{t:"Break below support, then recovery",g:"spring",p:50,lvl:48,d:7,ctx:"A stock has been drifting inside a range for several bars. Support is marked at 48.",
+bars:[[-.5,.3,.3,12],[-.6,.2,.3,14],[.4,.4,.3,10],[-.7,.2,.3,15],[.3,.3,.4,9],[-.2,.2,.3,8],[.2,.2,1,24],[.5,.3,.2,11],[.4,.3,.2,9],[.9,.2,.1,18],[.5,.2,.1,13],[-.3,.3,.2,7]],
+h:[["Price broke support but closed back above it on higher volume: a possible spring. It is a hypothesis until later bars respond.",1,"Right: the low went under support and the close rejected it. One bar can only suggest absorption."],["Support has failed; expect more downside.",0,"The bar closed back above 48, so the break was not accepted. Reading only the low ignores the close."],["Accumulation is confirmed; buy with full size.",0,"A single bar cannot confirm anything, and size should follow a defined risk, not a feeling."],["No view yet; wait for the next bar.",.5,"Reasonable, but the bar already gives a testable idea. Waiting is fine only if you can say what you are waiting for."]],
+i:[["A close below the spring low (about 47.7).",1,"Right: losing the rejected low means the rejection failed."],["Any red candle.",0,"Red candles occur constantly inside ranges; this is not a meaningful test."],["A close below 48 that is not reclaimed quickly.",.5,"Useful, but weaker: price can close just under 48 and still hold the spring low."]],
+o:"Bars 8 to 10 reclaimed the level with better spread and rising volume, and the pullback in bar 12 came on light volume. That supports the hypothesis. Bars 1 to 7 alone could not prove it."},
+{t:"Push above a prior high that fails",g:"upthrust",p:49,lvl:52,d:7,ctx:"Price has risen steadily toward a prior high near 52.",
+bars:[[.8,.2,.2,10],[.7,.2,.2,11],[-.3,.3,.2,7],[.9,.2,.2,12],[.6,.2,.2,11],[-.2,.3,.2,8],[-.3,1.3,.2,26],[-.6,.2,.2,15],[.3,.6,.1,8],[-.8,.2,.2,17],[-.7,.2,.2,16],[.2,.2,.2,8]],
+h:[["A push above 52 on high volume that closed back down: a possible upthrust. Weakness is only confirmed if price cannot reclaim the high.",1,"Right: effort was high, the result was rejection, and the close sits below the level."],["Breakout above 52; buy for continuation.",0,"The high went above 52 but the close did not. A breakout needs acceptance, not just a wick."],["A climactic top is confirmed; short immediately.",0,"Calling a top from one bar is a verdict, not a hypothesis. Wait for evidence."],["Unclear; stand aside until price shows a reaction.",.5,"Acceptable caution, though the rejection already tilts the evidence."]],
+i:[["A close above the rejection bar high (about 52.8).",1,"Right: acceptance above the bar that failed would cancel the failure."],["Any green candle.",0,"Green bars occur inside every pullback; they do not test the idea."],["A close above 52 that holds.",.5,"Reasonable, but price can close above 52 and still be below the failed bar high."]],
+o:"Bar 9 tried to recover on low volume and stayed below 52, then bars 10 and 11 fell on rising volume. The failed reclaim strengthened the weakness reading. If bar 9 had closed above 52.8 the idea would have been dead."},
+{t:"Quiet pullback after a strong rise",g:"nosupply",p:46,lvl:49,d:7,ctx:"A rise ends and price pulls back toward the earlier breakout level near 49.",
+bars:[[1.2,.2,.1,14],[1,.2,.1,15],[1.1,.2,.1,16],[1,.2,.1,18],[-.5,.2,.2,8],[-.4,.1,.2,6],[-.2,.2,.3,4],[.4,.1,.3,9],[.8,.2,.1,16],[.9,.2,.1,17],[.5,.2,.1,12],[-.3,.2,.2,6]],
+h:[["Small down bars on shrinking volume near the prior breakout: a possible No Supply or orderly test. It needs a buyer response.",1,"Right: effort is falling and progress downward is small. It still needs follow-through."],["The uptrend is over; sellers have taken control.",0,"Falling volume on the decline is the opposite of heavy selling effort."],["Low volume means no risk; buy now.",0,"Low volume is not confirmation. The level and the response still matter."],["Wait for a clear response bar before forming a view.",.5,"Fair, as long as you define what a response looks like."]],
+i:[["A wide red bar closing below 49 on rising volume.",1,"Right: wide spread, rising effort and a lost level would contradict the test."],["Any further red bar.",0,"Pullbacks contain red bars by definition."],["A day of lower volume.",0,"Lower volume is part of the original idea, not a contradiction."]],
+o:"Bar 8 responded from just under 49, then bars 9 and 10 advanced with expanding volume. That is the response the hypothesis needed. Had bar 8 been wide and red on volume, the reading would have flipped."},
+{t:"Heavy volume, little progress",g:"absorb",p:60,lvl:63,d:6,ctx:"After a steady rise, price reaches a visible high near 63.",
+bars:[[.8,.2,.1,10],[.9,.2,.1,11],[.8,.2,.1,12],[.3,.4,.2,24],[.1,.4,.3,26],[.05,.3,.3,25],[-.2,.2,.2,14],[.9,.2,.1,20],[.8,.2,.1,18],[.4,.2,.1,11],[-.3,.2,.2,7],[.5,.2,.1,12]],
+h:[["Effort has doubled but progress has stalled. Investigate: it could resolve either way, and there is no verdict yet.",1,"Right: high effort with little result is a question, not an answer."],["Distribution; short it.",0,"Distribution is one explanation. The chart cannot identify who is selling."],["Accumulation; buy it.",0,"The same bars could precede a breakdown. Identity is not shown."],["Bullish because volume is high.",0,"High volume is neither bullish nor bearish by itself."]],
+i:[["A close above 63 that holds resolves it upward; a close below the range low on rising volume resolves it downward.",1,"Right: you name evidence for both outcomes before it happens."],["More volume.",0,"More volume would deepen the question, not answer it."],["Nothing; just hold the view.",0,"A view with no condition that would change it is not testable."]],
+o:"Price held above the range, then bars 8 and 9 broke 63 with good progress. The heavy activity was absorbed on the way up. It could as easily have failed; the stall alone never told you which."}
+];
+const M=[
+{t:"Wide green bar on thin volume",g:"thin",p:2,lvl:2.5,d:5,ctx:"A micro-cap has traded quietly. Bar 5 jumps about 18 percent on only slightly higher volume.",
+bars:[[.02,.01,.01,3],[-.01,.01,.01,2],[.02,.01,.01,3],[.04,.01,.01,3],[.38,.04,.01,6],[.05,.08,.02,4],[-.06,.1,.02,12],[-.22,.02,.02,15],[-.12,.02,.02,10],[.04,.02,.02,5]],
+h:[["The move travelled through sparse offers. Strength is unproven until price holds as activity returns.",1,"Right: speed is not the same as demand on a thin book."],["A wide green bar means strong demand; chase it.",0,"Volume was barely above average, so broad demand is not shown."],["It is overextended; short it.",0,"Fading a move without evidence of failure is a guess in either direction."],["No view; skip it.",.5,"A legitimate choice on a thin name, though the bar gives you something to test."]],
+i:[["Price gives back the surge (a close near or below 2.07) once volume rises.",1,"Right: the move would be unwound by the first real activity."],["Any red candle.",0,"Too weak and too common to test anything."],["The spread widens.",.5,"Relevant, but it is not a price condition you can act on."]],
+o:"When volume rose in bars 7 and 8, price gave back most of the surge. The first bars of real activity tested the move and it did not hold. The low-volume rise was fragile from the start."},
+{t:"Pullback toward a level on fading volume",g:"vwap",p:3,lvl:3.2,d:6,ctx:"An opening burst took a runner from 3.00 to about 3.50. A pullback follows toward 3.20, a level you are watching.",
+bars:[[.35,.1,.05,20],[.15,.2,.05,16],[-.12,.1,.05,10],[-.1,.05,.05,8],[-.06,.05,.01,5],[.04,.05,.05,4],[.14,.05,.03,9],[.18,.05,.03,11],[.2,.05,.03,12],[-.1,.05,.05,6]],
+h:[["The pullback is on fading volume and holding 3.20. It is constructive while it holds, and needs a response.",1,"Right: shrinking effort into a level you can name is testable."],["The fade has started; short the gap.",0,"Selling effort is shrinking, so the evidence does not support a fade yet."],["Any pullback on a runner is a buy.",0,"Pullbacks fail often on thin names. The level and response decide it."],["Wait and watch.",.5,"Fine, but say what you are watching for."]],
+i:[["A close below 3.20 with volume expanding on the red bar.",1,"Right: a lost level with rising effort contradicts the idea."],["Price touches 3.20.",0,"Touching the level is the test, not the failure."],["Volume stays below the opening bar.",0,"That is already true and is part of the idea."]],
+o:"Bar 7 responded from the level and bars 8 and 9 advanced with volume returning. This one worked, but nothing in bars 1 to 6 guaranteed it; the plan was only to define what would prove it wrong."}
+];
+function seqView(host,s){let n=s.d,a=null,b=null,done=0;
+const ops=(arr,sel,k,l)=>arr.map((o,j)=>{let c="opt";if(sel===j)c+=" sel";if(l){if(o[1]===1)c+=" right";else if(o[1]===0)c+=" wrong";}const e=l?`<div class="small" style="margin-top:6px;font-weight:normal;line-height:1.35">${o[2]}</div>`:"";return `<button class="${c}" data-k="${k}" data-j="${j}"${l?" disabled":""}><strong>${o[0]}</strong>${e}</button>`}).join("");
+const draw=()=>{const lk=a!==null&&b!==null,fin=n>=s.bars.length;let end="";
+if(lk&&fin){const sc=s.h[a][1]+s.i[b][1];if(!done){done=1;rec(s.g,sc,2)}
+end=`<div class="callout ${sc>=1.5?"good":sc>=1?"":"bad"}"><b>Score ${sc}/2</b><br><b>Your hypothesis:</b> ${s.h[a][2]}<br><b>Your invalidation:</b> ${s.i[b][2]}${s.h[a][1]<1?`<br><b>Best reading:</b> ${s.h.find(x=>x[1]===1)[2]}`:""}</div><div class="callout"><b>What happened</b><br>${s.o}</div><button class="go" data-k="r">Try again</button>`}
+else if(lk)end=`<button class="go" data-k="n">Reveal bar ${n+1}</button>`;else end=`<p class="muted small">Choose both to unlock the next bars.</p>`;
+host.innerHTML=`<h3>${s.t}</h3><p class="muted">${s.ctx}</p><div class="candlebox">${chart(s.bars,s.p,n,s.lvl)}</div>${cap}<div class="kicker">Your hypothesis at bar ${s.d}</div><div class="opts">${ops(s.h,a,"h",lk)}</div><div class="kicker">What would change your mind?</div><div class="opts">${ops(s.i,b,"i",lk)}</div>${end}`};
+host.onclick=e=>{const t=e.target.closest("button");if(!t||t.disabled)return;const k=t.dataset.k,j=+t.dataset.j;
+if(k==="h")a=j;else if(k==="i")b=j;else if(k==="n")n++;else if(k==="r"){n=s.d;a=b=null;done=0}draw()};draw()}
+function mount(list,host,arr){let c=0;const go=()=>{list.innerHTML=arr.map((s,i)=>`<button class="${i===c?"active":""}" data-q="${i}">${i+1}. ${s.t}</button>`).join("");seqView(host,arr[c])};
+list.onclick=e=>{const t=e.target.closest("[data-q]");if(t){c=+t.dataset.q;go()}};go()}
+
+/* ---------- quiz and flaw ---------- */
+const Q=[
+{id:"q1",g:"thin",q:"A wide-spread green bar on very low volume rises into resistance. Which description is best?",o:[["It moved through thin offers; durable demand is unproven.",1,"Low effort with a large result means the move may be liquidity-driven."],["Strong institutional buying.",0,"Low volume argues against broad participation, and identity cannot be read from a bar."],["A guaranteed breakout.",0,"Nothing here is guaranteed; the reaction at resistance decides it."]]},
+{id:"q2",g:"nosupply",q:"Which bar best fits the traditional definition of No Supply?",o:[["A narrow-spread down bar on low volume, in an uptrend or pullback.",1,"Little selling effort and little downward progress."],["A wide red bar on very high volume.",0,"That shows heavy selling effort, the opposite."],["A narrow up bar on low volume near resistance.",0,"That is the traditional No Demand."]]},
+{id:"q3",g:"absorb",q:"Price repeatedly meets one level on high volume with little progress. What can OHLCV alone show?",o:[["It fits absorption, but it is not proven; the level response matters.",1,"The bars show effort without result, not who is on each side."],["Institutions are accumulating.",0,"OHLCV cannot assign identity."],["Price must reverse.",0,"It can also break through after the pause."]]},
+{id:"q4",g:"trap",q:"Price closes above a range high, then the next bar closes back inside. Best response?",o:[["Treat the breakout as failing and watch whether the level is reclaimed.",1,"The return inside is evidence that acceptance did not happen."],["Ignore it; one bar is noise.",0,"It is exactly the kind of evidence a hypothesis should be updated on."],["Declare a market-maker trap.",0,"Failure shows buyers could not sustain it, not who caused it."]]},
+{id:"q5",g:"climax",q:"Very high volume after a long rise, with a rejection wick. What is the sound approach?",o:[["Treat it as exhaustion risk and wait for weakness to confirm.",1,"It is a warning, not a verdict."],["Short at once.",0,"Climaxes can be followed by further highs."],["Add to the position; volume proves demand.",0,"High effort with rejection is a poor result for buyers."]]},
+{id:"q6",g:"test",q:"What makes a trading hypothesis testable?",o:[["A defined price or condition that would prove it wrong.",1,"Without it, any outcome can be explained afterwards."],["Strong conviction.",0,"Conviction is not evidence."],["High volume on the signal bar.",0,"Volume is evidence for the reading, not a test of it."]]}
+];
+const F=[
+{id:"f1",g:"volume",q:`"Volume was three times average, so buyers were clearly in control." What is the flaw?`,o:[["Every trade has a buyer and a seller; volume alone does not show who initiated it.",1,"Direction and close are needed, and even then initiator is inferred."],["Nothing; it is correct.",0,"The claim assigns control from volume alone."],["Three times is too low to count.",0,"The size is not the issue; the inference is."]]},
+{id:"f2",g:"inst",q:`"That candle is smart money accumulating." What is the flaw?`,o:[["A candle cannot identify participants; accumulation is only one possible explanation of a sequence.",1,"Large volume can come from many kinds of participants."],["The candle was too small.",0,"Size is not the problem; the identity claim is."],["Accumulation never happens.",0,"It can; it is just not observable from one bar."]]},
+{id:"f3",g:"trap",q:`"The breakout failed, so the market makers engineered a trap." What is the flaw?`,o:[["A failed breakout shows buyers could not sustain it, not that anyone planned it.",1,"Intent is not visible in price data."],["Breakouts cannot fail.",0,"They fail often."],["Market makers do not exist.",0,"The point is the unsupported claim of intent."]]},
+{id:"f4",g:"ctx",q:`"Hammers are bullish, so I buy every hammer." What is the flaw?`,o:[["The same shape means different things by location, volume and follow-through.",1,"A hammer into resistance after a rise is a different situation than one at support."],["Hammers are bearish.",0,"They are not bearish by nature either."],["It is only wrong on daily charts.",0,"The timeframe is not the issue."]]}
+];
+function quiz(host,items,title){let k=0,sc=0;const sh=a=>a.map(x=>[Math.random(),x]).sort((p,q)=>p[0]-q[0]).map(x=>x[1]);
+const show=()=>{if(!items.length){host.innerHTML=`<p class="muted">Nothing to practise yet.</p>`;return}
+if(k>=items.length){host.innerHTML=`<h3>${title}: ${sc} of ${items.length}</h3><button class="go" data-k="a">Restart</button>`;return}
+const q=items[k];q._o=q._o||sh(q.o);host.innerHTML=`<div class="kicker">${title} ${k+1} of ${items.length}</div><h3>${q.q}</h3><div class="opts">${q._o.map((o,j)=>`<button class="opt" data-j="${j}">${o[0]}</button>`).join("")}</div><div id="fb"></div>`};
+host.onclick=e=>{const t=e.target.closest("button");if(!t)return;
+if(t.dataset.k==="a"){k=0;sc=0;items.forEach(q=>delete q._o);show();return}
+if(t.dataset.k==="x"){k++;show();return}
+if(t.dataset.j!==undefined&&!host.querySelector(".done")){const q=items[k],o=q._o[+t.dataset.j],ok=o[1]?1:0;sc+=ok;rec(q.g,ok,1,q.id);
+host.querySelectorAll(".opt").forEach((b,j)=>{b.classList.add(q._o[j][1]?"right":b===t?"wrong":"x");b.disabled=true});
+host.querySelector("#fb").innerHTML=`<div class="callout ${ok?"good":"bad"} done"><b>${ok?"Correct.":"Not quite."}</b> ${o[2]}${ok?"":`<br><b>Better reading:</b> ${q._o.find(x=>x[1])[2]}`}</div><button class="go" data-k="x">${k+1<items.length?"Next":"Finish"}</button>`}};show()}
+
+/* ---------- contrast pairs ---------- */
+const PR=[
+{t:"The same hammer in two places",a:["After a decline, at support",50,[[-.8,.2,.2,12],[-.9,.2,.2,14],[-.7,.2,.2,16],[.2,.1,1,25]],47.5],b:["After a rise, into resistance",44,[[.8,.2,.2,12],[.9,.2,.2,14],[.7,.2,.2,16],[.2,.1,1,25]],46.8],
+ans:"The bar is identical. On the left, rejection of lower prices at a level after a decline can fit a test of support. On the right, the same wick after a rise into resistance may only mean a pause below supply. Location and the next bars decide which, and the right-hand case has less room to run."},
+{t:"The same wide green bar, different volume",a:["High volume through a level",20,[[.1,.1,.1,6],[-.05,.1,.1,5],[.05,.1,.1,6],[.9,.1,.05,22]],20.5],b:["Low volume through a level",20,[[.1,.1,.1,6],[-.05,.1,.1,5],[.05,.1,.1,6],[.9,.1,.05,5]],20.5],
+ans:"Price progress is the same, but effort differs. On the left, effort and result are in harmony and the break has participation behind it. On the right, the move may have passed through sparse offers, so it needs to hold as activity returns before you trust it."}
+];
+function pairs(host){host.innerHTML=PR.map((p,i)=>`<h3>${p.t}</h3><div class="two"><div><b class="small">${p.a[0]}</b><div class="candlebox">${chart(p.a[2],p.a[1],4,p.a[3])}</div></div><div><b class="small">${p.b[0]}</b><div class="candlebox">${chart(p.b[2],p.b[1],4,p.b[3])}</div></div></div><button class="go" data-p="${i}">What changed?</button><div id="pa${i}"></div>`).join("")+cap;
+host.onclick=e=>{const t=e.target.closest("[data-p]");if(t)$$("#pa"+t.dataset.p).innerHTML=`<div class="callout">${PR[t.dataset.p].ans}</div>`}}
+
+/* ---------- worked examples upgrade ---------- */
+const CB=[[[1.2,.2,.1,14],[-.5,.2,.2,8],[-.4,.1,.2,6],[.7,.2,.1,15],[.8,.2,.1,16]],[[-.2,.3,.3,8],[.9,.3,.1,18],[-.8,.4,.2,16],[-.5,.2,.2,14],[-.4,.2,.2,12]],[[.9,.2,.1,12],[.8,.2,.1,25],[-.1,.4,.3,26],[-.5,.2,.2,18],[-.7,.2,.2,17]],[[.05,.05,.05,3],[.7,.05,.02,5],[.1,.1,.05,4],[-.2,.1,.05,12],[-.4,.05,.05,14]]];
+const rc=renderCases;renderCases=function(){rc();const b=CB[activeCase];if(b)$$("#caseDrawing").innerHTML=`<div style="overflow-x:auto;width:100%">${chart(b,50,5,0)}<p class="muted small">${cases[activeCase].labels.map((l,i)=>`${i+1} ${l}`).join(" · ")}</p></div>`};
+
+/* ---------- review ---------- */
+const GL=[["Absorption","Heavy activity meeting opposing orders with little price progress, followed by a level response.","Calling it from one bar, or naming who is absorbing."],["Spring","A brief break below support that is rejected and recovered.","Treating every dip below support as a buy signal."],["Upthrust","A push above a prior high that closes back below and fails to reclaim.","Treating every upper wick as a top."],["No Supply","Narrow-spread down bar on low volume in an uptrend or pullback.","Using it for any quiet red candle."],["No Demand","Narrow-spread up bar on low volume, especially near resistance or in weakness.","Confusing it with a thin-liquidity surge."],["Climax","Very high volume near the end of an extended move, often with rejection.","Assuming it always marks the exact turn."],["Smart money","A label for large participants that a chart cannot identify.","Attributing a candle to institutions."],["Trap","Participants who entered on a move that then failed and may need to exit.","Claiming intent by market makers."]];
+const dash=()=>{const k=Object.keys(P.t).filter(x=>P.t[x][1]);let h=k.length?"":`<p class="muted">No answers yet. Try Practice.</p>`;
+h+=k.map(x=>{const [e,m]=P.t[x],p=Math.round(e/m*100);return `<div><b>${TN[x]||x}</b> <span class="muted small">${p}% over ${m} points</span><div class="bar"><i style="width:${p}%"></i></div></div>`}).join("");
+const w=k.filter(x=>P.t[x][1]>=2).sort((a,b)=>P.t[a][0]/P.t[a][1]-P.t[b][0]/P.t[b][1])[0];if(w)h+=`<div class="callout warn"><b>Practise next:</b> ${TN[w]||w}</div>`;$$("#dash").innerHTML=h};
+const gl=q=>{$$("#gl").innerHTML=GL.filter(g=>(g.join(" ")).toLowerCase().includes(q.toLowerCase())).map(g=>`<div class="card" style="margin-bottom:10px"><h3>${g[0]}</h3><p><b>Definition:</b> ${g[1]}</p><p class="muted"><b>Common misuse:</b> ${g[2]}</p></div>`).join("")||`<p class="muted">No match.</p>`};
+
+/* ---------- my cases ---------- */
+const CF=["Observe: what is price doing?","Interpret: effort vs result?","Filter: location, trend, key level?","Confirm: what would change my mind?"];
+let img="";
+$$("#cform").innerHTML=`<div class="two"><div><label>Symbol</label><input class="fld" id="cs" maxlength="12"></div><div><label>Timeframe</label><select id="ct"><option>1 min</option><option>5 min</option><option>15 min</option><option>Daily</option></select></div></div><label>Main principle</label><select id="cg">${Object.keys(TN).map(k=>`<option value="${k}">${TN[k]}</option>`).join("")}</select><div style="height:10px"></div>${CF.map((f,i)=>`<label>${f}</label><textarea class="fld" id="cq${i}"></textarea>`).join("")}<label>Outcome of my reading</label><select id="co"><option value="ok">Read correctly</option><option value="bad">Misread</option><option value="na">Unclear (not scored)</option></select><div style="height:10px"></div><label>Chart screenshot (optional)</label><input type="file" id="ci" accept="image/*" class="fld"><button class="go" id="cb">Save case</button><span id="cm" class="muted small"></span>`;
+$$("#ci").onchange=e=>{const f=e.target.files[0];if(!f)return;const im=new Image();im.onload=()=>{const k=Math.min(1,520/im.width),c=document.createElement("canvas");c.width=im.width*k;c.height=im.height*k;c.getContext("2d").drawImage(im,0,0,c.width,c.height);img=c.toDataURL("image/jpeg",.6)};im.src=URL.createObjectURL(f)};
+const clist=()=>{$$("#clist").innerHTML=P.c.map((c,i)=>`<div class="panel"><div class="kicker">${esc(c.s)||"No symbol"} · ${esc(c.f)} · ${TN[c.g]||c.g} · ${{ok:"Read correctly",bad:"Misread",na:"Unclear"}[c.o]}</div><p class="muted small">${new Date(c.d).toLocaleDateString()}</p>${c.a.map((t,j)=>t?`<p><b>${CF[j].split(":")[0]}:</b> ${esc(t)}</p>`:"").join("")}${c.m?`<img src="${c.m}" alt="Saved chart" style="max-width:100%;border-radius:10px">`:""}<button class="tool" data-del="${i}">Delete</button></div>`).join("")};
+$$("#cb").onclick=()=>{const c={d:Date.now(),s:$$("#cs").value.trim(),f:$$("#ct").value,g:$$("#cg").value,o:$$("#co").value,a:CF.map((_,i)=>$$("#cq"+i).value.trim()),m:img};
+P.c.unshift(c);if(!save()){P.c.shift();$$("#cm").textContent="Storage is full. Try without the image or delete a case.";return}
+if(c.o!=="na")rec(c.g,c.o==="ok"?1:0,1);$$("#cm").textContent="Saved.";CF.forEach((_,i)=>$$("#cq"+i).value="");$$("#ci").value="";img="";clist()};
+$$("#clist").onclick=e=>{const t=e.target.closest("[data-del]");if(t){P.c.splice(+t.dataset.del,1);save();clist()}};
+
+/* ---------- wiring ---------- */
+$$("#pbar").onclick=e=>{const t=e.target.closest("[data-sub]");if(!t)return;document.querySelectorAll("#pbar button").forEach(b=>b.classList.toggle("active",b===t));["s","q","f","c"].forEach(x=>$$("#p-"+x).classList.toggle("hidden",x!==t.dataset.sub))};
+$$("#bMiss").onclick=()=>quiz($$("#missHost"),[...Q,...F].filter(q=>P.i[q.id]===0),"Missed items");
+$$("#bExp").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(P)],{type:"application/json"}));a.download="vpa-progress.json";a.click()};
+$$("#fImp").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);P={t:d.t||{},i:d.i||{},c:d.c||[]};save();dash();clist()}catch(x){alert("That file could not be read.")}};r.readAsText(f)};
+$$("#bPrint").onclick=()=>{document.body.classList.add("pq");window.print();document.body.classList.remove("pq")};
+$$("#bReset").onclick=()=>{if(confirm("Clear all scores and cases from this browser?")){P={t:{},i:{},c:[]};save();dash();clist();$$("#missHost").innerHTML=""}};
+$$("#gq").oninput=e=>gl(e.target.value);
+document.querySelector('[data-tab="review"]').addEventListener("click",dash);
+document.addEventListener("keydown",e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;const bs=[...document.querySelectorAll(".nav button")],i=bs.findIndex(b=>b.classList.contains("active"));
+if(e.key==="ArrowRight"&&i<bs.length-1)bs[i+1].click();else if(e.key==="ArrowLeft"&&i>0)bs[i-1].click();else if(/^[1-4]$/.test(e.key)){const o=document.querySelectorAll(".tab:not(.hidden) .opt:not(:disabled)")[e.key-1];if(o)o.click()}});
+mount($$("#slist"),$$("#shost"),S);mount($$("#mlist"),$$("#mhost"),M);
+quiz($$("#p-q"),Q,"Question");quiz($$("#p-f"),F,"Flaw");pairs($$("#p-c"));gl("");dash();clist();renderCases();
+})();
+</script>
+</body>
+</html>

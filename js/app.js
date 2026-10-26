@@ -3327,6 +3327,8 @@ const isTemp = (entry.list || 'main') === 'temp';
             window.open('VPA.html', '_blank');
           } else if (action === 'vpa-patterns') {
             window.open('vpa_learning.html', '_blank');
+          } else if (action === 'vpa-pocket-guide') {
+            window.open('vpa_guide_v5.html', '_blank');
           }
         });
       });

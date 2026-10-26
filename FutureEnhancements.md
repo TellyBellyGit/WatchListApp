@@ -92,6 +92,7 @@ match /{document=**} { allow read, write: if true; }
 
 Static knowledge-base pages are public assets with no user data: `Patterns.html`, `patterns4.html`,
 `patterns-kb.js`, `level2v2.html`, `VPA.html`, `vpa-core.html`, `vpa_learning.html`,
+`vpa_guide_v5.html`,
 `Structural Stop 1.html`, `VPA Case Study 1.html`. They are opened in new tabs from the
 VPA / Learning / Price Action menus and are not affected by this design.
 
