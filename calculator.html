@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Position Sizer & Risk Matrix</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --green: #22c55e;
+            --red: #ef4444;
+            --accent: #38bdf8;
+            --warning: #f59e0b;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 24px 12px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 850px;
+            background-color: var(--card-bg);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-color);
+        }
+        h2 {
+            margin: 0 0 16px 0;
+            font-size: 1.25rem;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .config-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: rgba(0,0,0,0.25);
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+        .config-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+        }
+        .config-row.section {
+            border-top: 1px solid rgba(51, 65, 85, 0.6);
+            padding-top: 12px;
+        }
+        .input-group { display: flex; flex-direction: column; gap: 6px; }
+        label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        input[type="number"], .display-box {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+            height: 42px;
+            width: 100%;
+        }
+        input[type="number"]:focus { border-color: var(--accent); }
+        input.stop-input { border-color: rgba(245, 158, 11, 0.4); }
+        input.tp-input { border-color: rgba(34, 197, 94, 0.4); }
+        input.active-driver { box-shadow: 0 0 0 1px currentColor; }
+        input.stop-input.active-driver { box-shadow: 0 0 0 1px var(--warning); }
+        input.tp-input.active-driver { box-shadow: 0 0 0 1px var(--green); }
+        .display-box {
+            display: flex;
+            align-items: center;
+            font-weight: 700;
+            background-color: rgba(15, 23, 42, 0.6);
+        }
+        .display-box.loss-amount { color: var(--red); border-color: rgba(239, 68, 68, 0.3); }
+        .display-box.gain-amount { color: var(--green); border-color: rgba(34, 197, 94, 0.3); }
+        .summary-card {
+            background: rgba(56, 189, 248, 0.05);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+        }
+        .stat-box { display: flex; flex-direction: column; gap: 4px; }
+        .stat-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+        .stat-value { font-size: 1.15rem; font-weight: 700; }
+        .stat-value.good { color: var(--green); }
+        .stat-value.bad { color: var(--red); }
+        .tables-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--border-color); }
+        th {
+            background-color: rgba(0, 0, 0, 0.3);
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+        th:first-child, td:first-child { text-align: left; }
+        .gain-header { color: var(--green); }
+        .loss-header { color: var(--red); }
+        .gain-row { color: var(--green); }
+        .loss-row { color: var(--red); }
+        tr.hl td { background: rgba(255, 255, 255, 0.08); font-weight: 700; }
+        .sub-text { display: block; font-size: 0.7rem; opacity: 0.8; }
+        .empty-state { text-align: center; color: var(--text-muted); padding: 20px; font-style: italic; }
+        .cap-warning { color: var(--warning); font-size: 0.75rem; margin-top: 2px; }
+        .hint { font-size: 0.7rem; color: var(--text-muted); margin: 0; }
+        @media (max-width: 600px) { .tables-wrapper { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Position Sizer & Risk Matrix</h2>
+
+    <div class="config-container">
+        <!-- Row 1: Core inputs -->
+        <div class="config-row">
+            <div class="input-group">
+                <label for="accountSize">Account ($)</label>
+                <input type="number" id="accountSize" value="1000" oninput="calculateAll()">
+            </div>
+            <div class="input-group">
+                <label for="maxRiskPct">Max Risk (%)</label>
+                <input type="number" id="maxRiskPct" value="10" oninput="calculateAll()">
+            </div>
+            <div class="input-group">
+                <label for="maxShares">Share Cap</label>
+                <input type="number" id="maxShares" value="100" oninput="calculateAll()">
+            </div>
+            <div class="input-group">
+                <label for="entryPrice">Entry Price ($)</label>
+                <input type="number" id="entryPrice" placeholder="e.g. 2.50" step="0.01" min="0.01" oninput="resetForNewEntry()">
+            </div>
+        </div>
+
+        <!-- Row 2: Stop (enter % or price) -->
+        <div class="config-row section">
+            <div class="input-group">
+                <label for="stopLossPct">Stop (%)</label>
+                <input type="number" id="stopLossPct" class="stop-input" value="5" step="any" placeholder="e.g. 5" oninput="setDriver('stop','pct')">
+            </div>
+            <div class="input-group">
+                <label for="stopPrice">Stop Price ($)</label>
+                <input type="number" id="stopPrice" class="stop-input" step="0.01" placeholder="e.g. 2.37" oninput="setDriver('stop','price')">
+            </div>
+            <div class="input-group">
+                <label>Dollar Loss ($)</label>
+                <div id="dollarLossDisplay" class="display-box loss-amount">-$0.00</div>
+            </div>
+        </div>
+
+        <!-- Row 3: Take profit (enter % or price) -->
+        <div class="config-row section">
+            <div class="input-group">
+                <label for="tpPct">Take Profit (%)</label>
+                <input type="number" id="tpPct" class="tp-input" value="10" step="any" placeholder="e.g. 10" oninput="setDriver('tp','pct')">
+            </div>
+            <div class="input-group">
+                <label for="tpPrice">Take Profit Price ($)</label>
+                <input type="number" id="tpPrice" class="tp-input" step="0.01" placeholder="e.g. 2.88" oninput="setDriver('tp','price')">
+            </div>
+            <div class="input-group">
+                <label>Dollar Gain ($)</label>
+                <div id="dollarGainDisplay" class="display-box gain-amount">+$0.00</div>
+            </div>
+        </div>
+        <p class="hint">Type either the % or the price for stop and target; the other fills in automatically. The outlined field is the one driving the numbers.</p>
+    </div>
+
+    <!-- Summary -->
+    <div class="summary-card" id="summaryCard">
+        <div class="stat-box">
+            <span class="stat-label">Position Size</span>
+            <span class="stat-value" id="statShares">0 shares</span>
+            <span id="capNotice" class="cap-warning"></span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Total Outlay</span>
+            <span class="stat-value" id="statCost">$0.00</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Account Exposure</span>
+            <span class="stat-value" id="statExposure">0.0%</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Risk at Stop</span>
+            <span class="stat-value bad" id="statRisk">$0.00 (0.0%)</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Reward at Target</span>
+            <span class="stat-value good" id="statReward">&mdash;</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Reward : Risk</span>
+            <span class="stat-value" id="statRR">&mdash;</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Breakeven Win Rate</span>
+            <span class="stat-value" id="statBE">&mdash;</span>
+        </div>
+    </div>
+
+    <!-- Matrix tables -->
+    <div class="tables-wrapper">
+        <div>
+            <table>
+                <thead>
+                    <tr>
+                        <th class="gain-header">Gain %</th>
+                        <th class="gain-header">Target Price</th>
+                        <th class="gain-header">Account P&L</th>
+                    </tr>
+                </thead>
+                <tbody id="gainBody"><tr><td colspan="3" class="empty-state">Enter price</td></tr></tbody>
+            </table>
+        </div>
+        <div>
+            <table>
+                <thead>
+                    <tr>
+                        <th class="loss-header">Loss %</th>
+                        <th class="loss-header">Stop Price</th>
+                        <th class="loss-header">Account P&L</th>
+                    </tr>
+                </thead>
+                <tbody id="lossBody"><tr><td colspan="3" class="empty-state">Enter price</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Which field the user last edited for each side ('pct' or 'price')
+    const driver = { stop: 'pct', tp: 'pct' };
+    const $ = id => document.getElementById(id);
+
+    // New entry price: put stop and target back to their defaults
+    const DEFAULT_STOP_PCT = 5, DEFAULT_TP_PCT = 10;
+    function resetForNewEntry() {
+        driver.stop = 'pct';
+        driver.tp = 'pct';
+        $('stopLossPct').value = DEFAULT_STOP_PCT;
+        $('tpPct').value = DEFAULT_TP_PCT;
+        calculateAll();
+    }
+
+    function setDriver(side, field) {
+        driver[side] = field;
+        calculateAll();
+    }
+
+    function trim(n, d) { return parseFloat(n.toFixed(d)).toString(); }
+
+    // Fill the non-driving field from the driving one. Returns the % value (or NaN).
+    function syncSide(side, entry) {
+        const pctEl = $(side === 'stop' ? 'stopLossPct' : 'tpPct');
+        const priceEl = $(side === 'stop' ? 'stopPrice' : 'tpPrice');
+        const sign = side === 'stop' ? -1 : 1;
+        pctEl.classList.toggle('active-driver', driver[side] === 'pct' && pctEl.value !== '');
+        priceEl.classList.toggle('active-driver', driver[side] === 'price' && priceEl.value !== '');
+
+        if (driver[side] === 'pct') {
+            const pct = parseFloat(pctEl.value);
+            if (isNaN(pct)) { priceEl.value = ''; return NaN; }
+            priceEl.value = trim(entry * (1 + sign * pct / 100), 4);
+            return pct;
+        } else {
+            const price = parseFloat(priceEl.value);
+            if (isNaN(price)) { pctEl.value = ''; return NaN; }
+            const pct = sign * (price - entry) / entry * 100;
+            pctEl.value = trim(pct, 2);
+            return pct;
+        }
+    }
+
+    function nearestIdx(pct) {
+        if (isNaN(pct) || pct <= 0 || pct > 52.5) return -1;
+        return Math.max(0, Math.min(9, Math.round(pct / 5) - 1));
+    }
+
+    function calculateAll() {
+        const account = parseFloat($('accountSize').value) || 0;
+        const maxRiskPct = parseFloat($('maxRiskPct').value) || 0;
+        const maxShares = parseInt($('maxShares').value) || 0;
+        const entry = parseFloat($('entryPrice').value);
+
+        const gainBody = $('gainBody'), lossBody = $('lossBody');
+        const capNotice = $('capNotice');
+
+        if (isNaN(entry) || entry <= 0 || account <= 0) {
+            gainBody.innerHTML = '<tr><td colspan="3" class="empty-state">Enter price</td></tr>';
+            lossBody.innerHTML = '<tr><td colspan="3" class="empty-state">Enter price</td></tr>';
+            $('statShares').innerText = '0 shares';
+            $('statCost').innerText = '$0.00';
+            $('statExposure').innerText = '0.0%';
+            $('statRisk').innerText = '$0.00 (0.0%)';
+            $('statReward').innerText = '\u2014';
+            $('statRR').innerText = '\u2014';
+            $('statRR').className = 'stat-value';
+            $('statBE').innerText = '\u2014';
+            $('dollarLossDisplay').innerText = '-$0.00';
+            $('dollarGainDisplay').innerText = '+$0.00';
+            capNotice.innerText = '';
+            return;
+        }
+
+        // Sync linked fields (stop % <-> stop price, TP % <-> TP price)
+        const stopPct = syncSide('stop', entry);
+        const tpPct = syncSide('tp', entry);
+        const stopValid = !isNaN(stopPct) && stopPct > 0 && stopPct < 100;
+        const tpValid = !isNaN(tpPct) && tpPct > 0;
+
+        // Position sizing from risk budget and stop distance
+        const maxRiskDollar = account * (maxRiskPct / 100);
+        const purchasingPowerShares = Math.floor(account / entry);
+        let calculatedShares;
+        if (stopValid) {
+            calculatedShares = Math.floor(maxRiskDollar / (entry * stopPct / 100));
+        } else {
+            calculatedShares = purchasingPowerShares;
+        }
+        const shares = Math.max(0, Math.min(calculatedShares, maxShares, purchasingPowerShares));
+
+        if (shares === maxShares && calculatedShares > maxShares) {
+            capNotice.innerText = `(Capped at max ${maxShares} shares)`;
+        } else if (shares === purchasingPowerShares && calculatedShares > purchasingPowerShares) {
+            capNotice.innerText = '(Capped by cash balance)';
+        } else if (!stopValid) {
+            capNotice.innerText = '(No valid stop: sized to cash)';
+        } else {
+            capNotice.innerText = '';
+        }
+
+        const positionValue = shares * entry;
+        const exposurePct = (positionValue / account) * 100;
+
+        // Risk at stop
+        let riskDollar = NaN;
+        if (stopValid) {
+            riskDollar = shares * entry * stopPct / 100;
+            $('dollarLossDisplay').innerText = `-$${riskDollar.toFixed(2)}`;
+            $('statRisk').innerText = `$${riskDollar.toFixed(2)} (${(riskDollar / account * 100).toFixed(1)}%)`;
+        } else {
+            $('dollarLossDisplay').innerText = '-$0.00';
+            $('statRisk').innerText = '\u2014';
+        }
+
+        // Reward at target
+        let rewardDollar = NaN;
+        if (tpValid) {
+            rewardDollar = shares * entry * tpPct / 100;
+            $('dollarGainDisplay').innerText = `+$${rewardDollar.toFixed(2)}`;
+            $('statReward').innerText = `$${rewardDollar.toFixed(2)} (${(rewardDollar / account * 100).toFixed(1)}%)`;
+        } else {
+            $('dollarGainDisplay').innerText = '+$0.00';
+            $('statReward').innerText = '\u2014';
+        }
+
+        // Reward : Risk and breakeven win rate
+        const rrEl = $('statRR');
+        if (stopValid && tpValid) {
+            const rr = tpPct / stopPct;
+            rrEl.innerText = `${rr.toFixed(2)} : 1`;
+            rrEl.className = 'stat-value ' + (rr >= 2 ? 'good' : rr < 1 ? 'bad' : '');
+            $('statBE').innerText = `${(100 / (1 + rr)).toFixed(1)}%`;
+        } else {
+            rrEl.innerText = '\u2014';
+            rrEl.className = 'stat-value';
+            $('statBE').innerText = '\u2014';
+        }
+
+        $('statShares').innerText = `${shares} shares`;
+        $('statCost').innerText = `$${positionValue.toFixed(2)}`;
+        $('statExposure').innerText = `${exposurePct.toFixed(1)}%`;
+
+        // Matrix tables, highlighting the rows nearest the stop and target
+        const hlLoss = stopValid ? nearestIdx(stopPct) : -1;
+        const hlGain = tpValid ? nearestIdx(tpPct) : -1;
+        let gainHTML = '', lossHTML = '';
+
+        for (let i = 0; i < 10; i++) {
+            const pct = (i + 1) * 5;
+            const m = pct / 100;
+
+            const targetPrice = entry * (1 + m);
+            const dollarGain = shares * (targetPrice - entry);
+            gainHTML += `
+                <tr class="gain-row${i === hlGain ? ' hl' : ''}">
+                    <td>+${pct}%</td>
+                    <td>$${formatPrice(targetPrice)}</td>
+                    <td>
+                        +$${dollarGain.toFixed(2)}
+                        <span class="sub-text">(+${(dollarGain / account * 100).toFixed(1)}% acct)</span>
+                    </td>
+                </tr>`;
+
+            const stopP = entry * (1 - m);
+            const dollarLoss = shares * (entry - stopP);
+            lossHTML += `
+                <tr class="loss-row${i === hlLoss ? ' hl' : ''}">
+                    <td>-${pct}%</td>
+                    <td>$${stopP > 0 ? formatPrice(stopP) : '0.00'}</td>
+                    <td>
+                        -$${dollarLoss.toFixed(2)}
+                        <span class="sub-text">(-${(dollarLoss / account * 100).toFixed(1)}% acct)</span>
+                    </td>
+                </tr>`;
+        }
+
+        gainBody.innerHTML = gainHTML;
+        lossBody.innerHTML = lossHTML;
+    }
+
+    function formatPrice(val) {
+        if (val < 1) return val.toFixed(4);
+        return val.toFixed(2);
+    }
+
+    calculateAll();
+</script>
+
+</body>
+</html>

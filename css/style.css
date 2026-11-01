@@ -2064,6 +2064,11 @@ tbody tr:hover {
    Setups Dropdown & Wisdom Prose
    ========================================================================== */
 
+/* Sizer pill button — identical style to Price Action */
+.btn-sizer {
+  /* Inherits from .btn-price-action */
+}
+
 /* Setups pill button — identical style to Price Action */
 .btn-setups {
   /* Inherits from .btn-price-action */

@@ -77,6 +77,8 @@ class StockWatchApp {
     // Price Action education dropdown refs
     this.priceActionBtn = document.getElementById('price-action-btn');
     this.priceActionDropdown = document.getElementById('price-action-dropdown');
+    this.sizerBtn = document.getElementById('sizer-btn');
+    this.sizerDropdown = document.getElementById('sizer-dropdown');
     this.setupsBtn = document.getElementById('setups-btn');
     this.setupsDropdown = document.getElementById('setups-dropdown');
     this.rulesBtn = document.getElementById('rules-btn');
@@ -3275,6 +3277,29 @@ const isTemp = (entry.list || 'main') === 'temp';
       });
     }
 
+    // Sizer dropdown toggle
+    if (this.sizerBtn && this.sizerDropdown) {
+      this.sizerBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._toggleSizerDropdown();
+      });
+    }
+
+    // Sizer dropdown items - open the matching page in a new tab
+    if (this.sizerDropdown && this.sizerBtn) {
+      this.sizerDropdown.querySelectorAll('.price-action-dropdown-item:not(.placeholder)').forEach((item) => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const action = item.dataset.action;
+          this.sizerDropdown.classList.remove('visible');
+          this.sizerBtn.classList.remove('active');
+          if (action === 'sizer-position') {
+            window.open('calculator.html', '_blank');
+          }
+        });
+      });
+    }
+
     // Setups dropdown toggle
     if (this.setupsBtn && this.setupsDropdown) {
       this.setupsBtn.addEventListener('click', (e) => {
@@ -3300,6 +3325,8 @@ const isTemp = (entry.list || 'main') === 'temp';
             window.open('Intraday_Stock_Strength_Detail.html', '_blank');
           } else if (action === 'setups-strength-validator') {
             window.open('stock-strength-guide.html', '_blank');
+          } else if (action === 'setups-five-point-test') {
+            window.open('FivePointTestGuide.html', '_blank');
           }
         });
       });
@@ -3380,6 +3407,12 @@ const isTemp = (entry.list || 'main') === 'temp';
           this.priceActionBtn.classList.remove('active');
         }
       }
+      if (this.sizerDropdown && this.sizerDropdown.classList.contains('visible')) {
+        if (!this.sizerBtn.contains(e.target) && !this.sizerDropdown.contains(e.target)) {
+          this.sizerDropdown.classList.remove('visible');
+          this.sizerBtn.classList.remove('active');
+        }
+      }
       if (this.setupsDropdown && this.setupsDropdown.classList.contains('visible')) {
         if (!this.setupsBtn.contains(e.target) && !this.setupsDropdown.contains(e.target)) {
           this.setupsDropdown.classList.remove('visible');
@@ -3417,6 +3450,13 @@ const isTemp = (entry.list || 'main') === 'temp';
     if (!this.priceActionDropdown || !this.priceActionBtn) return;
     const isVisible = this.priceActionDropdown.classList.toggle('visible');
     this.priceActionBtn.classList.toggle('active', isVisible);
+  }
+
+  // ---- Toggle the Sizer dropdown ----
+  _toggleSizerDropdown() {
+    if (!this.sizerDropdown || !this.sizerBtn) return;
+    const isVisible = this.sizerDropdown.classList.toggle('visible');
+    this.sizerBtn.classList.toggle('active', isVisible);
   }
 
   // ---- Toggle the Setups dropdown ----

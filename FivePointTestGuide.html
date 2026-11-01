@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intraday Strength Test — Professional Trading Guide & Evaluator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        trading: {
+                            dark: '#0b0f19',
+                            card: '#131c2e',
+                            border: '#1e293b',
+                            strong: '#10b981',
+                            weak: '#f59e0b',
+                            dead: '#ef4444',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Alpine.js for lightweight reactivity -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0b0f19; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+    </style>
+</head>
+<body class="bg-trading-dark text-slate-100 min-h-screen selection:bg-indigo-500 selection:text-white" x-data="tradingApp()">
+
+    <header class="border-b border-trading-border bg-trading-dark/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-tight text-white">Five-Point Strength Test</h1>
+                    <p class="text-xs text-slate-400">Intraday Stock Assessment Framework</p>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="flex bg-trading-card p-1 rounded-xl border border-trading-border">
+                <button @click="activeTab = 'guide'" :class="activeTab === 'guide' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-4 py-1.5 rounded-lg text-xs font-medium transition-all">
+                    Reference Guide
+                </button>
+                <button @click="activeTab = 'evaluator'" :class="activeTab === 'evaluator' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'" class="px-4 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5">
+                    <span>Live Evaluator</span>
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/30 text-indigo-300 border border-indigo-500/30">Interactive</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- REFERENCE GUIDE VIEW -->
+        <div x-show="activeTab === 'guide'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0">
+            
+            <!-- Hero intro banner -->
+            <div class="bg-gradient-to-r from-trading-card to-indigo-950/40 border border-trading-border rounded-2xl p-6 sm:p-8 mb-8 relative overflow-hidden shadow-xl">
+                <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="max-w-3xl relative z-10">
+                    <span class="inline-block text-xs font-semibold tracking-wider text-indigo-400 uppercase bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20 mb-3">Intraday Edge</span>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-tight mb-3">Eliminating Noise & Emotional Decision-Making</h2>
+                    <p class="text-slate-300 text-sm sm:text-base leading-relaxed">
+                        Assessing the true strength of a stock price during intraday trading requires more than just chasing momentum. This rigorous 5-point filter evaluates structure, holding power, volume, trend alignment, and opportunity to classify stocks into <span class="text-emerald-400 font-semibold">STRONG</span>, <span class="text-amber-400 font-semibold">WEAK</span>, or <span class="text-rose-400 font-semibold">DEAD</span> categories.
+                    </p>
+                </div>
+            </div>
+
+            <!-- The 5 Pillars Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                
+                <!-- Pillar 1 -->
+                <div class="bg-trading-card border border-trading-border rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500/50 transition-all shadow-lg">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">TEST 01</span>
+                            <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-white mb-2">1. Price Structure</h3>
+                        <p class="text-xs text-slate-400 mb-4 font-medium uppercase tracking-wider">Is it actually climbing?</p>
+                        
+                        <ul class="space-y-2.5 text-xs text-slate-300">
+                            <li class="flex items-start space-x-2">
+                                <span class="text-emerald-400 font-bold shrink-0">● Strong:</span>
+                                <span>Higher highs and higher lows. Clean upward trajectory.</span>
+                            </li>
+                            <li class="flex items-start space-x-2">
+                                <span class="text-amber-400 font-bold shrink-0">● Weak:</span>
+                                <span>Sideways, choppy or struggling to make progress.</span>
+                            </li>
+                            <li class="flex items-start space-x-2">
+                                <span class="text-rose-400 font-bold shrink-0">● Dead:</span>
+                                <span>Lower highs and lower lows after the upward move fails.</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Pillar 2 -->
+                <div class="bg-trading-card border border-trading-border rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500/50 transition-all shadow-lg">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">TEST 02</span>
+                            <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-white mb-2">2. Holding Power</h3>
+                        <p class="text-xs text-slate-400 mb-4 font-medium uppercase tracking-wider">Does it keep its gains?</p>
+                        
+                        <ul class="space-y-2.5 text-xs text-slate-300">
+                            <li class="flex items-start space-x-2">
+                                <span class="text-emerald-400 font-bold shrink-0">● Strong:</span>
+                                <span>Stocks hold pullbacks and previous breakout levels.</span>
+                            </li>
+                            <li class="flex items-start space-x-2">
+                                <span class="text-amber-400 font-bold shrink-0">● Weak:</span>
+                                <span>Stocks repeatedly surrender gains.</span>
+                            </li>
+                            <li class="flex items-start space-x-2">
+                                <span class="text-rose-400 font-bold shrink-0">● Note:</span>
+                                <span>A stock that spikes and falls back to its starting price has not demonstrated sustained strength.</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Pillar 3 -->
+                <div class="bg-trading-card border border-trading-border rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500/50 transition-all shadow-lg">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">TEST 03</span>
+                            <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-white mb-2">3. Volume</h3>
+                        <p class="text-xs text-slate-400 mb-4 font-medium uppercase tracking-wider">Is the price movement supported?</p>
+                        
+                        <ul class="space-y-2.5 text-xs text-slate-300">
+                            <li class="flex items-start space-x-2">
+                                <span class="text-emerald-400 font-bold shrink-0">● Constructive:</span>
+                                <span>Rising price with expanding volume. Healthy pullback on declining volume.</span>
+                            </li>
+                            <li class="flex items-start space-x-2">
+                                <span class="text-amber-400 font-bold shrink-0">● Unconfirmed:</span>
+                                <span>Rising price on unusually thin volume (not automatically strong).</span>
+                            </li>
+                            <li class="flex items-start space-x-2">
+                                <span class="text-rose-400 font-bold shrink-0">● Warning:</span>
+                                <span>Falling price on expanding volume.</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Pillar 4 -->
+                <div class="bg-trading-card border border-trading-border rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500/50 transition-all shadow-lg">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">TEST 04</span>
+                            <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-white mb-2">4. Trend (VWAP & EMAs)</h3>
+                        <p class="text-xs text-slate-400 mb-4 font-medium uppercase tracking-wider">Are technical anchors supporting the move?</p>
+                        
+                        <ul class="space-y-2.5 text-xs text-slate-300">
+                            <li class="flex items-start space-x-2">
+                                <span class="text-emerald-400 font-bold shrink-0">● Strong:</span>
+                                <span>Price holds above VWAP, 9 EMA > 21 EMA (both ideally rising).</span>
+                            </li>
+                            <li class="flex items-start space-x-2">
+                                <span class="text-amber-400 font-bold shrink-0">● Weak:</span>
+                                <span>Price repeatedly crosses VWAP; EMAs are flat or tangled.</span>
+                            </li>
+                            <li class="flex items-start space-x-2">
+                                <span class="text-rose-400 font-bold shrink-0">● Deteriorating:</span>
+                                <span>Price loses VWAP, EMAs turn down, recovery attempts fail.</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Pillar 5 -->
+                <div class="bg-trading-card border border-trading-border rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500/50 transition-all shadow-lg lg:col-span-2">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-xs font-mono font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">TEST 05</span>
+                            <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                        </div>
+                        <h3 class="text-lg font-bold text-white mb-2">5. Opportunity & Execution</h3>
+                        <p class="text-xs text-slate-400 mb-4 font-medium uppercase tracking-wider">Is there a sensible trade setup?</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-300">
+                            <div class="bg-trading-dark/50 p-3.5 rounded-xl border border-trading-border">
+                                <span class="text-indigo-400 font-semibold block mb-1">Avoid Chasing</span>
+                                <p class="text-slate-400">Even if the stock is strong, don't chase an extended move. Look for a pullback, retest, or continuation entry.</p>
+                            </div>
+                            <div class="bg-trading-dark/50 p-3.5 rounded-xl border border-trading-border">
+                                <span class="text-indigo-400 font-semibold block mb-1">Risk & Resistance</span>
+                                <p class="text-slate-400">Identify where the trade is invalidated (stop loss) and check that there is enough room to the next major resistance.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Verdict Breakdown Section -->
+            <div class="bg-trading-card border border-trading-border rounded-2xl p-6 sm:p-8 mb-8">
+                <h3 class="text-xl font-bold text-white mb-6 flex items-center space-x-2">
+                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    <span>The Decision in One Sentence</span>
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <!-- Strong Verdict -->
+                    <div class="bg-emerald-950/20 border border-emerald-500/30 rounded-xl p-5">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <h4 class="font-bold text-emerald-400 tracking-wide uppercase text-sm">Strong</h4>
+                        </div>
+                        <p class="text-xs text-slate-300 leading-relaxed">Climbing, holding gains, and supported by convincing price-and-volume behaviour.</p>
+                    </div>
+
+                    <!-- Weak Verdict -->
+                    <div class="bg-amber-950/20 border border-amber-500/30 rounded-xl p-5">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                            <h4 class="font-bold text-amber-400 tracking-wide uppercase text-sm">Weak</h4>
+                        </div>
+                        <p class="text-xs text-slate-300 leading-relaxed">Unconvincing progress, thin-volume rise, choppy structure or conflicting evidence.</p>
+                    </div>
+
+                    <!-- Dead Verdict -->
+                    <div class="bg-rose-950/20 border border-rose-500/30 rounded-xl p-5">
+                        <div class="flex items-center space-x-2 mb-2">
+                            <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+                            <h4 class="font-bold text-rose-400 tracking-wide uppercase text-sm">Dead</h4>
+                        </div>
+                        <p class="text-xs text-slate-300 leading-relaxed">The upward move has failed, support has broken, and selling is dominating recovery attempts.</p>
+                    </div>
+                </div>
+
+                <!-- Qualification Note -->
+                <div class="bg-indigo-950/30 border border-indigo-500/20 rounded-xl p-4 flex items-start space-x-3">
+                    <svg class="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <p class="text-xs text-indigo-200">
+                        <strong class="font-semibold text-white">Golden Rule / Qualification:</strong> Thin volume alone does not make a stock weak, and losing VWAP alone does not make it dead. Always judge the combined evidence across all pillars before making your trade decision.
+                    </p>
+                </div>
+            </div>
+
+            <div class="text-center pb-8">
+                <button @click="activeTab = 'evaluator'" class="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-8 py-3 rounded-xl shadow-lg shadow-indigo-600/30 transition-all text-sm inline-flex items-center space-x-2">
+                    <span>Launch Live Stock Evaluator</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                </button>
+            </div>
+
+        </div>
+
+        <!-- LIVE EVALUATOR VIEW -->
+        <div x-show="activeTab === 'evaluator'" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0">
+            
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                
+                <!-- Left Column: Checklists -->
+                <div class="lg:col-span-7 space-y-6">
+                    
+                    <div class="bg-trading-card border border-trading-border rounded-2xl p-6 shadow-lg">
+                        <div class="flex items-center justify-between mb-4 pb-4 border-b border-trading-border">
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Stock Live Scorecard</h3>
+                                <p class="text-xs text-slate-400">Check the criteria that apply to your target stock right now.</p>
+                            </div>
+                            <button @click="resetChecklist()" class="text-xs text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 px-3 py-1 rounded-lg border border-indigo-500/20 transition-all">
+                                Reset Checklist
+                            </button>
+                        </div>
+
+                        <!-- Pillar 1 Checklist -->
+                        <div class="mb-6 space-y-3">
+                            <h4 class="text-xs font-mono font-bold uppercase tracking-wider text-indigo-400 flex items-center justify-between">
+                                <span>1. Price Structure</span>
+                                <span class="text-[10px] text-slate-400">Select one primary state</span>
+                            </h4>
+                            <div class="space-y-2">
+                                <label class="flex items-center space-x-3 p-3 rounded-xl bg-trading-dark/50 border border-trading-border hover:border-slate-700 cursor-pointer transition-all">
+                                    <input type="radio" name="struct" value="strong" x-model="criteria.structure" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-trading-dark border-trading-border">
+                                    <div class="text-xs">
+                                        <span class="font-semibold text-emerald-400">Higher highs & higher lows</span>
+                                        <p class="text-slate-400">Clean upward climb in price action.</p>
+                                    </div>
+                                </label>
+                                <label class="flex items-center space-x-3 p-3 rounded-xl bg-trading-dark/50 border border-trading-border hover:border-slate-700 cursor-pointer transition-all">
+                                    <input type="radio" name="struct" value="weak" x-model="criteria.structure" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-trading-dark border-trading-border">
+                                    <div class="text-xs">
+                                        <span class="font-semibold text-amber-400">Sideways, choppy or struggling</span>
+                                        <p class="text-slate-400">Unconvincing progress, overlapping candles.</p>
+                                    </div>
+                                </label>
+                                <label class="flex items-center space-x-3 p-3 rounded-xl bg-trading-dark/50 border border-trading-border hover:border-slate-700 cursor-pointer transition-all">
+                                    <input type="radio" name="struct" value="dead" x-model="criteria.structure" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-trading-dark border-trading-border">
+                                    <div class="text-xs">
+                                        <span class="font-semibold text-rose-400">Lower highs & lower lows</span>
+                                        <p class="text-slate-400">Upward move has failed completely.</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Pillar 2 Checklist -->
+                        <div class="mb-6 space-y-3">
+                            <h4 class="text-xs font-mono font-bold uppercase tracking-wider text-indigo-400 flex items-center justify-between">
+                                <span>2. Holding Power</span>
+                                <span class="text-[10px] text-slate-400">Select one</span>
+                            </h4>
+                            <div class="space-y-2">
+                                <label class="flex items-center space-x-3 p-3 rounded-xl bg-trading-dark/50 border border-trading-border hover:border-slate-700 cursor-pointer transition-all">
+                                    <input type="radio" name="holding" value="strong" x-model="criteria.holding" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-trading-dark border-trading-border">
+                                    <div class="text-xs">
+                                        <span class="font-semibold text-emerald-400">Holds pullbacks & breakout levels</span>
+                                        <p class="text-slate-400">Sustained strength with shallow dips.</p>
+                                    </div>
+                                </label>
+                                <label class="flex items-center space-x-3 p-3 rounded-xl bg-trading-dark/50 border border-trading-border hover:border-slate-700 cursor-pointer transition-all">
+                                    <input type="radio" name="holding" value="weak" x-model="criteria.holding" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-trading-dark border-trading-border">
+                                    <div class="text-xs">
+                                        <span class="font-semibold text-amber-400">Repeatedly surrenders gains</span>
+                                        <p class="text-slate-400">Spikes instantly and falls back towards starting price.</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Pillar 3 Checklist -->
+                        <div class="mb-6 space-y-3">
+                            <h4 class="text-xs font-mono font-bold uppercase tracking-wider text-indigo-400 flex items-center justify-between">
+                                <span>3. Volume Behavior</span>
+                                <span class="text-[10px] text-slate-400">Select one</span>
+                            </h4>
+                            <div class="space-y-2">
+                                <label class="flex items-center space-x-3 p-3 rounded-xl bg-trading-dark/50 border border-trading-border hover:border-slate-700 cursor-pointer transition-all">
+                                    <input type="radio" name="volume" value="strong" x-model="criteria.volume" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-trading-dark border-trading-border">
+                                    <div class="text-xs">
+                                        <span class="font-semibold text-emerald-400">Rising price + expanding volume (healthy pullbacks on low volume)</span>
+                                        <p class="text-slate-400">Fully supported institutional backing.</p>
+                                    </div>
+                                </label>
+                                <label class="flex items-center space-x-3 p-3 rounded-xl bg-trading-dark/50 border border-trading-border hover:border-slate-700 cursor-pointer transition-all">
+                                    <input type="radio" name="volume" value="weak" x-model="criteria.volume" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-trading-dark border-trading-border">
+                                    <div class="text-xs">
+                                        <span class="font-semibold text-amber-400">Rising on unusually thin volume</span>
+                                        <p class="text-slate-400">Unconfirmed move; liquidity trap potential.</p>
+                                    </div>
+                                </label>
+                                <label class="flex items-center space-x-3 p-3 rounded-xl bg-trading-dark/50 border border-trading-border hover:border-slate-700 cursor-pointer transition-all">
+                                    <input type="radio" name="volume" value="dead" x-model="criteria.volume" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-trading-dark border-trading-border">
+                                    <div class="text-xs">
+                                        <span class="font-semibold text-rose-400">Falling price on expanding volume</span>
+                                        <p class="text-slate-400">Major warning sign / heavy institutional distribution.</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Pillar 4 Checklist -->
+                        <div class="mb-6 space-y-3">
+                            <h4 class="text-xs font-mono font-bold uppercase tracking-wider text-indigo-400 flex items-center justify-between">
+                                <span>4. Trend (VWAP & EMAs)</span>
+                                <span class="text-[10px] text-slate-400">Select one</span>
+                            </h4>
+                            <div class="space-y-2">
+                                <label class="flex items-center space-x-3 p-3 rounded-xl bg-trading-dark/50 border border-trading-border hover:border-slate-700 cursor-pointer transition-all">
+                                    <input type="radio" name="trend" value="strong" x-model="criteria.trend" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-trading-dark border-trading-border">
+                                    <div class="text-xs">
+                                        <span class="font-semibold text-emerald-400">Holds above VWAP, 9 EMA > 21 EMA (rising)</span>
+                                        <p class="text-slate-400">Strong momentum alignment.</p>
+                                    </div>
+                                </label>
+                                <label class="flex items-center space-x-3 p-3 rounded-xl bg-trading-dark/50 border border-trading-border hover:border-slate-700 cursor-pointer transition-all">
+                                    <input type="radio" name="trend" value="weak" x-model="criteria.trend" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-trading-dark border-trading-border">
+                                    <div class="text-xs">
+                                        <span class="font-semibold text-amber-400">Repeatedly crosses VWAP / flat & tangled EMAs</span>
+                                        <p class="text-slate-400">Indecisive trend / chopping around mean.</p>
+                                    </div>
+                                </label>
+                                <label class="flex items-center space-x-3 p-3 rounded-xl bg-trading-dark/50 border border-trading-border hover:border-slate-700 cursor-pointer transition-all">
+                                    <input type="radio" name="trend" value="dead" x-model="criteria.trend" class="text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-trading-dark border-trading-border">
+                                    <div class="text-xs">
+                                        <span class="font-semibold text-rose-400">Loses VWAP, EMAs turn down, recovery fails</span>
+                                        <p class="text-slate-400">Sellers in complete control.</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Pillar 5 Checklist -->
+                        <div class="space-y-3">
+                            <h4 class="text-xs font-mono font-bold uppercase tracking-wider text-indigo-400 flex items-center justify-between">
+                                <span>5. Opportunity & Execution Gates</span>
+                                <span class="text-[10px] text-slate-400">Check all that apply</span>
+                            </h4>
+                            <div class="space-y-2">
+                                <label class="flex items-center space-x-3 p-3 rounded-xl bg-trading-dark/50 border border-trading-border hover:border-slate-700 cursor-pointer transition-all">
+                                    <input type="checkbox" x-model="criteria.opportunity.notExtended" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-trading-dark border-trading-border">
+                                    <span class="text-xs text-slate-300">Not chasing an extended move (pullback / retest / continuation setup)</span>
+                                </label>
+                                <label class="flex items-center space-x-3 p-3 rounded-xl bg-trading-dark/50 border border-trading-border hover:border-slate-700 cursor-pointer transition-all">
+                                    <input type="checkbox" x-model="criteria.opportunity.clearStop" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-trading-dark border-trading-border">
+                                    <span class="text-xs text-slate-300">Clear invalidation level identified (stop loss defined)</span>
+                                </label>
+                                <label class="flex items-center space-x-3 p-3 rounded-xl bg-trading-dark/50 border border-trading-border hover:border-slate-700 cursor-pointer transition-all">
+                                    <input type="checkbox" x-model="criteria.opportunity.roomToResistance" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 bg-trading-dark border-trading-border">
+                                    <span class="text-xs text-slate-300">Sufficient room to next major resistance (good risk/reward)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- Right Column: Live Calculated Verdict & Action Plan -->
+                <div class="lg:col-span-5">
+                    <div class="sticky top-24 space-y-6">
+                        
+                        <!-- Dynamic Verdict Card -->
+                        <div class="bg-trading-card border rounded-2xl p-6 shadow-xl transition-all duration-300"
+                             :class="{
+                                'border-emerald-500/50 bg-gradient-to-b from-trading-card to-emerald-950/20': calculatedVerdict.status === 'STRONG',
+                                'border-amber-500/50 bg-gradient-to-b from-trading-card to-amber-950/20': calculatedVerdict.status === 'WEAK',
+                                'border-rose-500/50 bg-gradient-to-b from-trading-card to-rose-950/20': calculatedVerdict.status === 'DEAD'
+                             }">
+                            
+                            <div class="flex items-center justify-between mb-4">
+                                <span class="text-xs font-mono uppercase tracking-wider text-slate-400">Live Stock Verdict</span>
+                                <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow"
+                                      :class="{
+                                          'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30': calculatedVerdict.status === 'STRONG',
+                                          'bg-amber-500/20 text-amber-400 border border-amber-500/30': calculatedVerdict.status === 'WEAK',
+                                          'bg-rose-500/20 text-rose-400 border border-rose-500/30': calculatedVerdict.status === 'DEAD'
+                                      }"
+                                      x-text="calculatedVerdict.status">
+                                </span>
+                            </div>
+
+                            <div class="mb-6">
+                                <h2 class="text-2xl font-bold text-white mb-2" x-text="calculatedVerdict.title"></h2>
+                                <p class="text-sm text-slate-300 leading-relaxed" x-text="calculatedVerdict.description"></p>
+                            </div>
+
+                            <!-- Score Breakdown Bar -->
+                            <div class="space-y-2 mb-6 bg-trading-dark/60 p-4 rounded-xl border border-trading-border">
+                                <div class="flex justify-between text-xs font-mono">
+                                    <span class="text-slate-400">Strength Score</span>
+                                    <span class="font-bold text-white" x-text="scoreSummary"></span>
+                                </div>
+                                <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                                    <div class="h-2.5 rounded-full transition-all duration-500"
+                                         :class="{
+                                             'bg-emerald-500': calculatedVerdict.status === 'STRONG',
+                                             'bg-amber-500': calculatedVerdict.status === 'WEAK',
+                                             'bg-rose-500': calculatedVerdict.status === 'DEAD'
+                                         }"
+                                         :style="'width: ' + scorePercentage + '%'"></div>
+                                </div>
+                            </div>
+
+                            <!-- Actionable Recommendation -->
+                            <div class="border-t border-trading-border pt-4">
+                                <h4 class="text-xs font-mono uppercase tracking-wider text-indigo-400 mb-2">Recommended Action</h4>
+                                <p class="text-xs text-slate-300 bg-trading-dark/40 p-3.5 rounded-xl border border-trading-border leading-relaxed" x-text="calculatedVerdict.action"></p>
+                            </div>
+
+                        </div>
+
+                        <!-- Quick Checklist Summary & Tips -->
+                        <div class="bg-trading-card border border-trading-border rounded-2xl p-6 shadow-lg">
+                            <h4 class="text-xs font-mono uppercase tracking-wider text-slate-400 mb-3">Evaluation Checklist Status</h4>
+                            <ul class="space-y-2 text-xs text-slate-300">
+                                <li class="flex items-center justify-between">
+                                    <span>Price Structure:</span>
+                                    <span class="font-mono font-semibold" :class="criteria.structure ? 'text-indigo-400' : 'text-slate-500'" x-text="criteria.structure ? criteria.structure.toUpperCase() : 'PENDING'"></span>
+                                </li>
+                                <li class="flex items-center justify-between">
+                                    <span>Holding Power:</span>
+                                    <span class="font-mono font-semibold" :class="criteria.holding ? 'text-indigo-400' : 'text-slate-500'" x-text="criteria.holding ? criteria.holding.toUpperCase() : 'PENDING'"></span>
+                                </li>
+                                <li class="flex items-center justify-between">
+                                    <span>Volume Behavior:</span>
+                                    <span class="font-mono font-semibold" :class="criteria.volume ? 'text-indigo-400' : 'text-slate-500'" x-text="criteria.volume ? criteria.volume.toUpperCase() : 'PENDING'"></span>
+                                </li>
+                                <li class="flex items-center justify-between">
+                                    <span>Trend Anchors:</span>
+                                    <span class="font-mono font-semibold" :class="criteria.trend ? 'text-indigo-400' : 'text-slate-500'" x-text="criteria.trend ? criteria.trend.toUpperCase() : 'PENDING'"></span>
+                                </li>
+                                <li class="flex items-center justify-between">
+                                    <span>Opportunity Gates Passed:</span>
+                                    <span class="font-mono font-semibold text-indigo-400" x-text="opportunityCount + ' / 3'"></span>
+                                </li>
+                            </ul>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-trading-border mt-16 py-6 bg-trading-dark">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500">
+            <p>Five-Point Strength Test • Intraday Trading Discipline Framework</p>
+            <p class="mt-2 sm:mt-0 font-mono">Combined evidence trumps single metrics.</p>
+        </div>
+    </footer>
+
+    <!-- Alpine.js Application Logic -->
+    <script>
+        function tradingApp() {
+            return {
+                activeTab: 'guide',
+                criteria: {
+                    structure: '',
+                    holding: '',
+                    volume: '',
+                    trend: '',
+                    opportunity: {
+                        notExtended: false,
+                        clearStop: false,
+                        roomToResistance: false
+                    }
+                },
+                resetChecklist() {
+                    this.criteria.structure = '';
+                    this.criteria.holding = '';
+                    this.criteria.volume = '';
+                    this.criteria.trend = '';
+                    this.criteria.opportunity.notExtended = false;
+                    this.criteria.opportunity.clearStop = false;
+                    this.criteria.opportunity.roomToResistance = false;
+                },
+                get opportunityCount() {
+                    let count = 0;
+                    if (this.criteria.opportunity.notExtended) count++;
+                    if (this.criteria.opportunity.clearStop) count++;
+                    if (this.criteria.opportunity.roomToResistance) count++;
+                    return count;
+                },
+                get scoreSummary() {
+                    let totalPoints = 0;
+                    let maxPoints = 5;
+                    
+                    if (this.criteria.structure === 'strong') totalPoints += 1;
+                    else if (this.criteria.structure === 'dead') totalPoints -= 1;
+
+                    if (this.criteria.holding === 'strong') totalPoints += 1;
+                    else if (this.criteria.holding === 'weak') totalPoints -= 0.5;
+
+                    if (this.criteria.volume === 'strong') totalPoints += 1;
+                    else if (this.criteria.volume === 'dead') totalPoints -= 1;
+
+                    if (this.criteria.trend === 'strong') totalPoints += 1;
+                    else if (this.criteria.trend === 'dead') totalPoints -= 1;
+
+                    totalPoints += (this.opportunityCount * 0.33);
+
+                    let score = Math.max(0, Math.min(5, totalPoints + 1)); // normalized view
+                    return score.toFixed(1) + ' / 5.0';
+                },
+                get scorePercentage() {
+                    let s = parseFloat(this.scoreSummary.split('/')[0]);
+                    return (s / 5) * 100;
+                },
+                get calculatedVerdict() {
+                    let struct = this.criteria.structure;
+                    let holding = this.criteria.holding;
+                    let volume = this.criteria.volume;
+                    let trend = this.criteria.trend;
+                    let oppCount = this.opportunityCount;
+
+                    // Dead criteria check
+                    if (struct === 'dead' || volume === 'dead' || trend === 'dead' || (struct === 'weak' && holding === 'weak' && trend === 'weak')) {
+                        return {
+                            status: 'DEAD',
+                            title: 'Upward Move Failed',
+                            description: 'Support has broken, selling is dominating recovery attempts, or heavy volume distribution is present.',
+                            action: 'Avoid long positions completely. Look for potential short continuation setups if breakdown levels retest.'
+                        };
+                    }
+
+                    // Strong criteria check
+                    if (struct === 'strong' && holding === 'strong' && trend === 'strong' && (volume === 'strong' || volume === '') && oppCount >= 2) {
+                        return {
+                            status: 'STRONG',
+                            title: 'Convincing Bullish Structure',
+                            description: 'Climbing cleanly, holding gains, and supported by robust price-and-volume behavior.',
+                            action: 'Look for a controlled pullback, retest of breakout level, or continuation entry. Verify stop-loss and room to resistance.'
+                        };
+                    }
+
+                    // Default / Weak criteria check
+                    return {
+                        status: 'WEAK',
+                        title: 'Conflicting or Unconvincing Evidence',
+                        description: 'Unconvincing progress, thin-volume rise, choppy structure or mixed indicator signals.',
+                        action: 'Do not chase or force a trade. Stand aside or wait for clear market confirmation before risking capital.'
+                    };
+                }
+            }
+        }
+    </script>
+</body>
+</html>
