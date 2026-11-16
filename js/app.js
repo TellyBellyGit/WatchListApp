@@ -76,6 +76,8 @@ class StockWatchApp {
 
     // Knowledge Base pill ref
     this.knowledgeBaseBtn = document.getElementById('knowledge-base-btn');
+    this.toolsBtn = document.getElementById('tools-btn');
+    this.toolsDropdown = document.getElementById('tools-dropdown');
     this.checklistOverlay = document.getElementById('checklist-overlay');
     this.checklistBody = document.getElementById('checklist-body');
     this.checklistCounter = document.getElementById('checklist-counter');
@@ -3241,6 +3243,34 @@ const isTemp = (entry.list || 'main') === 'temp';
       });
     }
 
+    // Tools dropdown toggle - opens inline features in this tab
+    if (this.toolsBtn && this.toolsDropdown) {
+      this.toolsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isVisible = this.toolsDropdown.classList.toggle('visible');
+        this.toolsBtn.classList.toggle('active', isVisible);
+      });
+    }
+
+    // Tools dropdown items - open the matching inline feature in this tab
+    if (this.toolsDropdown && this.toolsBtn) {
+      this.toolsDropdown.querySelectorAll('.price-action-dropdown-item').forEach((item) => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const tool = item.dataset.tool;
+          this.toolsDropdown.classList.remove('visible');
+          this.toolsBtn.classList.remove('active');
+          if (tool === 'wisdom' || tool === 'rules' || tool === 'playbook') {
+            this._showLearningPanel(tool);
+          } else if (tool === 'chart-checklist') {
+            this._openChartChecklist();
+          } else if (tool === 'trend-continuation') {
+            this._openTrendContinuation();
+          }
+        });
+      });
+    }
+
 
 
 
@@ -3271,6 +3301,13 @@ const isTemp = (entry.list || 'main') === 'temp';
         if (sb && !sb.contains(e.target) && !this.settingsDropdown.contains(e.target)) {
           this.settingsDropdown.classList.remove('visible');
           sb.classList.remove('active');
+        }
+      }
+      if (this.toolsDropdown && this.toolsDropdown.classList.contains('visible')) {
+        const tb = document.getElementById('tools-btn');
+        if (tb && !tb.contains(e.target) && !this.toolsDropdown.contains(e.target)) {
+          this.toolsDropdown.classList.remove('visible');
+          tb.classList.remove('active');
         }
       }
     });
@@ -3339,26 +3376,6 @@ const isTemp = (entry.list || 'main') === 'temp';
     });
     panel.style.display = '';
     panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-
-  // ---- Open an inline Knowledge Base feature (called from the menu page tab) ----
-  openInline(feature) {
-    switch (feature) {
-      case 'wisdom':
-      case 'rules':
-      case 'playbook':
-        this._showLearningPanel(feature);
-        break;
-      case 'chart-checklist':
-        this._openChartChecklist();
-        break;
-      case 'trend-continuation':
-        this._openTrendContinuation();
-        break;
-      default:
-        return;
-    }
-    window.focus();
   }
 
   // ==========================================================================

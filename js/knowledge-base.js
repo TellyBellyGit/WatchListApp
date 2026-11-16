@@ -45,17 +45,6 @@
         { label: 'Support & Resistance', icon: '📐', href: 'level2v2.html' },
       ],
     },
-    {
-      category: 'In-app tools',
-      note: 'Opens inside the current TradrDash tab instead of a new tab.',
-      items: [
-        { label: 'Wisdom', icon: '🧠', action: 'wisdom' },
-        { label: 'Rules!!', icon: '⚠️', action: 'rules' },
-        { label: 'Trading Playbook', icon: '📘', action: 'playbook' },
-        { label: 'Chart Checklist', icon: '📋', action: 'chart-checklist' },
-        { label: 'Trend Continuation Entry', icon: '📈', action: 'trend-continuation' },
-      ],
-    },
   ];
 
   const menuEl = document.getElementById('kb-menu');

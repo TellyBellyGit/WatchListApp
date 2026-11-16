@@ -6488,4 +6488,16 @@ body.overlay-open {
 }
 
 /* ==== end Knowledge Base menu page ==== */
+/* Version badge (shown next to page title to confirm deployed build) */
+.version-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  margin-left: 10px;
+  vertical-align: middle;
+  letter-spacing: 0.05em;
+}
 
