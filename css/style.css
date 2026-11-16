@@ -6396,3 +6396,81 @@ body.overlay-open {
 }
 /* ==== end Trade Journal page styles ==== */
 
+/* ==== Knowledge Base menu page ==== */
+.kb-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.kb-category {
+  margin: 26px 0 10px 0;
+}
+.kb-category-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  padding: 0 4px;
+}
+.kb-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+.kb-item:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.kb-icon {
+  font-size: 1.25rem;
+}
+.kb-label {
+  flex: 1;
+}
+.kb-arrow {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+.kb-item:hover .kb-arrow {
+  color: var(--accent);
+}
+.kb-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+.kb-back:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.kb-note {
+  margin-top: 26px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  padding: 0 4px;
+}
+
+/* ==== end Knowledge Base menu page ==== */
+

@@ -74,22 +74,8 @@ class StockWatchApp {
     this.themeToggleBtn = document.getElementById('theme-toggle-btn');
     this.loadingOverlay = document.getElementById('loading-overlay');
 
-    // Price Action education dropdown refs
-    this.priceActionBtn = document.getElementById('price-action-btn');
-    this.priceActionDropdown = document.getElementById('price-action-dropdown');
-    this.sizerBtn = document.getElementById('sizer-btn');
-    this.sizerDropdown = document.getElementById('sizer-dropdown');
-    this.setupsBtn = document.getElementById('setups-btn');
-    this.setupsDropdown = document.getElementById('setups-dropdown');
-    this.rulesBtn = document.getElementById('rules-btn');
-    this.rulesDropdown = document.getElementById('rules-dropdown');
-    this.learningBtn = document.getElementById('learning-btn');
-    this.learningDropdown = document.getElementById('learning-dropdown');
-    this.learningPanels = {
-      wisdom: document.getElementById('learning-panel-wisdom'),
-      rules: document.getElementById('learning-panel-rules'),
-      playbook: document.getElementById('learning-panel-playbook')
-    };
+    // Knowledge Base pill ref
+    this.knowledgeBaseBtn = document.getElementById('knowledge-base-btn');
     this.checklistOverlay = document.getElementById('checklist-overlay');
     this.checklistBody = document.getElementById('checklist-body');
     this.checklistCounter = document.getElementById('checklist-counter');
@@ -3222,36 +3208,6 @@ const isTemp = (entry.list || 'main') === 'temp';
 
   // ---- Bind Price Action events (called early, before API key check) ----
   _bindPriceActionEvents() {
-    // Price Action dropdown toggle
-    if (this.priceActionBtn && this.priceActionDropdown) {
-      this.priceActionBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this._togglePriceActionDropdown();
-      });
-
-      // Dropdown item clicks (only non-placeholder items)
-      this.priceActionDropdown.querySelectorAll('.price-action-dropdown-item:not(.placeholder)').forEach(item => {
-        item.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const action = item.dataset.action;
-          this.priceActionDropdown.classList.remove('visible');
-          this.priceActionBtn.classList.remove('active');
-          if (action === 'chart-checklist') {
-            this._openChartChecklist();
-          } else if (action === 'candlestick-patterns') {
-            window.location.href = 'patterns4.html';
-          } else if (action === 'support-resistance') {
-            window.open('level2v2.html', '_blank');
-          } else if (action === 'volume-analysis') {
-            window.open('VPA.html', '_blank');
-          } else if (action === 'volume-price-analysis') {
-            window.open('vpa_learning.html', '_blank');
-          } else if (action === 'trend-continuation-entry') {
-            this._openTrendContinuation();
-          }
-        });
-      });
-    }
 
     // Chart Checklist overlay
     if (this.checklistCancelBtn) {
@@ -3277,107 +3233,16 @@ const isTemp = (entry.list || 'main') === 'temp';
       });
     }
 
-    // Sizer dropdown toggle
-    if (this.sizerBtn && this.sizerDropdown) {
-      this.sizerBtn.addEventListener('click', (e) => {
+    // Knowledge Base pill - opens the menu page in its own tab
+    if (this.knowledgeBaseBtn) {
+      this.knowledgeBaseBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this._toggleSizerDropdown();
+        window.open('knowledge-base.html', '_blank');
       });
     }
 
-    // Sizer dropdown items - open the matching page in a new tab
-    if (this.sizerDropdown && this.sizerBtn) {
-      this.sizerDropdown.querySelectorAll('.price-action-dropdown-item:not(.placeholder)').forEach((item) => {
-        item.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const action = item.dataset.action;
-          this.sizerDropdown.classList.remove('visible');
-          this.sizerBtn.classList.remove('active');
-          if (action === 'sizer-position') {
-            window.open('calculator.html', '_blank');
-          }
-        });
-      });
-    }
 
-    // Setups dropdown toggle
-    if (this.setupsBtn && this.setupsDropdown) {
-      this.setupsBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this._toggleSetupsDropdown();
-      });
-    }
 
-    // Setups dropdown items - open the matching page in a new tab / window
-    if (this.setupsDropdown && this.setupsBtn) {
-      this.setupsDropdown.querySelectorAll('.price-action-dropdown-item:not(.placeholder)').forEach((item) => {
-        item.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const action = item.dataset.action;
-          this.setupsDropdown.classList.remove('visible');
-          this.setupsBtn.classList.remove('active');
-          if (action === 'setups-reference') {
-            window.open('active_trading_reference.html', '_blank');
-          } else if (action === 'setups-playbook') {
-            // Feature string forces a separate browser window (not a tab)
-            window.open('Setups_playbook_Pro.html', '_blank', 'noopener,width=1400,height=1000');
-          } else if (action === 'setups-stock-strength') {
-            window.open('Intraday_Stock_Strength_Detail.html', '_blank');
-          } else if (action === 'setups-strength-validator') {
-            window.open('stock-strength-guide.html', '_blank');
-          } else if (action === 'setups-five-point-test') {
-            window.open('FivePointTestGuide.html', '_blank');
-          }
-        });
-      });
-    }
-
-    // Rules dropdown toggle
-    if (this.rulesBtn && this.rulesDropdown) {
-      this.rulesBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this._toggleRulesDropdown();
-      });
-    }
-
-    // VPA dropdown items - open the matching page in a new tab
-    if (this.rulesDropdown && this.rulesBtn) {
-      this.rulesDropdown.querySelectorAll('.price-action-dropdown-item:not(.placeholder)').forEach((item) => {
-        item.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const action = item.dataset.action;
-          this.rulesDropdown.classList.remove('visible');
-          this.rulesBtn.classList.remove('active');
-          if (action === 'vpa-core') {
-            window.open('vpa-core.html', '_blank');
-          } else if (action === 'vpa-market-cycles') {
-            window.open('VPA.html', '_blank');
-          } else if (action === 'vpa-patterns') {
-            window.open('vpa_learning.html', '_blank');
-          } else if (action === 'vpa-pocket-guide') {
-            window.open('vpa_guide_v5.html', '_blank');
-          }
-        });
-      });
-    }
-
-    // Learning dropdown toggle
-    if (this.learningBtn && this.learningDropdown) {
-      this.learningBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this._toggleLearningDropdown();
-      });
-    }
-
-    // Learning option buttons - show the selected Learning panel
-    if (this.learningDropdown) {
-      this.learningDropdown.querySelectorAll('[data-learning]').forEach((optionBtn) => {
-        optionBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          this._showLearningPanel(optionBtn.getAttribute('data-learning'));
-        });
-      });
-    }
 
     // Trend Continuation Entry overlay — close events
     if (this.trendContinuationClose) {
@@ -3401,36 +3266,6 @@ const isTemp = (entry.list || 'main') === 'temp';
 
     // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
-      if (this.priceActionDropdown && this.priceActionDropdown.classList.contains('visible')) {
-        if (!this.priceActionBtn.contains(e.target) && !this.priceActionDropdown.contains(e.target)) {
-          this.priceActionDropdown.classList.remove('visible');
-          this.priceActionBtn.classList.remove('active');
-        }
-      }
-      if (this.sizerDropdown && this.sizerDropdown.classList.contains('visible')) {
-        if (!this.sizerBtn.contains(e.target) && !this.sizerDropdown.contains(e.target)) {
-          this.sizerDropdown.classList.remove('visible');
-          this.sizerBtn.classList.remove('active');
-        }
-      }
-      if (this.setupsDropdown && this.setupsDropdown.classList.contains('visible')) {
-        if (!this.setupsBtn.contains(e.target) && !this.setupsDropdown.contains(e.target)) {
-          this.setupsDropdown.classList.remove('visible');
-          this.setupsBtn.classList.remove('active');
-        }
-      }
-      if (this.rulesDropdown && this.rulesDropdown.classList.contains('visible')) {
-        if (!this.rulesBtn.contains(e.target) && !this.rulesDropdown.contains(e.target)) {
-          this.rulesDropdown.classList.remove('visible');
-          this.rulesBtn.classList.remove('active');
-        }
-      }
-      if (this.learningDropdown && this.learningDropdown.classList.contains('visible')) {
-        if (!this.learningBtn.contains(e.target) && !this.learningDropdown.contains(e.target)) {
-          this.learningDropdown.classList.remove('visible');
-          this.learningBtn.classList.remove('active');
-        }
-      }
       if (this.settingsDropdown && this.settingsDropdown.classList.contains('visible')) {
         const sb = document.getElementById('settings-btn');
         if (sb && !sb.contains(e.target) && !this.settingsDropdown.contains(e.target)) {
@@ -3438,54 +3273,6 @@ const isTemp = (entry.list || 'main') === 'temp';
           sb.classList.remove('active');
         }
       }
-    });
-  }
-
-  // ==========================================================================
-  // Price Action Dropdown & Chart Checklist Methods
-  // ==========================================================================
-
-  // ---- Toggle the Price Action dropdown ----
-  _togglePriceActionDropdown() {
-    if (!this.priceActionDropdown || !this.priceActionBtn) return;
-    const isVisible = this.priceActionDropdown.classList.toggle('visible');
-    this.priceActionBtn.classList.toggle('active', isVisible);
-  }
-
-  // ---- Toggle the Sizer dropdown ----
-  _toggleSizerDropdown() {
-    if (!this.sizerDropdown || !this.sizerBtn) return;
-    const isVisible = this.sizerDropdown.classList.toggle('visible');
-    this.sizerBtn.classList.toggle('active', isVisible);
-  }
-
-  // ---- Toggle the Setups dropdown ----
-  _toggleSetupsDropdown() {
-    if (!this.setupsDropdown || !this.setupsBtn) return;
-    const isVisible = this.setupsDropdown.classList.toggle('visible');
-    this.setupsBtn.classList.toggle('active', isVisible);
-  }
-
-  // ---- Toggle the Rules dropdown ----
-  _toggleRulesDropdown() {
-    if (!this.rulesDropdown || !this.rulesBtn) return;
-    const isVisible = this.rulesDropdown.classList.toggle('visible');
-    this.rulesBtn.classList.toggle('active', isVisible);
-  }
-
-  // ---- Toggle the Learning dropdown ----
-  _toggleLearningDropdown() {
-    if (!this.learningDropdown || !this.learningBtn) return;
-    const isVisible = this.learningDropdown.classList.toggle('visible');
-    this.learningBtn.classList.toggle('active', isVisible);
-  }
-
-  // ---- Show one Learning panel and hide the others ----
-  _showLearningPanel(name) {
-    if (!this.learningPanels) return;
-    Object.keys(this.learningPanels).forEach((key) => {
-      const panel = this.learningPanels[key];
-      if (panel) panel.style.display = (key === name) ? '' : 'none';
     });
   }
 

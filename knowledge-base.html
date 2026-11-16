@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge Base — TradrDash</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- ====== HEADER ====== -->
+    <div class="header">
+      <div class="header-left">
+        <h1>📚 Knowledge Base</h1>
+        <div class="subtitle">TradrDash reference menu — open any item in its own tab</div>
+      </div>
+      <div class="header-right">
+        <a href="index.html" class="kb-back" id="back-to-app">← Back to TradrDash</a>
+      </div>
+    </div>
+
+    <!-- ====== KNOWLEDGE BASE MENU ====== -->
+    <div class="kb-page">
+      <div class="kb-menu" id="kb-menu">
+        <!-- rendered by js/knowledge-base.js -->
+      </div>
+      <p class="kb-note">
+        Some items from the old header pills (Learning panels, Chart Checklist, Trend Continuation Entry)
+        open inline inside the main app and are not separate pages — they remain available from the main
+        TradrDash screen. New items can be added here by editing js/knowledge-base.js.
+      </p>
+    </div>
+  </div>
+
+  <script src="js/knowledge-base.js"></script>
+</body>
+</html>
