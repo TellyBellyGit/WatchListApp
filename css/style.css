@@ -6471,6 +6471,21 @@ body.overlay-open {
   line-height: 1.5;
   padding: 0 4px;
 }
+.kb-category-note {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  padding: 0 4px;
+}
+.kb-item-inline {
+  border-left: 4px solid var(--accent-light);
+}
+.kb-item-inline:hover {
+  border-left-color: var(--accent);
+}
 
 /* ==== end Knowledge Base menu page ==== */
 

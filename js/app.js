@@ -3330,6 +3330,37 @@ const isTemp = (entry.list || 'main') === 'temp';
     this.trendContinuationOverlay.classList.remove('visible');
   }
 
+  // ---- Show one Learning panel and hide the others ----
+  _showLearningPanel(name) {
+    const panel = document.getElementById('learning-panel-' + name);
+    if (!panel) return;
+    document.querySelectorAll('.learning-panel').forEach((p) => {
+      p.style.display = 'none';
+    });
+    panel.style.display = '';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // ---- Open an inline Knowledge Base feature (called from the menu page tab) ----
+  openInline(feature) {
+    switch (feature) {
+      case 'wisdom':
+      case 'rules':
+      case 'playbook':
+        this._showLearningPanel(feature);
+        break;
+      case 'chart-checklist':
+        this._openChartChecklist();
+        break;
+      case 'trend-continuation':
+        this._openTrendContinuation();
+        break;
+      default:
+        return;
+    }
+    window.focus();
+  }
+
   // ==========================================================================
   // Strength Scoring Methods
   // ==========================================================================

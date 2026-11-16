@@ -4,7 +4,10 @@
  * object to the `items` array of an existing category, or add a new category
  * block to MENU_ITEMS. No other code needs to change.
  *
- * Each item renders as a menu button; clicking opens `href` in its own tab.
+ * Each item is one of:
+ *   - { label, icon, href }  -> opens href in a new browser tab (reference page)
+ *   - { label, icon, action } -> opens an inline feature in the main TradrDash
+ *                                tab via window.opener (Learning panels, overlays)
  */
 (function () {
   'use strict';
@@ -42,6 +45,17 @@
         { label: 'Support & Resistance', icon: '📐', href: 'level2v2.html' },
       ],
     },
+    {
+      category: 'In-app tools',
+      note: 'Opens inside the current TradrDash tab instead of a new tab.',
+      items: [
+        { label: 'Wisdom', icon: '🧠', action: 'wisdom' },
+        { label: 'Rules!!', icon: '⚠️', action: 'rules' },
+        { label: 'Trading Playbook', icon: '📘', action: 'playbook' },
+        { label: 'Chart Checklist', icon: '📋', action: 'chart-checklist' },
+        { label: 'Trend Continuation Entry', icon: '📈', action: 'trend-continuation' },
+      ],
+    },
   ];
 
   const menuEl = document.getElementById('kb-menu');
@@ -63,21 +77,49 @@
   MENU_ITEMS.forEach((cat) => {
     html += '<div class="kb-category">';
     html += '<div class="kb-category-title">' + escapeHtml(cat.category) + '</div>';
+    if (cat.note) {
+      html += '<div class="kb-category-note">' + escapeHtml(cat.note) + '</div>';
+    }
     cat.items.forEach((item) => {
-      html += '<button class="kb-item" data-href="' + escapeAttr(item.href) + '">';
+      const isInline = item.action;
+      html += '<button class="kb-item' + (isInline ? ' kb-item-inline' : '') + '"';
+      if (isInline) {
+        html += ' data-action="' + escapeAttr(item.action) + '"';
+      } else {
+        html += ' data-href="' + escapeAttr(item.href) + '"';
+      }
+      html += '>';
       html += '<span class="kb-icon">' + escapeHtml(item.icon) + '</span>';
       html += '<span class="kb-label">' + escapeHtml(item.label) + '</span>';
-      html += '<span class="kb-arrow">&#8594;</span>';
+      html += '<span class="kb-arrow">' + (isInline ? '&#8635;' : '&#8594;') + '</span>';
       html += '</button>';
     });
     html += '</div>';
   });
   menuEl.innerHTML = html;
 
+  function openInline(action) {
+    const opener = window.opener;
+    if (opener && !opener.closed && opener.app && typeof opener.app.openInline === 'function') {
+      opener.app.openInline(action);
+      try { opener.focus(); } catch (e) { /* ignore */ }
+      // Keep the menu tab open so the user can pick more items.
+    } else {
+      // No opener (page opened directly): fall back to the main app.
+      window.location.href = 'index.html';
+    }
+  }
+
   menuEl.querySelectorAll('.kb-item').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
-      window.open(btn.dataset.href, '_blank');
+      const action = btn.dataset.action;
+      const href = btn.dataset.href;
+      if (action) {
+        openInline(action);
+      } else if (href) {
+        window.open(href, '_blank');
+      }
     });
   });
 })();
