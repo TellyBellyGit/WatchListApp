@@ -63,7 +63,7 @@ check('ids are unique in the page', duplicates.length === 0, [...new Set(duplica
 
 // ---- data-field wiring ----
 const fieldKeys = [...markup.matchAll(/data-field="([^"]+)"/g)].map(x => x[1]);
-const EXTRA_FIELDS = ['mentorSource', 'adviceStatus', 'mentorRaw', 'processScore'];
+const EXTRA_FIELDS = ['mentorSource', 'adviceStatus', 'mentorRaw', 'processScore', 'strategyId'];
 const knownField = (k) => csvJs.indexOf("key: '" + k + "'") !== -1 || EXTRA_FIELDS.indexOf(k) !== -1;
 
 check('data-field keys are unique', new Set(fieldKeys).size === fieldKeys.length,

@@ -888,6 +888,234 @@ class DataStore {
   _setLocal(entries) {
     localStorage.setItem('stockwatchlist_data', JSON.stringify(entries));
   }
+
+  // ==========================================================================
+  // Strategies — strategy rulebook master data (collection: strategies)
+  // A strategy doc is keyed by its strategyId (e.g. TC001). versions[] keeps a
+  // full snapshot of the rules at each version so previous rules are preserved,
+  // not just a version number and modification date.
+  // ==========================================================================
+
+  async getAllStrategies() {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        const snapshot = await this.db.collection('strategies').orderBy('createdAt', 'asc').get();
+        const out = [];
+        snapshot.forEach(doc => out.push({ id: doc.id, ...doc.data() }));
+        return out;
+      } catch (e) {
+        console.warn('[DataStore] Failed to get strategies:', e.message);
+        return this._getLocalStrategies();
+      }
+    }
+    return this._getLocalStrategies();
+  }
+
+  async getStrategy(strategyId) {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        const doc = await this.db.collection('strategies').doc(strategyId).get();
+        if (doc.exists) return { id: doc.id, ...doc.data() };
+        return null;
+      } catch (e) {
+        console.warn('[DataStore] Failed to get strategy:', e.message);
+        return this._getLocalStrategyById(strategyId);
+      }
+    }
+    return this._getLocalStrategyById(strategyId);
+  }
+
+  async saveStrategy(strategy) {
+    await this._ensureInit();
+    const now = new Date().toISOString();
+    const doc = {
+      strategyId: strategy.strategyId,
+      name: strategy.name || '',
+      description: strategy.description || '',
+      status: strategy.status || 'Under Development',
+      version: strategy.version != null ? strategy.version : 1,
+      rules: strategy.rules || {},
+      versions: Array.isArray(strategy.versions) ? strategy.versions : [],
+      createdAt: strategy.createdAt || now,
+      updatedAt: now
+    };
+    const id = strategy.strategyId;
+    if (this.mode === 'firestore') {
+      try {
+        await this.db.collection('strategies').doc(id).set(doc, { merge: true });
+        return id;
+      } catch (e) {
+        console.warn('[DataStore] Failed to save strategy to Firestore, falling back to local:', e.message);
+        return this._setLocalStrategy(doc, id);
+      }
+    }
+    return this._setLocalStrategy(doc, id);
+  }
+
+  async deleteStrategy(strategyId) {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        await this.db.collection('strategies').doc(strategyId).delete();
+        return;
+      } catch (e) {
+        console.warn('[DataStore] Failed to delete strategy:', e.message);
+        this._deleteLocalStrategy(strategyId);
+        return;
+      }
+    }
+    this._deleteLocalStrategy(strategyId);
+  }
+
+  _getLocalStrategies() {
+    try {
+      const raw = localStorage.getItem('stockwatchlist_strategies');
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  }
+
+  _setLocalStrategies(strategies) {
+    localStorage.setItem('stockwatchlist_strategies', JSON.stringify(strategies));
+  }
+
+  _getLocalStrategyById(strategyId) {
+    return this._getLocalStrategies().find(s => s.strategyId === strategyId) || null;
+  }
+
+  _setLocalStrategy(doc, strategyId) {
+    const strategies = this._getLocalStrategies();
+    const idx = strategies.findIndex(s => s.strategyId === strategyId);
+    if (idx !== -1) strategies[idx] = { ...strategies[idx], ...doc, strategyId };
+    else strategies.push({ ...doc, strategyId });
+    this._setLocalStrategies(strategies);
+    return strategyId;
+  }
+
+  _deleteLocalStrategy(strategyId) {
+    const strategies = this._getLocalStrategies().filter(s => s.strategyId !== strategyId);
+    this._setLocalStrategies(strategies);
+  }
+
+  // ==========================================================================
+  // Strategy notes — evaluation log (collection: strategy_notes)
+  // Reuses the daily_notes schema pattern; extended with tags (StrategyDev),
+  // strategyId, entryType and linkedEntryIds so notes can be tied to a strategy
+  // and to specific journal entries. Existing daily_notes are untouched.
+  // ==========================================================================
+
+  async getAllStrategyNotes() {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        const snapshot = await this.db.collection('strategy_notes').orderBy('createdAt', 'desc').get();
+        const out = [];
+        snapshot.forEach(doc => out.push({ id: doc.id, ...doc.data() }));
+        return out;
+      } catch (e) {
+        console.warn('[DataStore] Failed to get strategy notes:', e.message);
+        return this._getLocalStrategyNotes();
+      }
+    }
+    return this._getLocalStrategyNotes();
+  }
+
+  async getStrategyNoteById(noteId) {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        const doc = await this.db.collection('strategy_notes').doc(noteId).get();
+        if (doc.exists) return { id: doc.id, ...doc.data() };
+        return null;
+      } catch (e) {
+        console.warn('[DataStore] Failed to get strategy note:', e.message);
+        return this._getLocalStrategyNoteById(noteId);
+      }
+    }
+    return this._getLocalStrategyNoteById(noteId);
+  }
+
+  async saveStrategyNote(data, noteId = null) {
+    await this._ensureInit();
+    const now = new Date().toISOString();
+    const doc = {
+      date: data.date || '',
+      title: data.title || '',
+      content: data.content || '',
+      contentPlain: data.contentPlain || String(data.content || '').trim().substring(0, 5000),
+      sentiment: data.sentiment || null,
+      tags: Array.isArray(data.tags) ? data.tags : [],
+      strategyId: data.strategyId || null,
+      entryType: data.entryType || 'Observation',
+      linkedEntryIds: Array.isArray(data.linkedEntryIds) ? data.linkedEntryIds : [],
+      createdAt: data.createdAt || now,
+      updatedAt: now
+    };
+    if (this.mode === 'firestore') {
+      try {
+        if (noteId) {
+          await this.db.collection('strategy_notes').doc(noteId).set(doc, { merge: true });
+          return noteId;
+        }
+        const ref = await this.db.collection('strategy_notes').add(doc);
+        return ref.id;
+      } catch (e) {
+        console.warn('[DataStore] Failed to save strategy note to Firestore, falling back to local:', e.message);
+        return this._setLocalStrategyNote(doc, noteId);
+      }
+    }
+    return this._setLocalStrategyNote(doc, noteId);
+  }
+
+  async deleteStrategyNote(noteId) {
+    await this._ensureInit();
+    if (this.mode === 'firestore') {
+      try {
+        await this.db.collection('strategy_notes').doc(noteId).delete();
+        return;
+      } catch (e) {
+        console.warn('[DataStore] Failed to delete strategy note:', e.message);
+        this._deleteLocalStrategyNote(noteId);
+        return;
+      }
+    }
+    this._deleteLocalStrategyNote(noteId);
+  }
+
+  _getLocalStrategyNotes() {
+    try {
+      const raw = localStorage.getItem('stockwatchlist_strategy_notes');
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  }
+
+  _setLocalStrategyNotes(notes) {
+    localStorage.setItem('stockwatchlist_strategy_notes', JSON.stringify(notes));
+  }
+
+  _getLocalStrategyNoteById(noteId) {
+    return this._getLocalStrategyNotes().find(n => n.id === noteId) || null;
+  }
+
+  _setLocalStrategyNote(doc, noteId = null) {
+    const notes = this._getLocalStrategyNotes();
+    if (noteId) {
+      const idx = notes.findIndex(n => n.id === noteId);
+      if (idx !== -1) notes[idx] = { ...notes[idx], ...doc, id: noteId };
+      else notes.push({ ...doc, id: noteId });
+    } else {
+      const id = 'local_note_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      notes.push({ ...doc, id });
+    }
+    this._setLocalStrategyNotes(notes);
+    return noteId || id;
+  }
+
+  _deleteLocalStrategyNote(noteId) {
+    const notes = this._getLocalStrategyNotes().filter(n => n.id !== noteId);
+    this._setLocalStrategyNotes(notes);
+  }
 }
 
 // Singleton

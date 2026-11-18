@@ -6507,3 +6507,159 @@ body.overlay-open {
   letter-spacing: 0.05em;
 }
 
+/* ============================================================================
+   STRATEGY RULEBOOK + EVALUATION LOG (Trade Journal extension)
+   ============================================================================ */
+
+/* ---- Rulebook toolbar / split pane ---- */
+.tj-rb-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 10px;
+}
+.tj-rb-toolbar h2 { margin: 0; font-size: 1.1rem; }
+.tj-rb-toolbar-right { display: flex; gap: 6px; }
+.tj-ev-toolbar-right { display: flex; gap: 6px; }
+
+.tj-rb-split {
+  display: flex;
+  gap: 14px;
+}
+.tj-rb-list-col {
+  flex: 0 0 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tj-rb-detail-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+
+/* ---- Strategy card (rulebook list) ---- */
+.tj-rb-strategy {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.tj-rb-strategy:hover { border-color: var(--accent); }
+.tj-rb-strategy.tj-rb-strategy-active {
+  border-color: var(--accent);
+  background: var(--bg-tertiary);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.tj-rb-strategy-id {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-secondary);
+}
+.tj-rb-strategy-name { font-weight: 600; color: var(--text-primary); }
+.tj-rb-strategy-meta {
+  font-size: 0.74rem; color: var(--text-muted); display: flex; gap: 10px; align-items: center;
+}
+
+/* ---- Rule status badges ---- */
+.tj-rb-status {
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 2px 8px; border-radius: 10px;
+  display: inline-block;
+}
+.tj-rb-status-not_defined        { background: var(--bg-tertiary); color: var(--text-muted); border: 1px solid var(--border-color); }
+.tj-rb-status-under_development  { background: var(--info-bg); color: var(--info); border: 1px solid var(--info); }
+.tj-rb-status-agreed             { background: var(--positive-bg); color: var(--positive); border: 1px solid var(--positive); }
+.tj-rb-status-under_testing      { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning); }
+
+/* ---- Rulebook detail ---- */
+.tj-rb-section {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+}
+.tj-rb-section-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  margin-bottom: 6px;
+}
+.tj-rb-section-title { font-weight: 600; color: var(--text-primary); font-size: 0.86rem; }
+.tj-rb-section textarea {
+  width: 100%; min-height: 90px; font: inherit; font-size: 0.82rem;
+  background: var(--bg-primary); color: var(--text-primary);
+  border: 1px solid var(--border-color); border-radius: var(--radius-sm);
+  padding: 6px 8px; resize: vertical;
+  font-family: var(--font-body, inherit);
+}
+.tj-rb-version-history {
+  margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 8px;
+}
+.tj-rb-version {
+  font-size: 0.76rem; color: var(--text-secondary); padding: 6px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+.tj-rb-version b { color: var(--text-primary); }
+
+/* ---- Evaluation Log toolbar / filters ---- */
+.tj-ev-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 10px;
+}
+.tj-ev-toolbar h2 { margin: 0; font-size: 1.1rem; }
+.tj-ev-filters {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  margin-bottom: 10px; padding: 8px 10px;
+  border: 1px solid var(--border-color); border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+.tj-filter-label {
+  font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--text-secondary); display: flex;
+  flex-direction: column; gap: 3px; min-width: 90px;
+}
+.tj-filter-label select, .tj-filter-label input {
+  font: inherit; font-size: 0.82rem; padding: 4px 8px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color); background: var(--bg-primary); color: var(--text-primary);
+}
+
+/* ---- Evaluation log list ---- */
+.tj-ev-list { display: flex; flex-direction: column; gap: 6px; }
+.tj-ev-entry {
+  border: 1px solid var(--border-color); border-radius: var(--radius-md);
+  padding: 8px 10px; background: var(--bg-secondary);
+  cursor: pointer; display: flex; gap: 10px; align-items: center;
+  transition: border-color var(--transition);
+}
+.tj-ev-entry:hover { border-color: var(--accent); }
+.tj-ev-entry.tj-ev-entry-selected { border-color: var(--accent); background: var(--bg-tertiary); }
+.tj-ev-entry-meta { font-size: 0.74rem; color: var(--text-muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tj-ev-entry-title { font-weight: 600; color: var(--text-primary); min-width: 120px; }
+.tj-ev-entry-body { flex: 1; font-size: 0.82rem; color: var(--text-primary); }
+
+/* ---- Entry type badges ---- */
+.tj-ev-type {
+  font-size: 0.66rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 2px 8px; border-radius: 10px;
+}
+.tj-ev-type-Observation             { background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-color); }
+.tj-ev-type-Weekly Review           { background: var(--info-bg); color: var(--info); border: 1px solid var(--info); }
+.tj-ev-type-Improvement Being Tested{ background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning); }
+.tj-ev-type-Strategy Rule Change    { background: var(--positive-bg); color: var(--positive); border: 1px solid var(--positive); }
+.tj-ev-type-Parking Lot             { background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-color); }
+
+/* ---- Evaluation log detail / editor ---- */
+.tj-ev-detail {
+  border: 1px solid var(--border-color); border-radius: var(--radius-md);
+  padding: 12px 14px; background: var(--bg-secondary);
+}
+.tj-ev-detail-head { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.tj-ev-detail-title { font-weight: 600; font-size: 1rem; color: var(--text-primary); margin: 0; }
+.tj-ev-detail-body { white-space: pre-wrap; font-size: 0.86rem; line-height: 1.6; color: var(--text-primary); margin-bottom: 10px; }
+.tj-ev-detail-links { font-size: 0.76rem; color: var(--text-secondary); margin-top: 8px; }
+.tj-ev-detail-links a { color: var(--accent); text-decoration: underline; }
+
+.tj-empty { padding: 14px; color: var(--text-muted); text-align: center; font-size: 0.86rem; }

@@ -31,7 +31,13 @@ class TradeJournalApp {
     this._sort = { key: 'date', dir: 'desc' };
     this._sourceReview = null;     // linked trade review (read-only panel)
     this._isFirstRun = true;
-    this._view = 'entries';        // active tab: 'entries' | 'categories'
+    this._view = 'entries';        // active tab: 'entries' | 'categories' | 'rulebook' | 'evaluation'
+    // Strategy rulebook / evaluation log state
+    this._strategies = [];         // all strategies (from strategies collection)
+    this._strategyNotes = [];      // all evaluation notes (from strategy_notes collection)
+    this._activeStrategyId = null; // strategy selected in the rulebook
+    this._activeNoteId = null;     // note selected in the evaluation log
+    this._evFilters = { strategy: '', type: '', from: '', to: '' };
     this._lastEntryDate = '';      // so column A can follow the entry date
     this._importResult = null;     // last CSV read (preview + parsed entries)
     this._draftResult = null;      // last generated write-up skeleton
@@ -91,6 +97,10 @@ class TradeJournalApp {
     await this.loadEntries();
     this._startAutoSave();
 
+    // Load strategies (rulebook master data) and seed TC001 on a fresh install
+    await this._loadStrategies();
+    await this._loadStrategyNotes();
+
     // Prefill AFTER the first render so a fresh entry is not wiped by reload
     this._applyPrefill();
     this._isFirstRun = false;
@@ -113,11 +123,24 @@ class TradeJournalApp {
     this.tabs            = Array.from(document.querySelectorAll('.tj-tab'));
     this.panelEntries    = $('tj-panel-entries');
     this.panelCategories = $('tj-panel-categories');
+    this.panelRulebook   = $('tj-panel-rulebook');
+    this.panelEvaluation = $('tj-panel-evaluation');
+
+    // Strategy rulebook
+    this.btnRulebookNew = $('tj-rb-btn-new');
+    // Evaluation log
+    this.btnEvalNew     = $('tj-ev-btn-new');
+    this.filterEvStrategy = $('tj-ev-filter-strategy');
+    this.filterEvType   = $('tj-ev-filter-type');
+    this.filterEvFrom   = $('tj-ev-filter-from');
+    this.filterEvTo     = $('tj-ev-filter-to');
+    this.btnEvalClearFilters = $('tj-ev-btn-clear-filters');
 
     // Filters
     this.searchInput     = $('tj-search');
     this.filterCategory  = $('tj-filter-category');
     this.filterTimeframe = $('tj-filter-timeframe');
+    this.filterStrategy  = $('tj-filter-strategy');
     this.filterAdvice    = $('tj-filter-advice');
     this.filterFrom      = $('tj-filter-from');
     this.filterTo        = $('tj-filter-to');
@@ -286,6 +309,7 @@ class TradeJournalApp {
       this.filterTimeframe.innerHTML = `<option value="">All timeframes</option>` +
         JOURNAL_TIMEFRAMES.map(v => `<option value="${JournalText.esc(v)}">${JournalText.esc(v)}</option>`).join('');
     }
+    if (this.filterStrategy) this._renderStrategyFilter();
   }
 
   // ---- Quill deep-dive editor (identical config to the Reviews tab) ----
@@ -593,6 +617,16 @@ class TradeJournalApp {
     if (this.btnImport) this.btnImport.addEventListener('click', () => this.openImport());
     if (this.btnDraft) this.btnDraft.addEventListener('click', () => this.openDraft());
 
+    // Strategy rulebook: new strategy
+    if (this.btnRulebookNew) this.btnRulebookNew.addEventListener('click', () => this._rulebookNewStrategy());
+
+    // Evaluation log: new entry + filters
+    if (this.btnEvalNew) this.btnEvalNew.addEventListener('click', () => this._evalNewEntry());
+    [this.filterEvStrategy, this.filterEvType, this.filterEvFrom, this.filterEvTo].forEach(el => {
+      if (el) el.addEventListener('change', () => this._readEvFilters());
+    });
+    if (this.btnEvalClearFilters) this.btnEvalClearFilters.addEventListener('click', () => this._clearEvFilters());
+
     this._bindImportDialog();
     this._bindDraftDialog();
   }
@@ -605,8 +639,474 @@ class TradeJournalApp {
     this.tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === view));
     this.panelEntries.style.display = view === 'entries' ? 'block' : 'none';
     this.panelCategories.style.display = view === 'categories' ? 'block' : 'none';
+    this.panelRulebook.style.display = view === 'rulebook' ? 'block' : 'none';
+    this.panelEvaluation.style.display = view === 'evaluation' ? 'block' : 'none';
     if (view === 'categories') this._renderCategoryView();
+    if (view === 'rulebook') this._renderRulebook();
+    if (view === 'evaluation') this._renderEvaluation();
   }
+
+  // ==========================================================================
+  // Strategy rulebook — master data
+  // ==========================================================================
+
+  async _loadStrategies() {
+    try {
+      this._strategies = await dataStore.getAllStrategies();
+      if (this._strategies.length === 0) {
+        // Seed the first strategy: TC001 US Micro-cap Trend Continuation
+        await this._saveStrategy({
+          strategyId: 'TC001',
+          name: 'US Micro-cap Trend Continuation',
+          description: 'Intraday trend continuation in US micro-cap stocks. Buy pullbacks / consolidations within a valid upward trend and enter on continuation triggers.',
+          status: 'Under Development',
+          version: 1,
+          rules: {
+            objective:           { text: '', status: 'not_defined' },
+            validUpwardTrend:    { text: '', status: 'not_defined' },
+            healthyPullback:     { text: '', status: 'not_defined' },
+            continuationEntry:   { text: '', status: 'not_defined' },
+            continuationTriggers:{ text: '', status: 'not_defined' },
+            trendDeteriorationExit: { text: '', status: 'not_defined' },
+            riskManagement:      { text: '', status: 'not_defined' },
+            examplesNotes:       { text: '', status: 'not_defined' }
+          },
+          versions: []
+        });
+        this._strategies = await dataStore.getAllStrategies();
+      }
+      this._renderStrategyFilter();
+    } catch (e) {
+      console.warn('[TradeJournal] Could not load strategies:', e.message);
+    }
+  }
+
+  _renderStrategyFilter() {
+    if (!this.filterStrategy) return;
+    this.filterStrategy.innerHTML = `<option value="">All strategies</option>` +
+      this._strategies.map(s => {
+        const label = `${JournalText.esc(s.strategyId)} — ${JournalText.esc(s.name || '')}`;
+        return `<option value="${JournalText.esc(s.strategyId)}">${label}</option>`;
+      }).join('');
+  }
+
+  async _saveStrategy(strategy) {
+    const id = await dataStore.saveStrategy(strategy);
+    this._strategies = await dataStore.getAllStrategies();
+    this._renderStrategyFilter();
+    return id;
+  }
+
+  // ==========================================================================
+  // Strategy Rulebook — UI
+  // ==========================================================================
+
+  _ruleSections() {
+    return [
+      { key: 'objective', title: '1. Strategy objective' },
+      { key: 'validUpwardTrend', title: '2. Valid upward trend criteria' },
+      { key: 'healthyPullback', title: '3. Healthy pullback / consolidation criteria' },
+      { key: 'continuationEntry', title: '4. Continuation entry patterns' },
+      { key: 'continuationTriggers', title: '5. Continuation triggers' },
+      { key: 'trendDeteriorationExit', title: '6. Trend deterioration and exit criteria' },
+      { key: 'riskManagement', title: '7. Risk management' },
+      { key: 'examplesNotes', title: '8. Examples and supporting notes' }
+    ];
+  }
+
+  _ruleStatusLabel(key) {
+    const map = { not_defined: 'Not yet defined', under_development: 'Under development', agreed: 'Agreed', under_testing: 'Under testing' };
+    return map[key] || key;
+  }
+
+  _ruleStatusCls(key) { return 'tj-rb-status-' + (key || 'not_defined'); }
+
+  _renderRulebook() {
+    if (!this.panelRulebook) return;
+    this._renderRulebookList();
+    if (this._activeStrategyId) this._renderRulebookDetail(this._activeStrategyId);
+    else {
+      const detail = document.getElementById('tj-rulebook-detail');
+      if (detail) detail.innerHTML = '<div class="tj-empty">Select a strategy to open its Rulebook.</div>';
+    }
+  }
+
+  _renderRulebookList() {
+    const host = document.getElementById('tj-rulebook-list');
+    if (!host) return;
+    if (!this._strategies.length) {
+      host.innerHTML = '<div class="tj-empty">No strategies yet. Click + New strategy to create one.</div>';
+      return;
+    }
+    host.innerHTML = this._strategies.map(s => {
+      const active = s.strategyId === this._activeStrategyId ? ' tj-rb-strategy-active' : '';
+      const updated = s.updatedAt ? new Date(s.updatedAt).toLocaleDateString() : '—';
+      return `<div class="tj-rb-strategy${active}" data-id="${JournalText.esc(s.strategyId)}" role="button" tabindex="0" title="Open rulebook for ${JournalText.esc(s.name || '')}">
+        <span class="tj-rb-strategy-id">${JournalText.esc(s.strategyId)}</span>
+        <div class="tj-rb-strategy-name">${JournalText.esc(s.name || '')}</div>
+        <div class="tj-rb-strategy-meta">
+          <span class="${this._ruleStatusCls(s.status)}">${this._ruleStatusLabel(s.status)}</span>
+          <span>v${s.version || 1}</span>
+          <span>${updated}</span>
+        </div>
+      </div>`;
+    }).join('');
+    host.querySelectorAll('.tj-rb-strategy').forEach(el => {
+      el.addEventListener('click', () => {
+        this._activeStrategyId = el.dataset.id;
+        this._renderRulebookList();
+        this._renderRulebookDetail(this._activeStrategyId);
+      });
+    });
+  }
+
+
+  _renderRulebookDetail(strategyId) {
+    const strategy = this._strategies.find(s => s.strategyId === strategyId);
+    if (!strategy) return;
+    const host = document.getElementById('tj-rulebook-detail');
+    if (!host) return;
+    const versionsHtml = (strategy.versions || []).map(v => {
+      const rulesHtml = this._ruleSections().map(sec => {
+        const r = (v.rules && v.rules[sec.key]) ? v.rules[sec.key] : { text: '', status: 'not_defined' };
+        const text = (r.text || '').trim();
+        return `<div style="margin:4px 0 0 12px;font-size:0.74rem;">
+          <span class="${this._ruleStatusCls(r.status)}">${this._ruleStatusLabel(r.status)}</span>
+          <b>${JournalText.esc(sec.title)}</b>
+          ${text ? `<div style="color:var(--text-secondary);white-space:pre-wrap;">${JournalText.esc(text)}</div>` : `<span style="color:var(--text-muted);"> (empty)</span>`}
+        </div>`;
+      }).join('');
+      return `<div class="tj-rb-version">
+        <b>v${v.version}</b> · ${new Date(v.updatedAt).toLocaleDateString()} ${v.changeNote ? '— ' + JournalText.esc(v.changeNote) : ''}
+        ${rulesHtml}
+      </div>`;
+    }).join('');
+    host.innerHTML = `
+      <div class="tj-rb-header">
+        <div>
+          <span class="tj-rb-strategy-id">${JournalText.esc(strategy.strategyId)}</span>
+          <h3 style="margin:2px 0 4px 0;">${JournalText.esc(strategy.name || '')}</h3>
+          <div class="tj-rb-strategy-meta">
+            <span class="${this._ruleStatusCls(strategy.status)}">${this._ruleStatusLabel(strategy.status)}</span>
+            <span>Version ${strategy.version || 1}</span>
+            <span>Updated ${strategy.updatedAt ? new Date(strategy.updatedAt).toLocaleDateString() : '—'}</span>
+          </div>
+          <p style="margin-top:6px;color:var(--text-secondary);font-size:0.86rem;">${JournalText.escLines(strategy.description || '')}</p>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-primary btn-sm" id="tj-rb-btn-save">💾 Save rulebook</button>
+        </div>
+      </div>
+      <h4 class="tj-subhead" style="margin-top:10px;">Rulebook sections</h4>
+      <div id="tj-rb-sections">
+        ${this._ruleSections().map(sec => {
+          const rule = strategy.rules && strategy.rules[sec.key] ? strategy.rules[sec.key] : { text: '', status: 'not_defined' };
+          return `<div class="tj-rb-section" data-section="${JournalText.esc(sec.key)}">
+            <div class="tj-rb-section-head">
+              <span class="tj-rb-section-title">${JournalText.esc(sec.title)}</span>
+              <select class="tj-rb-status-pick" data-section="${JournalText.esc(sec.key)}">
+                <option value="not_defined" ${rule.status === 'not_defined' ? 'selected' : ''}>Not yet defined</option>
+                <option value="under_development" ${rule.status === 'under_development' ? 'selected' : ''}>Under development</option>
+                <option value="agreed" ${rule.status === 'agreed' ? 'selected' : ''}>Agreed</option>
+                <option value="under_testing" ${rule.status === 'under_testing' ? 'selected' : ''}>Under testing</option>
+              </select>
+            </div>
+            <textarea data-section="${JournalText.esc(sec.key)}" placeholder="Enter the rule…">${JournalText.esc(rule.text || '')}</textarea>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="tj-rb-version-history">
+        <h4 class="tj-subhead">Version history (previous rules preserved)</h4>
+        ${versionsHtml || '<div class="tj-empty">No previous versions yet.</div>'}
+      </div>
+    `;
+    const saveBtn = document.getElementById('tj-rb-btn-save');
+    if (saveBtn) saveBtn.addEventListener('click', () => this._saveRulebook());
+    host.querySelectorAll('textarea, select').forEach(el => el.addEventListener('input', () => this._markDirty()));
+  }
+
+  _readRulebookForm() {
+    const rules = {};
+    this._ruleSections().forEach(sec => {
+      const textarea = document.querySelector('#tj-rb-sections textarea[data-section="' + sec.key + '"]');
+      const select = document.querySelector('#tj-rb-sections select[data-section="' + sec.key + '"]');
+      rules[sec.key] = { text: textarea ? textarea.value.trim() : '', status: select ? select.value : 'not_defined' };
+    });
+    return rules;
+  }
+
+  async _saveRulebook() {
+    const strategy = this._strategies.find(s => s.strategyId === this._activeStrategyId);
+    if (!strategy) return;
+    const newRules = this._readRulebookForm();
+    const prevRules = strategy.rules || {};
+    const changed = JSON.stringify(newRules) !== JSON.stringify(prevRules);
+    const versions = Array.isArray(strategy.versions) ? [...strategy.versions] : [];
+    if (changed) {
+      versions.push({ version: strategy.version || 1, rules: prevRules, updatedAt: strategy.updatedAt || new Date().toISOString() });
+    }
+    await this._saveStrategy({
+      strategyId: strategy.strategyId,
+      name: strategy.name,
+      description: strategy.description,
+      status: strategy.status,
+      version: changed ? (strategy.version || 1) + 1 : (strategy.version || 1),
+      rules: newRules,
+      versions,
+      createdAt: strategy.createdAt,
+      updatedAt: new Date().toISOString()
+    });
+    this._isDirty = false;
+    this._updateSaveStatus('Rulebook saved ✅');
+    this._renderRulebookDetail(strategy.strategyId);
+  }
+
+  async _rulebookNewStrategy() {
+    const id = prompt('New strategy ID (e.g. TC002):', 'TC002');
+    if (!id || !id.trim()) return;
+    const sid = id.trim();
+    if (this._strategies.some(s => s.strategyId === sid)) { Utils.showToast('That strategy ID already exists', 'warning'); return; }
+    const name = prompt('Strategy name:', 'Untitled strategy') || 'Untitled strategy';
+    const rules = {};
+    this._ruleSections().forEach(sec => { rules[sec.key] = { text: '', status: 'not_defined' }; });
+    await this._saveStrategy({ strategyId: sid, name, description: '', status: 'Under Development', version: 1, rules, versions: [] });
+    this._activeStrategyId = sid;
+    this._renderRulebook();
+  }
+
+  async _loadStrategyNotes() {
+    try {
+      this._strategyNotes = await dataStore.getAllStrategyNotes();
+    } catch (e) {
+      console.warn('[TradeJournal] Could not load strategy notes:', e.message);
+    }
+  }
+
+  // ==========================================================================
+  // Evaluation Log — reuses the Notes store (strategy_notes) with a StrategyDev
+  // tag, an entry type, a strategy link and optional links to journal entries.
+  // ==========================================================================
+
+  _evalEntryTypes() {
+    return ['Observation', 'Weekly Review', 'Improvement Being Tested', 'Strategy Rule Change', 'Parking Lot'];
+  }
+
+  _evalTypeBadge(type) {
+    const cls = 'tj-ev-type-' + String(type || '').replace(/[^a-z0-9]+/g, '-').toLowerCase();
+    return `<span class="tj-ev-type ${cls}">${JournalText.esc(type || 'Observation')}</span>`;
+  }
+
+  _readEvFilters() {
+    this._evFilters.strategy = (this.filterEvStrategy ? this.filterEvStrategy.value : '').trim();
+    this._evFilters.type = (this.filterEvType ? this.filterEvType.value : '').trim();
+    this._evFilters.from = (this.filterEvFrom ? this.filterEvFrom.value : '').trim();
+    this._evFilters.to = (this.filterEvTo ? this.filterEvTo.value : '').trim();
+    this._renderEvaluation();
+  }
+
+  _clearEvFilters() {
+    if (this.filterEvStrategy) this.filterEvStrategy.value = '';
+    if (this.filterEvType) this.filterEvType.value = '';
+    if (this.filterEvFrom) this.filterEvFrom.value = '';
+    if (this.filterEvTo) this.filterEvTo.value = '';
+    this._evFilters = { strategy: '', type: '', from: '', to: '' };
+    this._renderEvaluation();
+  }
+
+  _filteredStrategyNotes() {
+    const f = this._evFilters;
+    return this._strategyNotes.filter(n => {
+      if ((n.tags || []).indexOf('StrategyDev') === -1) return false;
+      if (f.strategy && n.strategyId !== f.strategy) return false;
+      if (f.type && n.entryType !== f.type) return false;
+      const d = n.date || '';
+      if (f.from && d < f.from) return false;
+      if (f.to && d > f.to) return false;
+      return true;
+    });
+  }
+
+  _renderEvaluation() {
+    if (!this.panelEvaluation) return;
+    this._renderEvaluationFilterControls();
+    this._renderEvaluationList();
+    if (this._activeNoteId) this._renderEvaluationDetail(this._activeNoteId);
+    else {
+      const detail = document.getElementById('tj-ev-detail');
+      if (detail) { detail.innerHTML = ''; detail.style.display = 'none'; }
+    }
+  }
+
+  _renderEvaluationFilterControls() {
+    if (!this.filterEvStrategy) return;
+    this.filterEvStrategy.innerHTML = `<option value="">All strategies</option>` +
+      this._strategies.map(s => `<option value="${JournalText.esc(s.strategyId)}">${JournalText.esc(s.strategyId)} — ${JournalText.esc(s.name || '')}</option>`).join('');
+    if (!this.filterEvType) return;
+    this.filterEvType.innerHTML = `<option value="">All types</option>` +
+      this._evalEntryTypes().map(t => `<option value="${JournalText.esc(t)}">${JournalText.esc(t)}</option>`).join('');
+    this.filterEvStrategy.value = this._evFilters.strategy;
+    this.filterEvType.value = this._evFilters.type;
+    if (this.filterEvFrom) this.filterEvFrom.value = this._evFilters.from;
+    if (this.filterEvTo) this.filterEvTo.value = this._evFilters.to;
+  }
+
+
+  _renderEvaluationList() {
+    const host = document.getElementById('tj-ev-list');
+    if (!host) return;
+    const notes = this._filteredStrategyNotes();
+    if (!notes.length) {
+      host.innerHTML = '<div class="tj-empty">No evaluation entries yet. Click + New entry to add one.</div>';
+      return;
+    }
+    host.innerHTML = notes.map(n => {
+      const strategy = this._strategies.find(s => s.strategyId === n.strategyId);
+      const strategyLabel = strategy ? JournalText.esc(strategy.strategyId) : (JournalText.esc(n.strategyId || '—'));
+      const selected = n.id === this._activeNoteId ? ' tj-ev-entry-selected' : '';
+      const linked = n.linkedEntryIds ? n.linkedEntryIds.length : 0;
+      return `<div class="tj-ev-entry${selected}" data-id="${JournalText.esc(n.id)}" role="button" tabindex="0">
+        <div class="tj-ev-entry-meta">
+          ${this._evalTypeBadge(n.entryType)}
+          <span>${JournalText.esc(n.date || '—')}</span>
+          <span>${strategyLabel}</span>
+          <span>${linked} linked ${linked === 1 ? 'trade' : 'trades'}</span>
+        </div>
+        <div class="tj-ev-entry-title">${JournalText.esc(n.title || '(untitled)')}</div>
+        <div class="tj-ev-entry-body">${JournalText.preview(n.contentPlain || n.content || '', 140)}</div>
+      </div>`;
+    }).join('');
+    host.querySelectorAll('.tj-ev-entry').forEach(el => {
+      el.addEventListener('click', () => {
+        this._activeNoteId = el.dataset.id;
+        this._renderEvaluation();
+      });
+    });
+  }
+
+
+  _renderEvaluationDetail(noteId) {
+    const note = this._strategyNotes.find(n => n.id === noteId);
+    if (!note) return;
+    const host = document.getElementById('tj-ev-detail');
+    if (!host) return;
+    host.style.display = 'block';
+    const strategy = this._strategies.find(s => s.strategyId === note.strategyId);
+    const linkedHtml = (note.linkedEntryIds || []).map(jeId => {
+      const je = this._entries.find(e => e.id === jeId);
+      return `<span class="tj-ev-detail-links">🔗 <a href="#" data-link="${JournalText.esc(jeId)}">${JournalText.esc(je ? (je.ticker || jeId) : jeId)}</a> ${JournalText.esc(je ? (je.date || '') : '')}</span>`;
+    }).join('');
+    host.innerHTML = `
+      <div class="tj-ev-detail">
+        <div class="tj-ev-detail-head">
+          <input id="tj-ev-edit-title" value="${JournalText.esc(note.title || '')}" placeholder="Title"
+            style="flex:1;min-width:160px;font:inherit;font-weight:600;font-size:1rem;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:4px;padding:4px 8px;">
+          <div style="margin-left:auto;display:flex;gap:6px;">
+            <button class="btn btn-secondary btn-sm" id="tj-ev-btn-save">💾 Save</button>
+            <button class="btn btn-danger btn-sm" id="tj-ev-btn-delete">🗑️ Delete</button>
+            <button class="btn btn-secondary btn-sm" id="tj-ev-btn-back">← Back</button>
+          </div>
+        </div>
+        <div class="tj-ev-detail-meta" style="font-size:0.74rem;color:var(--text-secondary);margin-bottom:6px;display:flex;gap:10px;flex-wrap:wrap;">
+          ${this._evalTypeBadge(note.entryType)}
+          <span>Strategy: ${strategy ? JournalText.esc(strategy.strategyId) : (JournalText.esc(note.strategyId || '—'))}</span>
+          <span>Date: ${JournalText.esc(note.date || '—')}</span>
+          <span>Updated: ${note.updatedAt ? new Date(note.updatedAt).toLocaleDateString() : '—'}</span>
+        </div>
+        <div class="tj-ev-detail-body">${JournalText.escLines(note.content || '')}</div>
+        ${linkedHtml ? `<div class="tj-ev-detail-links" style="margin-top:8px;">Linked trades: ${linkedHtml}</div>` : ''}
+        <hr style="margin:10px 0;border:none;border-top:1px solid var(--border-color);">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <label style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-secondary);">Entry type</label>
+          <select id="tj-ev-edit-type" style="font:inherit;font-size:0.82rem;padding:4px 8px;border-radius:4px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);">
+            ${this._evalEntryTypes().map(t => `<option value="${JournalText.esc(t)}" ${note.entryType === t ? 'selected' : ''}>${JournalText.esc(t)}</option>`).join('')}
+          </select>
+          <label style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-secondary);">Strategy</label>
+          <select id="tj-ev-edit-strategy" style="font:inherit;font-size:0.82rem;padding:4px 8px;border-radius:4px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);">
+            <option value="">(none)</option>
+            ${this._strategies.map(s => `<option value="${JournalText.esc(s.strategyId)}" ${note.strategyId === s.strategyId ? 'selected' : ''}>${JournalText.esc(s.strategyId)} — ${JournalText.esc(s.name || '')}</option>`).join('')}
+          </select>
+          <label style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-secondary);">Date</label>
+          <input type="date" id="tj-ev-edit-date" value="${JournalText.esc(note.date || '')}" style="font:inherit;font-size:0.82rem;padding:4px 8px;border-radius:4px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);">
+        </div>
+        <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <label style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-secondary);">Linked trades (IDs)</label>
+          <input id="tj-ev-edit-links" value="${JournalText.esc((note.linkedEntryIds || []).join(', '))}" placeholder="comma-separated journal entry IDs" style="flex:1;min-width:200px;font:inherit;font-size:0.82rem;padding:4px 8px;border-radius:4px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);">
+        </div>
+        <textarea id="tj-ev-edit-content" rows="6" style="width:100%;font:inherit;font-size:0.86rem;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:4px;padding:6px 8px;margin-top:6px;">${JournalText.esc(note.content || '')}</textarea>
+      </div>
+    `;
+    const saveBtn = document.getElementById('tj-ev-btn-save');
+    if (saveBtn) saveBtn.addEventListener('click', () => this._saveEvaluationNote(note.id));
+    const delBtn = document.getElementById('tj-ev-btn-delete');
+    if (delBtn) delBtn.addEventListener('click', () => this._deleteEvaluationNote(note.id));
+    const backBtn = document.getElementById('tj-ev-btn-back');
+    if (backBtn) backBtn.addEventListener('click', () => { this._activeNoteId = null; this._renderEvaluation(); });
+    host.querySelectorAll('a[data-link]').forEach(a => {
+      a.addEventListener('click', (e) => { e.preventDefault(); this._openJournalEntry(a.dataset.link); });
+    });
+  }
+
+
+
+  async _evalNewEntry() {
+    const today = Utils.todayLocal ? Utils.todayLocal() : new Date().toISOString().slice(0, 10);
+    const note = {
+      date: today,
+      title: '',
+      content: '',
+      tags: ['StrategyDev'],
+      strategyId: this._evFilters.strategy || '',
+      entryType: 'Observation',
+      linkedEntryIds: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    const id = await dataStore.saveStrategyNote(note);
+    this._strategyNotes = await dataStore.getAllStrategyNotes();
+    this._activeNoteId = id;
+    this._renderEvaluation();
+  }
+
+  async _saveEvaluationNote(noteId) {
+    const note = this._strategyNotes.find(n => n.id === noteId);
+    if (!note) return;
+    const titleEl = document.getElementById('tj-ev-edit-title');
+    const dateEl = document.getElementById('tj-ev-edit-date');
+    const typeEl = document.getElementById('tj-ev-edit-type');
+    const strategyEl = document.getElementById('tj-ev-edit-strategy');
+    const linksEl = document.getElementById('tj-ev-edit-links');
+    const contentEl = document.getElementById('tj-ev-edit-content');
+    const linkedEntryIds = linksEl ? linksEl.value.split(',').map(s => s.trim()).filter(Boolean) : (note.linkedEntryIds || []);
+    const updated = {
+      title: titleEl ? titleEl.value.trim() : note.title,
+      date: dateEl ? dateEl.value : note.date,
+      entryType: typeEl ? typeEl.value : note.entryType,
+      strategyId: strategyEl ? strategyEl.value : note.strategyId,
+      linkedEntryIds,
+      content: contentEl ? contentEl.value.trim() : note.content,
+      tags: ['StrategyDev'],
+      updatedAt: new Date().toISOString()
+    };
+    await dataStore.saveStrategyNote(updated, note.id);
+    this._strategyNotes = await dataStore.getAllStrategyNotes();
+    this._updateSaveStatus('Evaluation entry saved ✅');
+    this._renderEvaluation();
+  }
+
+  async _deleteEvaluationNote(noteId) {
+    const ok = await this._confirmDelete('Delete this evaluation entry? This cannot be undone.');
+    if (!ok) return;
+    await dataStore.deleteStrategyNote(noteId);
+    this._strategyNotes = await dataStore.getAllStrategyNotes();
+    if (this._activeNoteId === noteId) this._activeNoteId = null;
+    this._renderEvaluation();
+  }
+
+  _openJournalEntry(entryId) {
+    this.openEditor(entryId);
+    this._switchView('entries');
+  }
+
 
   _markDirty() {
     this._isDirty = true;
@@ -1058,6 +1558,9 @@ class TradeJournalApp {
       this._fields.category.innerHTML = JournalCategories.buildCategoryOptionsHtml(entry.category || '');
     }
 
+    // Strategy ID (top-level, nullable)
+    if (this._fields.strategyId) this._fields.strategyId.value = entry.strategyId || '';
+
     // 2) Timing, prices and the numbers behind the trade
     const td = entry.tradeData || {};
     if (this._fields.direction && td.direction) this._fields.direction.value = td.direction;
@@ -1124,6 +1627,11 @@ class TradeJournalApp {
     if (doc.category && !JournalCategories.isKnown(doc.category)) {
       console.warn('[TradeJournal] Category is not in the sheet vocabulary:', doc.category);
     }
+
+    // Strategy ID — links this trade to a strategy rulebook (optional, nullable).
+    // Kept top-level so it can be queried/filtered without depending on the
+    // free-text tradeData.strategy label or the closed category vocabulary.
+    doc.strategyId = this._fields.strategyId ? (this._fields.strategyId.value.trim() || null) : null;
 
     // 2) Timing, prices and the numbers behind the trade — built by the one
     //    shared implementation in js/journal-csv.js that the CSV import uses too
@@ -1530,6 +2038,7 @@ class TradeJournalApp {
       search: JournalText.normalize(this.searchInput ? this.searchInput.value : ''),
       category: (this.filterCategory ? this.filterCategory.value : '').trim().toLowerCase(),
       timeframe: (this.filterTimeframe ? this.filterTimeframe.value : '').trim().toLowerCase(),
+      strategy: (this.filterStrategy ? this.filterStrategy.value : '').trim().toLowerCase(),
       advice: adviceEl ? adviceEl.value : '',
       from: this.filterFrom ? this.filterFrom.value : '',
       to: this.filterTo ? this.filterTo.value : ''
@@ -1540,6 +2049,7 @@ class TradeJournalApp {
     this.searchInput.value = '';
     this.filterCategory.value = '';
     this.filterTimeframe.value = '';
+    this.filterStrategy.value = '';
     this.filterAdvice.value = '';
     this.filterFrom.value = '';
     this.filterTo.value = '';
@@ -1571,6 +2081,7 @@ class TradeJournalApp {
 
     if (f.category && String(entry.category || '').trim().toLowerCase() !== f.category) return false;
     if (f.timeframe && String(entry.timeframe || '').trim().toLowerCase() !== f.timeframe) return false;
+    if (f.strategy && String(entry.strategyId || '').trim().toLowerCase() !== f.strategy) return false;
 
     // Advice filter
     if (f.advice) {

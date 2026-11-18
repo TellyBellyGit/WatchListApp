@@ -57,6 +57,8 @@
     <div class="tj-tabs" role="tablist">
       <button class="tj-tab active" type="button" data-tab="entries">📋 Entries</button>
       <button class="tj-tab" type="button" data-tab="categories">🧭 Review by category</button>
+      <button class="tj-tab" type="button" data-tab="rulebook">📘 Strategy Rulebook</button>
+      <button class="tj-tab" type="button" data-tab="evaluation">📝 Evaluation Log</button>
     </div>
 
     <!-- ==================================================================
@@ -69,6 +71,9 @@
         <input type="text" class="tj-input tj-search" id="tj-search" placeholder="Search ticker, setup, lesson, advice…" autocomplete="off">
         <select class="tj-input" id="tj-filter-category"></select>
         <select class="tj-input" id="tj-filter-timeframe"></select>
+        <select class="tj-input" id="tj-filter-strategy">
+          <option value="">All strategies</option>
+        </select>
         <select class="tj-input" id="tj-filter-advice">
           <option value="">All advice states</option>
           <option value="missing">No advice recorded</option>
@@ -171,6 +176,64 @@
         </div>
       </div>
     </div>
+    <!-- ==================================================================
+         VIEW 3 — STRATEGY RULEBOOK
+         Lists the strategies being evaluated and opens a strategy's Rulebook.
+         The Rulebook holds 8 rule sections, each with a status badge so agreed
+         rules are visually distinguished from experimental / not-yet-defined
+         ideas. versions[] preserves the actual previous rules on every change.
+         ================================================================== -->
+    <div id="tj-panel-rulebook" style="display:none;">
+      <div class="tj-rb-toolbar">
+        <h2 id="tj-rb-heading">Strategy Rulebook</h2>
+        <div class="tj-rb-toolbar-right">
+          <button class="btn btn-secondary btn-sm" id="tj-rb-btn-new">+ New strategy</button>
+        </div>
+      </div>
+      <div class="tj-rb-split">
+        <div class="tj-rb-list-col">
+          <div class="tj-subhead">Strategies being evaluated</div>
+          <div id="tj-rulebook-list"></div>
+        </div>
+        <div class="tj-rb-detail-col">
+          <div id="tj-rulebook-detail"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================
+         VIEW 4 — EVALUATION LOG
+         Reuses the existing Notes store (daily_notes pattern) with a
+         StrategyDev tag, an entry type, a strategy link and optional links
+         to journal entries. Weekly Review entries are explicitly identifiable
+         and exportable.
+         ================================================================== -->
+    <div id="tj-panel-evaluation" style="display:none;">
+      <div class="tj-ev-toolbar">
+        <h2 id="tj-ev-heading">Evaluation Log</h2>
+        <div class="tj-ev-toolbar-right">
+          <button class="btn btn-primary" id="tj-ev-btn-new">+ New entry</button>
+        </div>
+      </div>
+      <div class="tj-ev-filters">
+        <label class="tj-filter-label">Strategy
+          <select id="tj-ev-filter-strategy"><option value="">All strategies</option></select>
+        </label>
+        <label class="tj-filter-label">Entry type
+          <select id="tj-ev-filter-type"><option value="">All types</option></select>
+        </label>
+        <label class="tj-filter-label">From
+          <input type="date" id="tj-ev-filter-from">
+        </label>
+        <label class="tj-filter-label">To
+          <input type="date" id="tj-ev-filter-to">
+        </label>
+        <button class="btn btn-secondary btn-sm" id="tj-ev-btn-clear-filters">Clear filters</button>
+      </div>
+      <div id="tj-ev-list"></div>
+      <div id="tj-ev-detail" style="display:none;margin-top:14px;"></div>
+    </div>
+
 
     <!-- ==================================================================
          EDITOR — the sheet's 13 columns + numbers + advice + deep dive
@@ -378,6 +441,11 @@
               <div class="tj-field">
                 <label for="tj-field-strategy">X · Strategy label</label>
                 <input type="text" id="tj-field-strategy" data-field="strategy" placeholder="ORB — momentum continuation">
+              </div>
+              <div class="tj-field">
+                <label for="tj-field-strategyId">Strategy ID</label>
+                <input type="text" id="tj-field-strategyId" data-field="strategyId" placeholder="TC001 — links this trade to a strategy rulebook">
+                <div class="tj-hint-line tj-muted tj-small">Leave blank if this trade is not part of a strategy being evaluated.</div>
               </div>
             </div>
           </div>
