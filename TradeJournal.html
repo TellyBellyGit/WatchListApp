@@ -187,6 +187,7 @@
       <div class="tj-rb-toolbar">
         <h2 id="tj-rb-heading">Strategy Rulebook</h2>
         <div class="tj-rb-toolbar-right">
+          <button class="btn btn-secondary btn-sm" id="tj-rb-btn-export" title="Export a consolidated Markdown review of the selected strategy">⬇ Export review</button>
           <button class="btn btn-secondary btn-sm" id="tj-rb-btn-new">+ New strategy</button>
         </div>
       </div>
@@ -233,6 +234,43 @@
       <div id="tj-ev-list"></div>
       <div id="tj-ev-detail" style="display:none;margin-top:14px;"></div>
     </div>
+
+    <!-- ==================================================================
+         EXPORT DIALOG — consolidated Strategy Review Markdown (.md)
+         Built by js/journal-export.js from the selected strategy plus its
+         journal entries and evaluation notes.
+         ================================================================== -->
+    <div class="tj-export-overlay" id="tj-export-overlay" style="display:none;">
+      <div class="tj-export-box" role="dialog" aria-modal="true" aria-labelledby="tj-export-title">
+        <div class="tj-export-head">
+          <h2 id="tj-export-title">Export strategy review</h2>
+          <button class="btn btn-icon" id="tj-export-close" type="button" title="Close">&times;</button>
+        </div>
+        <div class="tj-export-body">
+          <label class="tj-export-label">Strategy
+            <select id="tj-export-strategy"></select>
+          </label>
+          <label class="tj-export-label">From
+            <input type="date" id="tj-export-from">
+          </label>
+          <label class="tj-export-label">To
+            <input type="date" id="tj-export-to">
+          </label>
+          <label class="tj-export-check">
+            <input type="checkbox" id="tj-export-history" checked>
+            Include complete rulebook version history
+          </label>
+          <p class="tj-muted tj-small" style="margin:0;">
+            Leave the dates blank to export the full available trading and evaluation history.
+          </p>
+        </div>
+        <div class="tj-export-foot">
+          <button class="btn btn-secondary btn-sm" id="tj-export-cancel" type="button">Cancel</button>
+          <button class="btn btn-primary btn-sm" id="tj-export-run" type="button">⬇ Export .md</button>
+        </div>
+      </div>
+    </div>
+
 
 
     <!-- ==================================================================
@@ -775,6 +813,7 @@
        helper, then the page controller. Order matters. -->
   <script src="js/journal-categories.js"></script>
   <script src="js/journal-csv.js?v=261008a"></script>
+  <script src="js/journal-export.js?v=261118a"></script>
   <script src="js/journal-draft.js?v=260929b"></script>
   <script src="js/journal.js?v=261020g"></script>
 </body>

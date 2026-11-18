@@ -128,6 +128,16 @@ class TradeJournalApp {
 
     // Strategy rulebook
     this.btnRulebookNew = $('tj-rb-btn-new');
+    this.btnRulebookExport = $('tj-rb-btn-export');
+    // Export dialog
+    this.exportOverlay   = $('tj-export-overlay');
+    this.exportStrategy  = $('tj-export-strategy');
+    this.exportFrom      = $('tj-export-from');
+    this.exportTo        = $('tj-export-to');
+    this.exportHistory   = $('tj-export-history');
+    this.exportRunBtn    = $('tj-export-run');
+    this.exportCancelBtn = $('tj-export-cancel');
+    this.exportCloseBtn  = $('tj-export-close');
     // Evaluation log
     this.btnEvalNew     = $('tj-ev-btn-new');
     this.filterEvStrategy = $('tj-ev-filter-strategy');
@@ -617,8 +627,15 @@ class TradeJournalApp {
     if (this.btnImport) this.btnImport.addEventListener('click', () => this.openImport());
     if (this.btnDraft) this.btnDraft.addEventListener('click', () => this.openDraft());
 
-    // Strategy rulebook: new strategy
+    // Strategy rulebook: new strategy + export
     if (this.btnRulebookNew) this.btnRulebookNew.addEventListener('click', () => this._rulebookNewStrategy());
+    if (this.btnRulebookExport) this.btnRulebookExport.addEventListener('click', () => this._openExportDialog());
+    if (this.exportRunBtn) this.exportRunBtn.addEventListener('click', () => this._runExport());
+    if (this.exportCancelBtn) this.exportCancelBtn.addEventListener('click', () => this._closeExportDialog());
+    if (this.exportCloseBtn) this.exportCloseBtn.addEventListener('click', () => this._closeExportDialog());
+    if (this.exportOverlay) this.exportOverlay.addEventListener('click', (e) => {
+      if (e.target === this.exportOverlay) this._closeExportDialog();
+    });
 
     // Evaluation log: new entry + filters
     if (this.btnEvalNew) this.btnEvalNew.addEventListener('click', () => this._evalNewEntry());
@@ -1105,6 +1122,62 @@ class TradeJournalApp {
   _openJournalEntry(entryId) {
     this.openEditor(entryId);
     this._switchView('entries');
+  }
+
+
+  // ==========================================================================
+  // Export — consolidated Strategy Review Markdown (.md)
+  // ==========================================================================
+
+  _openExportDialog() {
+    if (!this.exportOverlay) return;
+    if (this._strategies.length === 0) {
+      Utils.showToast('No strategies to export yet', 'warning');
+      return;
+    }
+    // Populate the strategy select, prefilled to the currently-selected strategy
+    this.exportStrategy.innerHTML = this._strategies.map(s =>
+      `<option value="${JournalText.esc(s.strategyId)}">${JournalText.esc(s.strategyId)} — ${JournalText.esc(s.name || '')}</option>`
+    ).join('');
+    if (this._activeStrategyId && this._strategies.some(s => s.strategyId === this._activeStrategyId)) {
+      this.exportStrategy.value = this._activeStrategyId;
+    }
+    this.exportFrom.value = '';
+    this.exportTo.value = '';
+    if (this.exportHistory) this.exportHistory.checked = true;
+    this.exportOverlay.style.display = 'flex';
+  }
+
+  _closeExportDialog() {
+    if (this.exportOverlay) this.exportOverlay.style.display = 'none';
+  }
+
+  _runExport() {
+    const sid = this.exportStrategy ? this.exportStrategy.value : this._activeStrategyId;
+    if (!sid) { Utils.showToast('Select a strategy to export', 'warning'); return; }
+    const strategy = this._strategies.find(s => s.strategyId === sid);
+    if (!strategy) { Utils.showToast('Strategy not found', 'error'); return; }
+
+    const options = {
+      includeVersionHistory: this.exportHistory ? this.exportHistory.checked : true,
+      from: this.exportFrom ? this.exportFrom.value : '',
+      to: this.exportTo ? this.exportTo.value : ''
+    };
+
+    let markdown;
+    try {
+      markdown = JournalExport.buildMarkdown(strategy, this._entries, this._strategyNotes, options);
+    } catch (e) {
+      console.error('[TradeJournal] Export failed:', e);
+      Utils.showToast('Export failed: ' + e.message, 'error');
+      return;
+    }
+
+    const today = Utils.todayLocal ? Utils.todayLocal() : new Date().toISOString().slice(0, 10);
+    const filename = `${sid}_Strategy_Review_${today}.md`;
+    Utils.downloadBlob(markdown, filename, 'text/markdown;charset=utf-8');
+    Utils.showToast(`Exported ${filename}`);
+    this._closeExportDialog();
   }
 
 
