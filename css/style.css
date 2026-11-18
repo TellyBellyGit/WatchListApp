@@ -6487,6 +6487,12 @@ body.overlay-open {
   border-left-color: var(--accent);
 }
 
+/* Refresh Page button — same pill styling as Knowledge Base/Tools, no dropdown arrow */
+.btn-price-action.btn-refresh::after {
+  content: none;
+  margin-left: 0;
+}
+
 /* ==== end Knowledge Base menu page ==== */
 /* Version badge (shown next to page title to confirm deployed build) */
 .version-badge {

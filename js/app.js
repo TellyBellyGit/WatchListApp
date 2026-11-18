@@ -3271,6 +3271,15 @@ const isTemp = (entry.list || 'main') === 'temp';
       });
     }
 
+    // Refresh Page button
+    const refreshBtn = document.getElementById('refresh-page-btn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        location.reload();
+      });
+    }
+
 
 
 
