@@ -337,6 +337,16 @@
             </div>
           </div>
 
+          <!-- ===== Strategy — links this trade to a defined strategy ===== -->
+          <div class="tj-field tj-field-full">
+            <label for="tj-field-strategy">Strategy</label>
+            <select id="tj-field-strategy" data-field="strategy">
+              <option value="">(No strategy)</option>
+            </select>
+            <div class="tj-hint-line tj-muted tj-small" id="tj-strategy-hint" style="display:none;"></div>
+          </div>
+          <input type="hidden" id="tj-field-strategyId" data-field="strategyId">
+
           <!-- ===== Columns A–F: the facts of the trade ===== -->
           <div class="tj-form-grid">
             <div class="tj-field">
@@ -492,15 +502,7 @@
                 <label for="tj-field-plannedRiskR">Planned risk 1R ($)</label>
                 <input type="number" id="tj-field-plannedRiskR" data-field="plannedRiskR" step="0.01" placeholder="150">
               </div>
-              <div class="tj-field">
-                <label for="tj-field-strategy">X · Strategy label</label>
-                <input type="text" id="tj-field-strategy" data-field="strategy" placeholder="ORB — momentum continuation">
-              </div>
-              <div class="tj-field">
-                <label for="tj-field-strategyId">Strategy ID</label>
-                <input type="text" id="tj-field-strategyId" data-field="strategyId" placeholder="TC001 — links this trade to a strategy rulebook">
-                <div class="tj-hint-line tj-muted tj-small">Leave blank if this trade is not part of a strategy being evaluated.</div>
-              </div>
+
             </div>
           </div>
 

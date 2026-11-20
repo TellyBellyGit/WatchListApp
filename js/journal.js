@@ -580,6 +580,14 @@ class TradeJournalApp {
       this._fields.category.addEventListener('change', () => this._updateCategoryHint());
     }
 
+    // Strategy → keep the hidden code field in sync and show the chosen strategy's description
+    if (this._fields.strategy) {
+      this._fields.strategy.addEventListener('change', () => {
+        this._fields.strategyId.value = this._fields.strategy.value || '';
+        this._updateStrategyHint();
+      });
+    }
+
     // Timing & prices → the live P&L strip, the duration and the R-multiple.
     // They also keep column A (the trade date) following the entry date.
     ['direction', 'entryDate', 'entryTime', 'entryPrice',
@@ -705,6 +713,7 @@ class TradeJournalApp {
         this._strategies = await dataStore.getAllStrategies();
       }
       this._renderStrategyFilter();
+      this._renderStrategySelect();
     } catch (e) {
       console.warn('[TradeJournal] Could not load strategies:', e.message);
     }
@@ -719,10 +728,39 @@ class TradeJournalApp {
       }).join('');
   }
 
+  _renderStrategySelect() {
+    const sel = this._fields.strategy;
+    if (!sel) return;
+    const current = sel.value;
+    sel.innerHTML = `<option value="">(No strategy)</option>` +
+      this._strategies.map(s => {
+        const label = `${JournalText.esc(s.strategyId)} — ${JournalText.esc(s.name || '')}`;
+        return `<option value="${JournalText.esc(s.strategyId)}" title="${JournalText.esc(s.description || '')}">${label}</option>`;
+      }).join('');
+    if (this._strategies.some(s => s.strategyId === current)) sel.value = current;
+    else sel.selectedIndex = 0;
+    this._updateStrategyHint();
+  }
+
+  _updateStrategyHint() {
+    const sel = this._fields.strategy;
+    const hint = document.getElementById('tj-strategy-hint');
+    if (!sel || !hint) return;
+    const strategy = this._strategies.find(s => s.strategyId === sel.value);
+    if (!strategy || !sel.value) {
+      hint.style.display = 'none';
+      hint.textContent = '';
+      return;
+    }
+    hint.style.display = 'block';
+    hint.textContent = `${JournalText.esc(strategy.strategyId)} — ${JournalText.esc(strategy.description || '')}`;
+  }
+
   async _saveStrategy(strategy) {
     const id = await dataStore.saveStrategy(strategy);
     this._strategies = await dataStore.getAllStrategies();
     this._renderStrategyFilter();
+    this._renderStrategySelect();
     return id;
   }
 
@@ -1659,6 +1697,7 @@ class TradeJournalApp {
     // wipes every [data-field] input, so the group state has to go with them.
     this._currentGroupId = null;
     this._groupIntent = null;
+    this._updateStrategyHint();
     this._renderSessionStrip();
 
     if (this._quill) this._quill.setContents([{ insert: '\n' }], 'silent');
@@ -1684,6 +1723,12 @@ class TradeJournalApp {
 
     // Strategy ID (top-level, nullable)
     if (this._fields.strategyId) this._fields.strategyId.value = entry.strategyId || '';
+
+    // Strategy dropdown — restore the chosen strategy and show its description
+    if (this._fields.strategy) {
+      this._fields.strategy.value = entry.strategyId || '';
+      this._updateStrategyHint();
+    }
 
     // 2) Timing, prices and the numbers behind the trade
     const td = entry.tradeData || {};
@@ -1762,6 +1807,13 @@ class TradeJournalApp {
     const values = this._readNumberFields();
     const built = this._buildTradeData(values, doc.date);
     doc.tradeData = built.tradeData;
+
+    // tradeData.strategy keeps the human-readable strategy name for the export /
+    // review; the top-level strategyId keeps the code used for filtering/querying.
+    if (doc.strategyId) {
+      const strategy = this._strategies.find(s => s.strategyId === doc.strategyId);
+      if (strategy) doc.tradeData.strategy = strategy.name || strategy.strategyId;
+    }
 
     // Column A is the trade date: it follows the entry date unless the user
     // typed their own
