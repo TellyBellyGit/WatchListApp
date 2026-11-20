@@ -274,6 +274,22 @@
 
 
     <!-- ==================================================================
+     FULL STRATEGY VIEW — continuous read-only page of the whole
+     rulebook, for end-to-end review without clicking through boxes.
+     ================================================================== -->
+    <div class="tj-strategy-overlay" id="tj-strategy-overlay" style="display:none;">
+      <div class="tj-strategy-dialog" role="dialog" aria-modal="true" aria-labelledby="tj-strategy-title">
+        <div class="tj-strategy-head">
+          <h2 id="tj-strategy-title">Strategy</h2>
+          <button class="btn btn-icon" id="tj-strategy-close" type="button" title="Close">&times;</button>
+        </div>
+        <div class="tj-strategy-body" id="tj-strategy-body"></div>
+        <div class="tj-strategy-foot">
+          <button class="btn btn-secondary btn-sm" id="tj-strategy-close-foot" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+    <!-- ==================================================================
          EDITOR — the sheet's 13 columns + numbers + advice + deep dive
          Every input carries data-field="<key>", which is what js/journal.js
          maps onto the Firestore document.

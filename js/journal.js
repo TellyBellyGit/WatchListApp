@@ -129,6 +129,11 @@ class TradeJournalApp {
     // Strategy rulebook
     this.btnRulebookNew = $('tj-rb-btn-new');
     this.btnRulebookExport = $('tj-rb-btn-export');
+    // Full strategy view overlay
+    this.strategyOverlay   = $('tj-strategy-overlay');
+    this.strategyBody      = $('tj-strategy-body');
+    this.strategyCloseBtn  = $('tj-strategy-close');
+    this.strategyCloseFoot = $('tj-strategy-close-foot');
     // Export dialog
     this.exportOverlay   = $('tj-export-overlay');
     this.exportStrategy  = $('tj-export-strategy');
@@ -637,6 +642,13 @@ class TradeJournalApp {
       if (e.target === this.exportOverlay) this._closeExportDialog();
     });
 
+    // Full strategy view: close buttons + backdrop click
+    if (this.strategyCloseBtn) this.strategyCloseBtn.addEventListener('click', () => this._closeFullStrategy());
+    if (this.strategyCloseFoot) this.strategyCloseFoot.addEventListener('click', () => this._closeFullStrategy());
+    if (this.strategyOverlay) this.strategyOverlay.addEventListener('click', (e) => {
+      if (e.target === this.strategyOverlay) this._closeFullStrategy();
+    });
+
     // Evaluation log: new entry + filters
     if (this.btnEvalNew) this.btnEvalNew.addEventListener('click', () => this._evalNewEntry());
     [this.filterEvStrategy, this.filterEvType, this.filterEvFrom, this.filterEvTo].forEach(el => {
@@ -811,6 +823,7 @@ class TradeJournalApp {
           <p style="margin-top:6px;color:var(--text-secondary);font-size:0.86rem;">${JournalText.escLines(strategy.description || '')}</p>
         </div>
         <div style="display:flex;gap:6px;">
+          <button class="btn btn-secondary btn-sm" id="tj-rb-btn-view-full">📖 View full strategy</button>
           <button class="btn btn-primary btn-sm" id="tj-rb-btn-save">💾 Save rulebook</button>
         </div>
       </div>
@@ -839,6 +852,8 @@ class TradeJournalApp {
     `;
     const saveBtn = document.getElementById('tj-rb-btn-save');
     if (saveBtn) saveBtn.addEventListener('click', () => this._saveRulebook());
+    const viewFullBtn = document.getElementById('tj-rb-btn-view-full');
+    if (viewFullBtn) viewFullBtn.addEventListener('click', () => this._renderFullStrategy(strategyId));
     host.querySelectorAll('textarea, select').forEach(el => el.addEventListener('input', () => this._markDirty()));
   }
 
@@ -876,6 +891,42 @@ class TradeJournalApp {
     this._isDirty = false;
     this._updateSaveStatus('Rulebook saved ✅');
     this._renderRulebookDetail(strategy.strategyId);
+  }
+
+  // ==========================================================================
+  // Full strategy view — continuous read-only rulebook for end-to-end review
+  // ==========================================================================
+  _renderFullStrategy(strategyId) {
+    const strategy = this._strategies.find(s => s.strategyId === strategyId);
+    if (!strategy || !this.strategyOverlay) return;
+    const rules = strategy.rules || {};
+    const sectionsHtml = this._ruleSections().map(sec => {
+      const rule = rules[sec.key] || { text: '', status: 'not_defined' };
+      const text = (rule.text || '').trim();
+      return `<div class="tj-full-section">
+        <div class="tj-full-section-head">
+          <span class="tj-full-section-title">${JournalText.esc(sec.title)}</span>
+          <span class="${this._ruleStatusCls(rule.status)}">${this._ruleStatusLabel(rule.status)}</span>
+        </div>
+        ${text ? `<div class="tj-full-section-text">${JournalText.escLines(text)}</div>` : `<div class="tj-full-section-text" style="color:var(--text-muted);">(empty)</div>`}
+      </div>`;
+    }).join('');
+    const updated = strategy.updatedAt ? new Date(strategy.updatedAt).toLocaleDateString() : '—';
+    this.strategyBody.innerHTML = `
+      <div class="tj-strategy-meta">
+        <span class="${this._ruleStatusCls(strategy.status)}">${this._ruleStatusLabel(strategy.status)}</span>
+        <span>Version ${strategy.version || 1}</span>
+        <span>Updated ${updated}</span>
+      </div>
+      ${strategy.description ? `<div class="tj-strategy-description">${JournalText.escLines(strategy.description)}</div>` : ''}
+      <h4 class="tj-subhead" style="margin-top:4px;">Rulebook sections</h4>
+      ${sectionsHtml}
+    `;
+    this.strategyOverlay.style.display = 'flex';
+  }
+
+  _closeFullStrategy() {
+    if (this.strategyOverlay) this.strategyOverlay.style.display = 'none';
   }
 
   async _rulebookNewStrategy() {
