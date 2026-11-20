@@ -119,6 +119,11 @@
            to group looks exactly as it always did. Rolled up from the legs by
            js/journal-csv.js — no session figure is ever stored. -->
       <div class="table-wrapper tj-table-wrapper">
+        <!-- Loading overlay shown while entries are fetched from Firestore / localStorage -->
+        <div class="tj-loading-overlay" id="tj-loading-overlay" style="display:none;">
+          <div class="tj-loading-spinner"></div>
+          <div class="tj-loading-text">Loading trades…</div>
+        </div>
         <table class="tj-table">
           <thead id="tj-table-head"></thead>
           <tbody id="tj-table-body"></tbody>

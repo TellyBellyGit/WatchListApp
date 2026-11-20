@@ -180,6 +180,7 @@ class TradeJournalApp {
     this.tableHead       = $('tj-table-head');
     this.tableBody       = $('tj-table-body');
     this.emptyState      = $('tj-empty-state');
+    this.loadingOverlay  = $('tj-loading-overlay');
 
     // Review-by-category
     this.catPivotBody    = $('tj-cat-pivot-body');
@@ -1090,6 +1091,22 @@ class TradeJournalApp {
   }
 
 
+  // ---- Build dropdown options for trades that share this note's strategy ----
+  _buildLinkedTradeOptions(note) {
+    const strategyId = (note && note.strategyId) ? String(note.strategyId) : '';
+    if (!strategyId) {
+      return '<option value="" disabled>Select a strategy first</option>';
+    }
+    const matches = (this._entries || []).filter(e => String(e.strategyId || '') === strategyId);
+    if (!matches.length) {
+      return '<option value="" disabled>No trades with this strategy</option>';
+    }
+    return matches.map(e => {
+      const label = (e.ticker || e.id) + ' — ' + (e.date || '');
+      return `<option value="${JournalText.esc(e.id)}">${JournalText.esc(label)}</option>`;
+    }).join('');
+  }
+
   _renderEvaluationDetail(noteId) {
     const note = this._strategyNotes.find(n => n.id === noteId);
     if (!note) return;
@@ -1136,7 +1153,12 @@ class TradeJournalApp {
         </div>
         <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <label style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-secondary);">Linked trades (IDs)</label>
-          <input id="tj-ev-edit-links" value="${JournalText.esc((note.linkedEntryIds || []).join(', '))}" placeholder="comma-separated journal entry IDs" style="flex:1;min-width:200px;font:inherit;font-size:0.82rem;padding:4px 8px;border-radius:4px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);">
+          <input id="tj-ev-edit-links" value="${JournalText.esc((note.linkedEntryIds || []).join(', '))}" placeholder="comma-separated journal entry IDs" style="max-width:260px;font:inherit;font-size:0.82rem;padding:4px 8px;border-radius:4px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);">
+          <label style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-secondary);margin-left:8px;">Add linked trade</label>
+          <select id="tj-ev-link-trade" style="font:inherit;font-size:0.82rem;padding:4px 8px;border-radius:4px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);min-width:180px;">
+            <option value="">Select a trade…</option>
+            ${this._buildLinkedTradeOptions(note)}
+          </select>
         </div>
         <textarea id="tj-ev-edit-content" rows="6" style="width:100%;font:inherit;font-size:0.86rem;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:4px;padding:6px 8px;margin-top:6px;">${JournalText.esc(note.content || '')}</textarea>
       </div>
@@ -1150,6 +1172,17 @@ class TradeJournalApp {
     host.querySelectorAll('a[data-link]').forEach(a => {
       a.addEventListener('click', (e) => { e.preventDefault(); this._openJournalEntry(a.dataset.link); });
     });
+    const linkTradeSel = document.getElementById('tj-ev-link-trade');
+    if (linkTradeSel) {
+      linkTradeSel.addEventListener('change', (e) => {
+        const entryId = e.target.value;
+        if (!entryId) return;
+        // Open the trade editor without switching views so the user returns
+        // to this Evaluation Log observation when they close the overlay.
+        this.openEditor(entryId);
+        e.target.value = '';
+      });
+    }
   }
 
 
@@ -2056,6 +2089,7 @@ class TradeJournalApp {
   // ==========================================================================
   async loadEntries(manual = false) {
     if (manual) this._updateSaveStatus('Refreshing…');
+    if (this.loadingOverlay) this.loadingOverlay.style.display = 'flex';
     try {
       const raw = await dataStore.getAllJournalEntries();
       this._entries = (raw || []).map(e => this._normaliseEntry(e));
@@ -2063,6 +2097,8 @@ class TradeJournalApp {
       console.error('[TradeJournal] Could not load entries:', e);
       if (manual) Utils.showToast('Could not load journal entries', 'error');
       this._entries = [];
+    } finally {
+      if (this.loadingOverlay) this.loadingOverlay.style.display = 'none';
     }
 
     this._applyFilters();
