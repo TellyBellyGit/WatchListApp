@@ -439,7 +439,7 @@ class TradeJournalApp {
 
     // Filters
     this.searchInput.addEventListener('input', () => this._applyFilters());
-    [this.filterCategory, this.filterTimeframe, this.filterAdvice, this.filterFrom, this.filterTo]
+    [this.filterCategory, this.filterTimeframe, this.filterStrategy, this.filterAdvice, this.filterFrom, this.filterTo]
       .forEach(el => el.addEventListener('change', () => this._applyFilters()));
     this.btnClearFilters.addEventListener('click', () => this._clearFilters());
 
