@@ -129,6 +129,8 @@ class TradeJournalApp {
     // Strategy rulebook
     this.btnRulebookNew = $('tj-rb-btn-new');
     this.btnRulebookExport = $('tj-rb-btn-export');
+    this.btnRulebookImportMD = $('tj-rb-btn-import-md');
+    this.inputRulebookImportMD = $('tj-rb-import-md-input');
     // Full strategy view overlay
     this.strategyOverlay   = $('tj-strategy-overlay');
     this.strategyBody      = $('tj-strategy-body');
@@ -644,6 +646,20 @@ class TradeJournalApp {
     // Strategy rulebook: new strategy + export
     if (this.btnRulebookNew) this.btnRulebookNew.addEventListener('click', () => this._rulebookNewStrategy());
     if (this.btnRulebookExport) this.btnRulebookExport.addEventListener('click', () => this._openExportDialog());
+    // Strategy rulebook: import from Markdown file
+    if (this.btnRulebookImportMD) {
+      this.btnRulebookImportMD.addEventListener('click', () => {
+        console.log('[TradeJournal] Import rulebook button clicked');
+        this.inputRulebookImportMD.click();
+      });
+    } else {
+      console.warn('[TradeJournal] Import rulebook button not found in DOM');
+    }
+    if (this.inputRulebookImportMD) {
+      this.inputRulebookImportMD.addEventListener('change', (e) => this._importRulebookFromMarkdown(e));
+    } else {
+      console.warn('[TradeJournal] Import rulebook file input not found in DOM');
+    }
     if (this.exportRunBtn) this.exportRunBtn.addEventListener('click', () => this._runExport());
     if (this.exportCancelBtn) this.exportCancelBtn.addEventListener('click', () => this._closeExportDialog());
     if (this.exportCloseBtn) this.exportCloseBtn.addEventListener('click', () => this._closeExportDialog());
@@ -979,6 +995,133 @@ class TradeJournalApp {
     await this._saveStrategy({ strategyId: sid, name, description: '', status: 'Under Development', version: 1, rules, versions: [] });
     this._activeStrategyId = sid;
     this._renderRulebook();
+  }
+
+  // ==========================================================================
+  // Strategy rulebook — import from Markdown file
+  // ==========================================================================
+
+  async _importRulebookFromMarkdown(event) {
+    try {
+      const file = event.target && event.target.files && event.target.files[0];
+      if (!file) return;
+
+      const text = await file.text();
+      const strategies = this._parseRulebookMarkdown(text);
+      if (!strategies.length) {
+        Utils.showToast('No strategies found in the Markdown file', 'warning');
+        return;
+      }
+
+      const existingIds = new Set((this._strategies || []).map(s => s.strategyId));
+      let imported = 0;
+
+      for (const strat of strategies) {
+        const sid = this._nextUniqueStrategyId(strat.name, existingIds);
+        existingIds.add(sid);
+
+        const rules = {};
+        this._ruleSections().forEach(sec => {
+          rules[sec.key] = {
+            text: (strat.rules && strat.rules[sec.key] != null ? strat.rules[sec.key] : '').trim(),
+            status: 'under_development'
+          };
+        });
+
+        await dataStore.saveStrategy({
+          strategyId: sid,
+          name: strat.name,
+          description: strat.description || '',
+          status: 'Under Development',
+          version: 1,
+          rules,
+          versions: [],
+          createdAt: new Date().toISOString()
+        });
+        imported++;
+      }
+
+      // Refresh in-memory list and UI once
+      try {
+        this._strategies = await dataStore.getAllStrategies();
+      } catch (e) {
+        console.warn('[TradeJournal] Could not reload strategies after import:', e.message);
+      }
+      this._renderStrategyFilter();
+      this._renderStrategySelect();
+      this._renderRulebook();
+
+      Utils.showToast(`Imported ${imported} strategy${imported !== 1 ? 's' : ''} from rulebook file`, 'success');
+    } catch (err) {
+      console.error('[TradeJournal] Import rulebook failed:', err);
+      Utils.showToast('Import failed: ' + (err && err.message ? err.message : String(err)), 'error');
+    } finally {
+      // Reset the input so the same file can be re-selected next time
+      try { if (event.target) event.target.value = ''; } catch { /* ignore */ }
+    }
+  }
+
+  _parseRulebookMarkdown(text) {
+    // Split into blocks that start with "# Strategy N --- ". Anything before the
+    // first such block (preamble) and the trailing "Cross-strategy review notes"
+    // section are ignored because they lack that heading.
+    const blocks = text.split(/(?=^# Strategy \d+ --- )/m);
+    const strategies = [];
+
+    for (const block of blocks) {
+      if (!/^# Strategy \d+ --- /.test(block)) continue;
+
+      const headingLine = (block.split('\n')[0] || '');
+      const nameMatch = headingLine.match(/^# Strategy \d+ ---\s*(.+)$/);
+      const name = nameMatch ? nameMatch[1].trim() : 'Untitled strategy';
+
+      const description = this._extractCoreIdea(block);
+      const rules = this._extractRuleSections(block);
+
+      strategies.push({ name, description, rules });
+    }
+
+    return strategies;
+  }
+
+  _extractCoreIdea(text) {
+    const m = text.match(/\*\*Core idea:\*\*\s*([\s\S]*?)(?=\n##\s|\n-{3,}|$)/);
+    if (m) return m[1].trim();
+    const r = text.match(/\*\*Role:\*\*\s*([^\n]+)/);
+    return r ? r[1].trim() : '';
+  }
+
+  _extractRuleSections(text) {
+    const rules = {};
+    this._ruleSections().forEach(sec => {
+      const pattern = new RegExp(
+        `##\\s*${this._escapeRegExp(sec.title)}([\\s\\S]*?)(?=\\n##\\s|\\n-{3,}|$)`
+      );
+      const m = text.match(pattern);
+      rules[sec.key] = m ? m[1].trim() : '';
+    });
+    return rules;
+  }
+
+  _escapeRegExp(s) {
+    return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  _nextUniqueStrategyId(name, existingIds) {
+    const acronym = name
+      .split(/[^A-Za-z0-9]+/)
+      .filter(Boolean)
+      .map(w => w[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 4) || 'IMP';
+    let n = 1;
+    let id = acronym + String(n).padStart(3, '0');
+    while (existingIds.has(id)) {
+      n++;
+      id = acronym + String(n).padStart(3, '0');
+    }
+    return id;
   }
 
   async _loadStrategyNotes() {
